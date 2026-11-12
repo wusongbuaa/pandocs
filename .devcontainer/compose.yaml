@@ -1,0 +1,31 @@
+# What the development container runs beside: the same PostgreSQL and S3 server CI tests against.
+services:
+  dev:
+    image: mcr.microsoft.com/devcontainers/base:bookworm
+    volumes:
+      - ..:/workspaces/pandocs:cached
+    command: sleep infinity
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  s3:
+    image: rustfs/rustfs:1.0.4
+    environment:
+      RUSTFS_ACCESS_KEY: testkey12345
+      RUSTFS_SECRET_KEY: testsecret1234567890
+
+volumes:
+  postgres:

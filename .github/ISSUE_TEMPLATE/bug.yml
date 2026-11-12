@@ -1,6 +1,6 @@
 name: Something went wrong
 description: Pandocs did something it should not, or did not do what it says it does.
-labels: [bug]
+labels: [bug, needs-triage]
 body:
   - type: textarea
     id: what

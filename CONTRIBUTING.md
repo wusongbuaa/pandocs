@@ -2,7 +2,7 @@
 
 ## Getting set up
 
-You need Node 26, pnpm, Go and a PostgreSQL server.
+You need Node 26, pnpm, Go and a PostgreSQL server. Or open the repository in its [development container](./.devcontainer/devcontainer.json), in VS Code or a Codespace, which has all of them, an S3 server, and Playwright's Chromium installed.
 
 ```bash
 pnpm install
@@ -22,6 +22,21 @@ pnpm typecheck && pnpm lint && pnpm test
 - **Changing something people will notice?** Add a line under *Unreleased* in the [changelog](./CHANGELOG.md), for someone running or using it.
 - **Touching publishing, or the chart?** `test/nfs/run.sh` and `test/helm/run.sh` try them for real, and take a few minutes.
 - Write comments that say why, not what. Tests should read as what the product promises.
+- Editors that read [.editorconfig](./.editorconfig) keep the whitespace the same. Wrap lines the way the code around them does: there is no formatter yet, because one would rewrite most files at once.
+
+## Pull requests
+
+- A pull request is squashed into one commit, with its title as the message. Write the title as [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) do, which a check holds it to: `feat: ...`, `fix(cli): ...`, `docs: ...`, `chore(deps): ...`. The kinds are `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore` and `revert`.
+- CI has to pass, and every review conversation has to be resolved, before it can merge.
+- One change per pull request is easier to review, and to undo.
+
+## Your contribution's license
+
+What you contribute is under the [Apache License 2.0](./LICENSE), as the rest of Pandocs is: its section 5 says so for anything submitted on purpose to be included. There is no agreement to sign. Only send what you have the right to send, and say where it came from if it is a copy of someone else's work, so that [NOTICE](./NOTICE) can say so too.
+
+## Getting help
+
+See [SUPPORT](./SUPPORT.md). How decisions are made, and who makes them, is in [GOVERNANCE](./GOVERNANCE.md).
 
 ## Releasing
 

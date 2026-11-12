@@ -14,7 +14,7 @@ In the project's directory:
 docker compose up
 ```
 
-The first run builds the image. PostgreSQL starts along with it, so there is nothing else to prepare.
+The first run downloads the released image. PostgreSQL starts along with it, so there is nothing else to prepare.
 
 To use it from other machines, first set `PANDOCS_URL` to the address they will use, such as `http://192.168.1.20:8080`.
 

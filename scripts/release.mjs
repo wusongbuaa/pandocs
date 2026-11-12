@@ -30,7 +30,9 @@ const places = () => [
   ...packageFiles().map(path => ({ path, pattern: /^ {2}"version": "([^"]+)"/mu })),
   { path: "deploy/helm/pandocs/Chart.yaml", pattern: /^version: (\S+)$/mu },
   { path: "deploy/helm/pandocs/Chart.yaml", pattern: /^appVersion: "([^"]+)"$/mu },
-  { path: "docs/api/openapi.yaml", pattern: /^ {2}version: (\S+)$/mu }
+  { path: "docs/api/openapi.yaml", pattern: /^ {2}version: (\S+)$/mu },
+  { path: "compose.yaml", pattern: /\/pandocs:\$\{PANDOCS_VERSION:-([^}]+)\}/u },
+  { path: "compose.yaml", pattern: /\/pandocs-converter:\$\{PANDOCS_VERSION:-([^}]+)\}/u }
 ];
 
 const found = () => places().map(({ path, pattern }) => ({ path, version: pattern.exec(read(path))?.[1] ?? "(not found)" }));

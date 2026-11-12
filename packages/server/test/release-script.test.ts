@@ -18,6 +18,7 @@ describe("what a release checks", () => {
       "packages/client/package.json": `{\n  "name": "@pandocs/client",\n  "version": "${version}",\n  "dependencies": { "other": "1.2.3" }\n}\n`,
       "deploy/helm/pandocs/Chart.yaml": `name: pandocs\nversion: ${version}\nappVersion: "${version}"\nkubeVersion: ">=1.27.0-0"\n`,
       "docs/api/openapi.yaml": `openapi: 3.1.0\ninfo:\n  title: Pandocs API\n  version: ${version}\nservers:\n  - url: /api/v1\n`,
+      "compose.yaml": `services:\n  pandocs:\n    image: ghcr.io/o/pandocs:\${PANDOCS_VERSION:-${version}}\n  converter:\n    image: ghcr.io/o/pandocs-converter:\${PANDOCS_VERSION:-${version}}\n`,
       "CHANGELOG.md": changelog,
       LICENSE: "Apache\n",
       NOTICE: "Pandocs\n"
@@ -70,6 +71,7 @@ describe("what a release checks", () => {
     expect(run(root, "check", "0.2.0-rc.1")).toMatchObject({ status: 0 });
     expect(readFileSync(join(root, "packages/client/package.json"), "utf8")).toContain('"other": "1.2.3"');
     expect(readFileSync(join(root, "deploy/helm/pandocs/Chart.yaml"), "utf8")).toContain('kubeVersion: ">=1.27.0-0"');
+    expect(readFileSync(join(root, "compose.yaml"), "utf8")).toContain("pandocs-converter:${PANDOCS_VERSION:-0.2.0-rc.1}");
     const changelog = readFileSync(join(root, "CHANGELOG.md"), "utf8");
     expect(changelog).toContain("## Unreleased\n\n## 0.2.0-rc.1 - 2026-12-01\n\n### Writing");
     expect(run(root, "notes", "0.2.0-rc.1").stdout).toBe("### Writing\n\n- Something new.\n");

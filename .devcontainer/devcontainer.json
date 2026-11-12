@@ -1,0 +1,26 @@
+// Everything CONTRIBUTING asks for, in a container: Node 26 with pnpm, Node 22 for Playwright's installer, Go, and
+// PostgreSQL and an S3 server beside it. Open the repository in VS Code or a Codespace and choose to reopen it here.
+{
+  "name": "Pandocs",
+  "dockerComposeFile": "compose.yaml",
+  "service": "dev",
+  "workspaceFolder": "/workspaces/pandocs",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "26", "additionalVersions": "22" },
+    "ghcr.io/devcontainers/features/go:1": { "version": "1.26" }
+  },
+  "containerEnv": {
+    "TEST_DATABASE_URL": "postgres://postgres:postgres@postgres:5432/postgres",
+    "DATABASE_URL": "postgres://postgres:postgres@postgres:5432/pandocs",
+    "PANDOCS_TEST_S3_ENDPOINT": "http://s3:9000",
+    "AWS_ACCESS_KEY_ID": "testkey12345",
+    "AWS_SECRET_ACCESS_KEY": "testsecret1234567890"
+  },
+  "postCreateCommand": ".devcontainer/post-create.sh",
+  "forwardPorts": [8080],
+  "customizations": {
+    "vscode": {
+      "extensions": ["oxc.oxc-vscode", "golang.go", "vitest.explorer", "EditorConfig.EditorConfig"]
+    }
+  }
+}
