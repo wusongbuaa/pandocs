@@ -417,8 +417,8 @@ importers:
         specifier: ^19.2.3
         version: 19.3.0(@types/react@19.3.0)
       '@unhead/react':
-        specifier: ^2.1.17
-        version: 2.1.17(react@19.3.1)
+        specifier: ^3.4.3
+        version: 3.4.3(@oxc-project/types@0.156.0)(@rsbuild/core@2.3.1)(@rspack/core@2.3.1(@swc/helpers@0.5.24))(esbuild@0.28.1)(lightningcss@1.33.0)(react@19.3.1)(rolldown@1.2.16)(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.107.1)(tsx@4.23.15)(yaml@2.9.1))
       '@vitejs/plugin-react':
         specifier: ^6.0.2
         version: 6.2.1(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.107.1)(tsx@4.23.15)(yaml@2.9.1))
@@ -1464,6 +1464,9 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
+  '@rolldown/pluginutils@1.1.0':
+    resolution: {integrity: sha512-K+NU2HDCEem4sClgHH4ZZXwdJeNFkJo+hRk479DIwdIviAPN2hFJH1KHHwg8CxHQXvi0M5XY4deTXINfIiSG6w==}
+
   '@rollup/pluginutils@5.5.1':
     resolution: {integrity: sha512-P9ZvnfouRu4MSC+ilERaw6FmZs8zqKhpHxEs4aGDGWQAMzQGXnhvCSvoNwokfNvdt7t3Y5Y4p6gStQgezeIqug==}
     engines: {node: '>=14.0.0'}
@@ -2505,10 +2508,17 @@ packages:
       webpack:
         optional: true
 
-  '@unhead/react@2.1.17':
-    resolution: {integrity: sha512-KmcYksDjlLozL0fxUjIDwH/0k6+Lg2HWHLUPlkRW8Gl08hdB1AbLB5iU9QxFvkaT8p0Q4dFEqZWnz3g6RMeiRA==}
+  '@unhead/react@3.4.3':
+    resolution: {integrity: sha512-sgbwSlVa7Vicvuzz6Dc5PMdU4ujxbKFHcJ2fQCbMVUXMk95aiR1sNgdY1+wjC3/y5/49Ow4m3rdzLdYCJCo/jw==}
     peerDependencies:
-      react: '>=18.3.1'
+      react: '>=19.2.4'
+      vite: '>=6.4.2'
+      webpack: '>=5.0.0'
+    peerDependenciesMeta:
+      vite:
+        optional: true
+      webpack:
+        optional: true
 
   '@unhead/vue@3.4.3':
     resolution: {integrity: sha512-Wrmk62oC/V1EcBSKRDuy77kVaBtBXXsj6b+vEEWvmfo9AQfpLlc2b6vvvSj9WnXr8VY1ksKHj49Ejo8J/wLSOA==}
@@ -4815,9 +4825,6 @@ packages:
     resolution: {integrity: sha512-+fdndUTwBP86cVjihTp21hZHo7d6oj1c/47XPA3lL8mM0XHs+C4EkcjmgRsFnFk2f/UONGDy9ItBItmXsLOQHw==}
     engines: {node: '>=22.19.0'}
 
-  unhead@2.1.17:
-    resolution: {integrity: sha512-HLMKXOszRhAPBrr6VlqCeVeJq2kbC4kXwzGLEZvvojPLWNYTJw22xG7Bfwhsvs31+IBet3Wl8ADg9dwYdyphfQ==}
-
   unhead@3.4.3:
     resolution: {integrity: sha512-0FZI/qCCyIey14CKlGMFpiQumWSatlthJy7Xvro7H3nmi/V2owkcCXG03k0GXDc2/TV1K6bvrbAwhzTRe5Nhdw==}
     peerDependencies:
@@ -6069,6 +6076,8 @@ snapshots:
     optional: true
 
   '@rolldown/pluginutils@1.0.1': {}
+
+  '@rolldown/pluginutils@1.1.0': {}
 
   '@rollup/pluginutils@5.5.1':
     dependencies:
@@ -7372,10 +7381,30 @@ snapshots:
       - rollup
       - unloader
 
-  '@unhead/react@2.1.17(react@19.3.1)':
+  '@unhead/react@3.4.3(@oxc-project/types@0.156.0)(@rsbuild/core@2.3.1)(@rspack/core@2.3.1(@swc/helpers@0.5.24))(esbuild@0.28.1)(lightningcss@1.33.0)(react@19.3.1)(rolldown@1.2.16)(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.107.1)(tsx@4.23.15)(yaml@2.9.1))':
     dependencies:
+      '@unhead/bundler': 3.4.3(@oxc-project/types@0.156.0)(@rsbuild/core@2.3.1)(@rspack/core@2.3.1(@swc/helpers@0.5.24))(esbuild@0.28.1)(lightningcss@1.33.0)(rolldown@1.2.16)(unhead@3.4.3(@rsbuild/core@2.3.1)(@rspack/core@2.3.1(@swc/helpers@0.5.24))(esbuild@0.28.1)(rolldown@1.2.16)(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.107.1)(tsx@4.23.15)(yaml@2.9.1)))(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.107.1)(tsx@4.23.15)(yaml@2.9.1))
+      magic-string: 1.4.5
+      oxc-walker: 1.1.1(@oxc-project/types@0.156.0)(rolldown@1.2.16)
       react: 19.3.1
-      unhead: 2.1.17
+      unhead: 3.4.3(@rsbuild/core@2.3.1)(@rspack/core@2.3.1(@swc/helpers@0.5.24))(esbuild@0.28.1)(rolldown@1.2.16)(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.107.1)(tsx@4.23.15)(yaml@2.9.1))
+      unplugin: 3.7.0(@rsbuild/core@2.3.1)(@rspack/core@2.3.1(@swc/helpers@0.5.24))(esbuild@0.28.1)(rolldown@1.2.16)(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.107.1)(tsx@4.23.15)(yaml@2.9.1))
+    optionalDependencies:
+      vite: 8.3.6(@types/node@25.9.9)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.107.1)(tsx@4.23.15)(yaml@2.9.1)
+    transitivePeerDependencies:
+      - '@farmfe/core'
+      - '@oxc-project/types'
+      - '@rsbuild/core'
+      - '@rspack/core'
+      - '@unhead/cli'
+      - '@vitejs/devtools-kit'
+      - bun-types-no-globals
+      - esbuild
+      - lightningcss
+      - oxc-parser
+      - rolldown
+      - rollup
+      - unloader
 
   '@unhead/vue@3.4.3(@oxc-project/types@0.156.0)(@rsbuild/core@2.3.1)(@rspack/core@2.3.1(@swc/helpers@0.5.24))(esbuild@0.28.1)(lightningcss@1.33.0)(rolldown@1.2.16)(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.107.1)(tsx@4.23.15)(yaml@2.9.1))(vue@3.5.45(typescript@7.0.2))':
     dependencies:
@@ -10167,10 +10196,6 @@ snapshots:
 
   undici@8.12.3: {}
 
-  unhead@2.1.17:
-    dependencies:
-      hookable: 6.1.2
-
   unhead@3.4.3(@rsbuild/core@2.3.1)(@rspack/core@2.3.1(@swc/helpers@0.5.24))(esbuild@0.28.1)(rolldown@1.2.16)(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.107.1)(tsx@4.23.15)(yaml@2.9.1)):
     dependencies:
       hookable: 6.1.2
@@ -10235,7 +10260,7 @@ snapshots:
   unplugin@3.7.0(@rsbuild/core@2.3.1)(@rspack/core@2.3.1(@swc/helpers@0.5.24))(esbuild@0.28.1)(rolldown@1.2.16)(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.1)(jiti@2.7.0)(sass@1.107.1)(tsx@4.23.15)(yaml@2.9.1)):
     dependencies:
       '@jridgewell/remapping': 2.3.5
-      '@rolldown/pluginutils': 1.0.1
+      '@rolldown/pluginutils': 1.1.0
       picomatch: 4.0.7
       webpack-virtual-modules: 0.6.2
     optionalDependencies:

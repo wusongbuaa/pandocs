@@ -45,7 +45,7 @@
     "@types/nprogress": "^0.2.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@unhead/react": "^2.1.17",
+    "@unhead/react": "^3.4.3",
     "@vitejs/plugin-react": "^6.0.2",
     "body-scroll-lock": "4.0.0-beta.0",
     "boring-avatars": "2.0.4",
