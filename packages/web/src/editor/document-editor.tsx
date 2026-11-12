@@ -38,7 +38,7 @@ import { SelectionBubble } from "./selection-bubble";
 import { createSlash, SlashPopup } from "./slash-menu";
 import { TableTools } from "./table-tools";
 import { uploadAsset } from "./upload";
-import { createWriteBack, type WriteBack } from "./write-back";
+import { createWriteBack, replaceChangedBlocks, type WriteBack } from "./write-back";
 import { t } from "../i18n";
 
 const HEARTBEAT_MS = 45_000;
@@ -434,7 +434,7 @@ export function DocumentEditor({ page, mode, lang, markdown, baseRevision, route
     const parts = splitFrontMatter(merged.ok ? merged.markdown : merged.keepingOurs);
     frontMatterNow.current = parts.frontMatter;
     live.meta.set("frontMatter", parts.frontMatter);
-    editor.commands.setContent(parts.body, { contentType: "markdown" });
+    replaceChangedBlocks(editor, parts.body);
     showSource(null);
     return merged.ok;
   };

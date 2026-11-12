@@ -4,6 +4,10 @@ What changes for someone running or using Pandocs. The format follows [Keep a Ch
 
 ## Unreleased
 
+### Writing together
+
+- Coming back from the Markdown source in a shared draft changes only the blocks that are different, and leaves the rest of the page to the others in it. It used to put the whole page back, which could take away a space someone was typing at the end of a paragraph at that moment.
+
 ## 0.1.0 - 2026-11-12
 
 The first release.

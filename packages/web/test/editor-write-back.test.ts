@@ -5,7 +5,7 @@ import { Editor } from "@tiptap/core";
 import { afterEach, describe, expect, it } from "vitest";
 import { joinBlocks, splitFrontMatter } from "@pandocs/markdown";
 import { createDialectExtensions, createDialectMarked, createMarkdownExtension, editorSourceBlocks } from "@pandocs/editor-model";
-import { createWriteBack } from "../src/editor/write-back";
+import { createWriteBack, replaceChangedBlocks } from "../src/editor/write-back";
 
 const DIR = join(import.meta.dirname, "../../markdown/test/fixtures/corpus");
 const manifest = JSON.parse(readFileSync(join(DIR, "manifest.json"), "utf8")) as { file: string; title: string }[];
@@ -82,5 +82,38 @@ describe("block-level write back in a real editor", () => {
     expect(next).toContain("改第一段");
     expect(next).toContain("|:--|");
     expect(next).toContain("{emoji='x'}");
+  });
+});
+
+describe("coming back from the Markdown source", () => {
+  const BODY = "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.\n";
+  const endOf = (editor: Editor, text: string) => {
+    let at = -1;
+    editor.state.doc.forEach((node, offset) => {
+      if (node.textContent.startsWith(text)) at = offset + node.nodeSize - 1;
+    });
+    return at;
+  };
+  const paragraphs = (editor: Editor) => {
+    const texts: string[] = [];
+    editor.state.doc.forEach(node => { if (node.textContent) texts.push(node.textContent); });
+    return texts;
+  };
+
+  it("keeps the space someone else has just typed at the end of a paragraph it did not change", () => {
+    const { editor } = open(BODY);
+    editor.commands.insertContentAt(endOf(editor, "Third paragraph."), " Typed ");
+    // Written out, that paragraph has lost its last space, which is what the merged Markdown says.
+    replaceChangedBlocks(editor, "First paragraph, in source.\n\nSecond paragraph.\n\nThird paragraph. Typed\n");
+    editor.commands.insertContentAt(endOf(editor, "Third paragraph."), "meanwhile.");
+    expect(paragraphs(editor)).toEqual(["First paragraph, in source.", "Second paragraph.", "Third paragraph. Typed meanwhile."]);
+  });
+
+  it("adds, removes and changes blocks as the Markdown says", () => {
+    const { editor } = open(BODY);
+    replaceChangedBlocks(editor, "Second paragraph, changed.\n\nThird paragraph.\n\nA fourth.\n");
+    expect(paragraphs(editor)).toEqual(["Second paragraph, changed.", "Third paragraph.", "A fourth."]);
+    replaceChangedBlocks(editor, "Second paragraph, changed.\n\nThird paragraph.\n\nA fourth.\n");
+    expect(paragraphs(editor)).toEqual(["Second paragraph, changed.", "Third paragraph.", "A fourth."]);
   });
 });
