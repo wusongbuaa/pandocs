@@ -3,7 +3,11 @@ import { fixtureResponse } from "./fixture";
 export const API_BASE = "/api/v1";
 
 export class ApiError extends Error {
-  constructor(readonly status: number, readonly code: string, message: string) {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string
+  ) {
     super(message);
   }
 }

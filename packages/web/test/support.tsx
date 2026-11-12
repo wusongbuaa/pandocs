@@ -29,10 +29,21 @@ export function entry(path: string, overrides: Partial<TreeEntry> = {}): TreeEnt
 }
 
 export function space(slug: string, tree: readonly TreeEntry[]): SpaceWithTree {
-  return { id: slug, slug, name: `${slug} 空间`, description: "", defaultRole: "viewer", role: "viewer", glossary: [], tree };
+  return {
+    id: slug,
+    slug,
+    name: `${slug} 空间`,
+    description: "",
+    defaultRole: "viewer",
+    role: "viewer",
+    glossary: [],
+    tree
+  };
 }
 
-export function bootstrap(overrides: Partial<Omit<Bootstrap, "site">> & { site?: Partial<Bootstrap["site"]> } = {}): Bootstrap {
+export function bootstrap(
+  overrides: Partial<Omit<Bootstrap, "site">> & { site?: Partial<Bootstrap["site"]> } = {}
+): Bootstrap {
   return {
     me: { id: "me", displayName: "测试用户", kind: "user", isAdmin: false, scopes: ["read", "write"] },
     spaces: [space("handbook", [entry("index"), entry("guide")])],
@@ -51,7 +62,9 @@ export function bootstrap(overrides: Partial<Omit<Bootstrap, "site">> & { site?:
       appLinks: [],
       actions: [],
       trashRetentionDays: null,
-      logoutUrl: "", askForVisitors: false, brandColor: "",
+      logoutUrl: "",
+      askForVisitors: false,
+      brandColor: "",
       ...overrides.site
     }
   };
@@ -75,7 +88,14 @@ export async function renderDocument(markdown: string, title = "测试文档") {
     view: { labels: ["Not in the text"] } as never,
     rendered
   };
-  const data = { lang: "zh", frontmatter: {}, title, toc: rendered.toc, routePath: "/handbook/guide", pandocs: page } as never;
+  const data = {
+    lang: "zh",
+    frontmatter: {},
+    title,
+    toc: rendered.toc,
+    routePath: "/handbook/guide",
+    pandocs: page
+  } as never;
   const result = render(
     <MemoryRouter>
       <PageContext.Provider value={{ data }}>
@@ -87,4 +107,3 @@ export async function renderDocument(markdown: string, title = "测试文档") {
   );
   return { ...result, rendered, body: result.container.querySelector("[data-pandocs-body]") as HTMLElement };
 }
-

@@ -11,14 +11,24 @@ import { createStaticFiles } from "../src/web/static.js";
 
 const tree = (...paths: string[]) => paths.map(path => ({ id: `id:${path}`, path }));
 const SITE = { defaultLang: "zh", locales: [{ lang: "zh" }, { lang: "en" }] };
-const list = { site: SITE, spaces: [{ slug: "guide", tree: tree("start", "a/b", "中文页") }, { slug: "home", tree: tree("index", "more") }] };
+const list = {
+  site: SITE,
+  spaces: [
+    { slug: "guide", tree: tree("start", "a/b", "中文页") },
+    { slug: "home", tree: tree("index", "more") }
+  ]
+};
 
 describe("which page an address is", () => {
   it("finds a document, in the language of its address", () => {
     expect(locatePage(list, "/guide/start")).toEqual({ kind: "document", id: "id:start", lang: null });
     expect(locatePage(list, "/guide/a/b")).toEqual({ kind: "document", id: "id:a/b", lang: null });
     expect(locatePage(list, "/en/guide/start")).toEqual({ kind: "document", id: "id:start", lang: "en" });
-    expect(locatePage(list, "/guide/%E4%B8%AD%E6%96%87%E9%A1%B5")).toEqual({ kind: "document", id: "id:中文页", lang: null });
+    expect(locatePage(list, "/guide/%E4%B8%AD%E6%96%87%E9%A1%B5")).toEqual({
+      kind: "document",
+      id: "id:中文页",
+      lang: null
+    });
     expect(locatePage(list, "/home/")).toEqual({ kind: "document", id: "id:index", lang: null });
   });
 
@@ -33,7 +43,8 @@ describe("which page an address is", () => {
       ["/guide", "/guide/"],
       ["/en", "/en/"],
       ["/guide/%E4%B8%AD%E6%96%87%E9%A1%B5/", "/guide/%E4%B8%AD%E6%96%87%E9%A1%B5"]
-    ] as const) expect(locatePage(list, from), from).toEqual({ kind: "elsewhere", to, permanent: true });
+    ] as const)
+      expect(locatePage(list, from), from).toEqual({ kind: "elsewhere", to, permanent: true });
   });
 
   it("does not lead an address in its one form anywhere, in any way of encoding it", () => {
@@ -48,7 +59,11 @@ describe("which page an address is", () => {
   });
 
   it("goes into the one space of a site, for now rather than for good", () => {
-    expect(locatePage({ site: SITE, spaces: [list.spaces[0]!] }, "/")).toEqual({ kind: "elsewhere", to: "/guide/", permanent: false });
+    expect(locatePage({ site: SITE, spaces: [list.spaces[0]!] }, "/")).toEqual({
+      kind: "elsewhere",
+      to: "/guide/",
+      permanent: false
+    });
     expect(locatePage(list, "/")).toEqual({ kind: "other" });
   });
 
@@ -58,7 +73,12 @@ describe("which page an address is", () => {
   });
 
   it("knows a page that may have moved from one that was never there", () => {
-    expect(locatePage(list, "/en/guide/gone/page")).toEqual({ kind: "unknown", space: "guide", path: "gone/page", prefix: "/en" });
+    expect(locatePage(list, "/en/guide/gone/page")).toEqual({
+      kind: "unknown",
+      space: "guide",
+      path: "gone/page",
+      prefix: "/en"
+    });
     expect(locatePage(list, "/nothing/here")).toEqual({ kind: "unknown", space: null, path: "here", prefix: "" });
     expect(locatePage(list, "/_/account")).toEqual({ kind: "other" });
     expect(locatePage(list, "/en/_/account")).toEqual({ kind: "other" });
@@ -66,7 +86,8 @@ describe("which page an address is", () => {
 });
 
 describe("the language of a page", () => {
-  const ask = (headers: Record<string, string>, path = "/guide/start", site = "zh") => languageOfPage(new Request(`http://x${path}`, { headers }), path, async () => site);
+  const ask = (headers: Record<string, string>, path = "/guide/start", site = "zh") =>
+    languageOfPage(new Request(`http://x${path}`, { headers }), path, async () => site);
 
   it("is what someone chose, then the address, then what they ask for", async () => {
     expect(await ask({ cookie: "a=1; pandocs_language=en", "accept-language": "zh" }, "/zh/guide")).toBe("en");
@@ -85,50 +106,95 @@ describe("the language of a page", () => {
 
 describe("the links in a page's Markdown", () => {
   const page = "https://docs.example/guide/start";
-  const rewritten = (markdown: string) => absoluteLinks(markdown, page, "https://docs.example/api/v1/spaces/guide/assets");
+  const rewritten = (markdown: string) =>
+    absoluteLinks(markdown, page, "https://docs.example/api/v1/spaces/guide/assets");
 
   it("says in full where the files blocks stand for are, and leaves the rest of the line alone", () => {
     const hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    expect(rewritten(`::openapi{src="assets/${hash}.yaml"}`)).toBe(`::openapi{src="https://docs.example/api/v1/spaces/guide/assets/${hash}"}`);
-    expect(rewritten(`::file[The src="x" file]{src="assets/${hash}.pdf"}`)).toContain(`{src="https://docs.example/api/v1/spaces/guide/assets/${hash}"}`);
-    expect(rewritten(`::compare[Caption]{before="assets/${hash}.png" after="https://elsewhere.example/b.png"}`)).toBe(`::compare[Caption]{before="https://docs.example/api/v1/spaces/guide/assets/${hash}" after="https://elsewhere.example/b.png"}`);
-    expect(rewritten('Text mentioning src="assets/x.png" stays as it is')).toBe('Text mentioning src="assets/x.png" stays as it is');
+    expect(rewritten(`::openapi{src="assets/${hash}.yaml"}`)).toBe(
+      `::openapi{src="https://docs.example/api/v1/spaces/guide/assets/${hash}"}`
+    );
+    expect(rewritten(`::file[The src="x" file]{src="assets/${hash}.pdf"}`)).toContain(
+      `{src="https://docs.example/api/v1/spaces/guide/assets/${hash}"}`
+    );
+    expect(rewritten(`::compare[Caption]{before="assets/${hash}.png" after="https://elsewhere.example/b.png"}`)).toBe(
+      `::compare[Caption]{before="https://docs.example/api/v1/spaces/guide/assets/${hash}" after="https://elsewhere.example/b.png"}`
+    );
+    expect(rewritten('Text mentioning src="assets/x.png" stays as it is')).toBe(
+      'Text mentioning src="assets/x.png" stays as it is'
+    );
     expect(rewritten('```\n::file[x]{src="assets/x.png"}\n```')).toBe('```\n::file[x]{src="assets/x.png"}\n```');
   });
 
   it("say where they lead in full", () => {
-    expect(rewritten("See [next](./next.md), [up](../up) and [root](/other/page \"Other\").")).toBe("See [next](https://docs.example/guide/next.md), [up](https://docs.example/up) and [root](https://docs.example/other/page \"Other\").");
-    expect(rewritten("[ref]: ./next.md \"Next\"")).toBe("[ref]: https://docs.example/guide/next.md \"Next\"");
+    expect(rewritten('See [next](./next.md), [up](../up) and [root](/other/page "Other").')).toBe(
+      'See [next](https://docs.example/guide/next.md), [up](https://docs.example/up) and [root](https://docs.example/other/page "Other").'
+    );
+    expect(rewritten('[ref]: ./next.md "Next"')).toBe('[ref]: https://docs.example/guide/next.md "Next"');
   });
 
   it("lead to an image where it can be fetched", () => {
     const hash = "a".repeat(64);
-    expect(rewritten(`![a picture](assets/${hash}.png)`)).toBe(`![a picture](https://docs.example/api/v1/spaces/guide/assets/${hash})`);
+    expect(rewritten(`![a picture](assets/${hash}.png)`)).toBe(
+      `![a picture](https://docs.example/api/v1/spaces/guide/assets/${hash})`
+    );
   });
 
   it("stay as they are when they already work anywhere", () => {
-    for (const line of ["[a](https://other.example/x)", "[a](mailto:me@example.test)", "[a](#section)", "[a](//cdn.example/x)", "[^1]: A note in plain words"]) expect(rewritten(line)).toBe(line);
+    for (const line of [
+      "[a](https://other.example/x)",
+      "[a](mailto:me@example.test)",
+      "[a](#section)",
+      "[a](//cdn.example/x)",
+      "[^1]: A note in plain words"
+    ])
+      expect(rewritten(line)).toBe(line);
   });
 
   it("are left alone in code", () => {
     const code = "```md\n[a](./b.md)\n```\n\n~~~\n[c](./d.md)\n```\n~~~\n\nUse `[e](./f.md)` for that, or [g](./h.md).";
-    expect(rewritten(code)).toBe("```md\n[a](./b.md)\n```\n\n~~~\n[c](./d.md)\n```\n~~~\n\nUse `[e](./f.md)` for that, or [g](https://docs.example/guide/h.md).");
+    expect(rewritten(code)).toBe(
+      "```md\n[a](./b.md)\n```\n\n~~~\n[c](./d.md)\n```\n~~~\n\nUse `[e](./f.md)` for that, or [g](https://docs.example/guide/h.md)."
+    );
   });
 });
 
 describe("asking for Markdown", () => {
   it("counts when it comes before HTML", () => {
-    for (const accept of ["text/markdown", "text/markdown, text/html", "text/plain, text/markdown", "text/html;q=0.8, text/markdown;q=0.9"]) expect(prefersMarkdown(accept), accept).toBe(true);
-    for (const accept of [null, "", "*/*", "text/html", "text/html, text/markdown", "text/markdown;q=0.5, text/html", "text/markdown;q=0"]) expect(prefersMarkdown(accept), String(accept)).toBe(false);
+    for (const accept of [
+      "text/markdown",
+      "text/markdown, text/html",
+      "text/plain, text/markdown",
+      "text/html;q=0.8, text/markdown;q=0.9"
+    ])
+      expect(prefersMarkdown(accept), accept).toBe(true);
+    for (const accept of [
+      null,
+      "",
+      "*/*",
+      "text/html",
+      "text/html, text/markdown",
+      "text/markdown;q=0.5, text/html",
+      "text/markdown;q=0"
+    ])
+      expect(prefersMarkdown(accept), String(accept)).toBe(false);
   });
 });
 
-const TEMPLATE = '<!doctype html><html lang="en"><head><title>Docs</title></head><body><div id="root"><!--pandocs-page--><div class="boot"></div><!--/pandocs-page--></div><!--pandocs-state--></body></html>';
-const RENDERED: RenderedPage = { html: "<main>$& $1 text</main>", headTags: "<title>A $' title</title>", htmlAttrs: ' lang="zh"', status: 200 };
+const TEMPLATE =
+  '<!doctype html><html lang="en"><head><title>Docs</title></head><body><div id="root"><!--pandocs-page--><div class="boot"></div><!--/pandocs-page--></div><!--pandocs-state--></body></html>';
+const RENDERED: RenderedPage = {
+  html: "<main>$& $1 text</main>",
+  headTags: "<title>A $' title</title>",
+  htmlAttrs: ' lang="zh"',
+  status: 200
+};
 
 describe("putting a page together", () => {
   it("leaves one with nothing rendered for the browser, saying what language to start in", () => {
-    expect(assemblePage(TEMPLATE, "zh", null, { origin: "o", answers: {} })).toBe(TEMPLATE.replace("<html", '<html data-language="zh"'));
+    expect(assemblePage(TEMPLATE, "zh", null, { origin: "o", answers: {} })).toBe(
+      TEMPLATE.replace("<html", '<html data-language="zh"')
+    );
   });
 
   it("puts what was rendered in place of what shows while the app loads", () => {
@@ -143,11 +209,15 @@ describe("putting a page together", () => {
   it("links the styles of formulas only for a page that has some", () => {
     const template = TEMPLATE.replace("</head>", '<meta name="pandocs-math-styles" content="/assets/k.css"></head>');
     expect(assemblePage(template, "en", RENDERED, { origin: "o", answers: {} })).not.toContain("k.css");
-    expect(assemblePage(template, "en", { ...RENDERED, html: '<span class="katex">x</span>' }, { origin: "o", answers: {} })).toContain('<link rel="stylesheet" crossorigin href="/assets/k.css">');
+    expect(
+      assemblePage(template, "en", { ...RENDERED, html: '<span class="katex">x</span>' }, { origin: "o", answers: {} })
+    ).toContain('<link rel="stylesheet" crossorigin href="/assets/k.css">');
   });
 
   it("cannot be ended early by what a document says", () => {
-    const answers = { doc: { status: 200, payload: { data: { markdown: "</script><script>alert(1)</script><!-- $& -->" } } } };
+    const answers = {
+      doc: { status: 200, payload: { data: { markdown: "</script><script>alert(1)</script><!-- $& -->" } } }
+    };
     const html = assemblePage(TEMPLATE, "en", RENDERED, { origin: "o", answers });
     expect(html.match(/<script/gu)).toHaveLength(1);
     expect(html.match(/<\/script>/gu)).toHaveLength(1);
@@ -198,7 +268,11 @@ describe("the threads that render pages", () => {
     pools.push(created);
     return created;
   };
-  const input = (url: string, extra: unknown = null): RenderInput => ({ url, origin: "http://x", answers: { extra: { status: 200, payload: extra } } });
+  const input = (url: string, extra: unknown = null): RenderInput => ({
+    url,
+    origin: "http://x",
+    answers: { extra: { status: 200, payload: extra } }
+  });
 
   afterEach(() => {
     for (const created of pools.splice(0)) created.stop();
@@ -221,7 +295,11 @@ describe("the threads that render pages", () => {
 
   it("renders the same input once, however many ask at the same time", async () => {
     const renderer = pool();
-    const pages = await Promise.all([renderer.render("en", input("/a")), renderer.render("en", input("/a")), renderer.render("en", input("/a"))]);
+    const pages = await Promise.all([
+      renderer.render("en", input("/a")),
+      renderer.render("en", input("/a")),
+      renderer.render("en", input("/a"))
+    ]);
     expect(pages.map(page => page?.html)).toEqual(["en:/a:1", "en:/a:1", "en:/a:1"]);
     expect((await renderer.render("en", input("/a")))?.html).toBe("en:/a:1");
     // Anything that changes what goes in is another page.
@@ -231,7 +309,10 @@ describe("the threads that render pages", () => {
   it("gives up on a page that fails, says why, and leaves it alone for a while", async () => {
     const renderer = pool();
     expect(await renderer.render("en", input("/fail"))).toBeNull();
-    expect(log).toHaveBeenCalledWith("web.render_failed", expect.objectContaining({ url: "/fail", error: "it failed" }));
+    expect(log).toHaveBeenCalledWith(
+      "web.render_failed",
+      expect.objectContaining({ url: "/fail", error: "it failed" })
+    );
     expect(await renderer.render("en", input("/fail"))).toBeNull();
     expect(log).toHaveBeenCalledTimes(1);
     expect((await renderer.render("en", input("/fine")))?.html).toBe("en:/fine:2");
@@ -278,9 +359,18 @@ describe("answering for a page", () => {
   mkdirSync(join(dir, "ssr"));
   writeFileSync(join(dir, "ssr/worker.mjs"), WORKER);
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
-  const bootstrap = { site: { defaultLang: "en", locales: [{ lang: "en" }] }, spaces: [{ slug: "guide", tree: tree("start") }, { slug: "more", tree: [] }] };
+  const bootstrap = {
+    site: { defaultLang: "en", locales: [{ lang: "en" }] },
+    spaces: [
+      { slug: "guide", tree: tree("start") },
+      { slug: "more", tree: [] }
+    ]
+  };
 
-  const rendering = (api: (path: string) => { status: number; data?: unknown }, options: { enabled?: boolean; webDir?: string } = {}) => {
+  const rendering = (
+    api: (path: string) => { status: number; data?: unknown },
+    options: { enabled?: boolean; webDir?: string } = {}
+  ) => {
     const asked: string[] = [];
     const created = createPageRendering({
       webDir: options.webDir ?? dir,
@@ -291,12 +381,25 @@ describe("answering for a page", () => {
         const path = new URL(request.url).pathname.slice("/api/v1/".length) + new URL(request.url).search;
         asked.push(path);
         const { status, data } = api(path);
-        return new Response(JSON.stringify(status === 200 ? { data } : { error: { code: "NOT_FOUND", message: "no" } }), { status });
+        return new Response(
+          JSON.stringify(status === 200 ? { data } : { error: { code: "NOT_FOUND", message: "no" } }),
+          { status }
+        );
       }
     });
-    return { created, asked, answer: (pathname: string, search = "") => created.answer(TEMPLATE, { pathname, search }, ANONYMOUS_PRINCIPAL, "en") };
+    return {
+      created,
+      asked,
+      answer: (pathname: string, search = "") =>
+        created.answer(TEMPLATE, { pathname, search }, ANONYMOUS_PRINCIPAL, "en")
+    };
   };
-  const site = (path: string) => (path === "bootstrap" ? { status: 200, data: bootstrap } : path.startsWith("documents/") ? { status: 200, data: {} } : { status: 404 });
+  const site = (path: string) =>
+    path === "bootstrap"
+      ? { status: 200, data: bootstrap }
+      : path.startsWith("documents/")
+        ? { status: 200, data: {} }
+        : { status: 404 };
 
   it("renders from the answers it collected, and sends them along", async () => {
     const { created, asked, answer } = rendering(site);
@@ -312,18 +415,30 @@ describe("answering for a page", () => {
 
   it("passes on a page's real address with the query, without rendering anything", async () => {
     const { created, asked, answer } = rendering(site);
-    expect(await answer("/guide/start/", "?view=source")).toEqual({ kind: "redirect", to: "/guide/start?view=source", status: 301 });
+    expect(await answer("/guide/start/", "?view=source")).toEqual({
+      kind: "redirect",
+      to: "/guide/start?view=source",
+      status: 301
+    });
     expect(asked).toEqual(["bootstrap"]);
     created.stop();
   });
 
   it("follows a page that moved, and otherwise lets the theme say there is nothing", async () => {
-    const moved = rendering(path => (path.includes("resolve") ? { status: 200, data: { path: "new/place", redirected: true } } : site(path)));
-    const stale = rendering(path => (path.includes("resolve") ? { status: 200, data: { path: "old", redirected: false } } : site(path)));
+    const moved = rendering(path =>
+      path.includes("resolve") ? { status: 200, data: { path: "new/place", redirected: true } } : site(path)
+    );
+    const stale = rendering(path =>
+      path.includes("resolve") ? { status: 200, data: { path: "old", redirected: false } } : site(path)
+    );
     // Where it was asked for, so sending anyone there would never end.
     expect(await stale.answer("/guide/old")).toMatchObject({ kind: "page" });
     stale.created.stop();
-    expect(await moved.answer("/guide/old", "?x=1")).toEqual({ kind: "redirect", to: "/guide/new/place?x=1", status: 301 });
+    expect(await moved.answer("/guide/old", "?x=1")).toEqual({
+      kind: "redirect",
+      to: "/guide/new/place?x=1",
+      status: 301
+    });
     moved.created.stop();
     const gone = rendering(site);
     const outcome = await gone.answer("/guide/old");
@@ -333,7 +448,9 @@ describe("answering for a page", () => {
   });
 
   it("leaves a very long document to the browser", async () => {
-    const { created, answer } = rendering(path => (path.startsWith("documents/") ? { status: 200, data: { markdown: "x".repeat(300 * 1024) } } : site(path)));
+    const { created, answer } = rendering(path =>
+      path.startsWith("documents/") ? { status: 200, data: { markdown: "x".repeat(300 * 1024) } } : site(path)
+    );
     const outcome = await answer("/guide/start");
     expect(outcome).toEqual({ kind: "page", status: 200, html: TEMPLATE.replace("<html", '<html data-language="en"') });
     created.stop();

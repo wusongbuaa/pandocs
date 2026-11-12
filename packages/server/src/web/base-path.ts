@@ -13,7 +13,8 @@ export function insidePath(pathname: string, base: string): string | null {
   if (pathname === base || pathname.startsWith(`${base}/`)) return pathname.slice(base.length) || "/";
   if (AT_THE_ROOT.has(pathname)) return pathname;
   for (const known of ["/.well-known/oauth-authorization-server", "/.well-known/oauth-protected-resource"]) {
-    if (pathname === `${known}${base}` || pathname.startsWith(`${known}${base}/`)) return `${known}${pathname.slice(known.length + base.length)}`;
+    if (pathname === `${known}${base}` || pathname.startsWith(`${known}${base}/`))
+      return `${known}${pathname.slice(known.length + base.length)}`;
   }
   return null;
 }
@@ -33,7 +34,12 @@ export function servedUnder(base: string, app: Hono): Hono {
     if (inside === null) return c.text(t("No such page"), 404);
     url.pathname = inside;
     const { raw } = c.req;
-    const request = new Request(url, { method: raw.method, headers: raw.headers, signal: raw.signal, ...(raw.body ? { body: raw.body, duplex: "half" } : {}) } as RequestInit);
+    const request = new Request(url, {
+      method: raw.method,
+      headers: raw.headers,
+      signal: raw.signal,
+      ...(raw.body ? { body: raw.body, duplex: "half" } : {})
+    } as RequestInit);
     const response = await app.fetch(request, c.env);
     const location = response.headers.get("location");
     if (!location?.startsWith("/") || location.startsWith("//")) return response;

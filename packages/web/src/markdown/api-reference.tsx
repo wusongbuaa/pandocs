@@ -59,7 +59,15 @@ const OUR_LOOK = `
  * `tryable` is for the site's own API: anywhere else, the page's policy would stop the browser sending a request. It has
  * nothing to send anywhere otherwise, and everything it offers that needs its makers' servers is turned off.
  */
-export default function ApiReference({ url, full, tryable = false }: { readonly url: string; readonly full: boolean; readonly tryable?: boolean }) {
+export default function ApiReference({
+  url,
+  full,
+  tryable = false
+}: {
+  readonly url: string;
+  readonly full: boolean;
+  readonly tryable?: boolean;
+}) {
   const host = React.useRef<HTMLDivElement>(null);
   const dark = useDark();
   const [failure, setFailure] = React.useState<string | null>(null);
@@ -71,23 +79,26 @@ export default function ApiReference({ url, full, tryable = false }: { readonly 
   React.useEffect(() => {
     let current = true;
     let app: ScalarApp | null = null;
-    loadScalar().then(scalar => {
-      if (!current || !host.current) return;
-      app = scalar.createApiReference(host.current, {
-        url,
-        showSidebar: full,
-        hideDarkModeToggle: true,
-        forceDarkModeState: dark ? "dark" : "light",
-        withDefaultFonts: false,
-        hideClientButton: true,
-        hideTestRequestButton: !tryable,
-        showDeveloperTools: "never",
-        telemetry: false,
-        agent: { disabled: true },
-        mcp: { disabled: true },
-        customCss: OUR_LOOK
-      });
-    }, (error: unknown) => setFailure(error instanceof Error ? error.message : String(error)));
+    loadScalar().then(
+      scalar => {
+        if (!current || !host.current) return;
+        app = scalar.createApiReference(host.current, {
+          url,
+          showSidebar: full,
+          hideDarkModeToggle: true,
+          forceDarkModeState: dark ? "dark" : "light",
+          withDefaultFonts: false,
+          hideClientButton: true,
+          hideTestRequestButton: !tryable,
+          showDeveloperTools: "never",
+          telemetry: false,
+          agent: { disabled: true },
+          mcp: { disabled: true },
+          customCss: OUR_LOOK
+        });
+      },
+      (error: unknown) => setFailure(error instanceof Error ? error.message : String(error))
+    );
     return () => {
       current = false;
       app?.destroy();

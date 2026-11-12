@@ -7,7 +7,10 @@ import { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { createDialectExtensions, createDialectManager, createLiveCodec, LIVE_FIELD, LIVE_META } from "../src/index.js";
 
 const ROOT = join(import.meta.dirname, "../../..");
-const fromFolder = (folder: string) => readdirSync(join(ROOT, folder)).filter(name => name.endsWith(".md")).map(name => [name, readFileSync(join(ROOT, folder, name), "utf8")] as const);
+const fromFolder = (folder: string) =>
+  readdirSync(join(ROOT, folder))
+    .filter(name => name.endsWith(".md"))
+    .map(name => [name, readFileSync(join(ROOT, folder, name), "utf8")] as const);
 const docs = [...fromFolder("docs"), ...fromFolder("packages/markdown/test/fixtures/corpus")];
 const RICH = [
   "---",
@@ -16,7 +19,7 @@ const RICH = [
   "",
   "# Heading with *emphasis* and `code`",
   "",
-  "A paragraph with a [link](https://example.com \"title\"), ~~strikethrough~~, ^sup^ and ~sub~, $$x^2$$ and a note[^1].",
+  'A paragraph with a [link](https://example.com "title"), ~~strikethrough~~, ^sup^ and ~sub~, $$x^2$$ and a note[^1].',
   "",
   "*  a list with odd markers",
   "*  second",
@@ -59,15 +62,15 @@ const RICH = [
   "",
   "::::",
   "",
-  "::video{src=\"assets/abc.mp4\"}",
+  '::video{src="assets/abc.mp4"}',
   "",
-  ":::unknown-block{a=\"1\"}",
+  ':::unknown-block{a="1"}',
   "",
   "Kept as it is.",
   "",
   ":::",
   "",
-  "```ts title=\"a.ts\"",
+  '```ts title="a.ts"',
   "const a = 1;",
   "```",
   "",
@@ -75,7 +78,7 @@ const RICH = [
   "x^2",
   "$$",
   "",
-  "![A picture](assets/abc.png \"Caption align=center\")",
+  '![A picture](assets/abc.png "Caption align=center")',
   "",
   "---",
   "",
@@ -88,7 +91,11 @@ describe("a document as shared state", () => {
 
   const samples: readonly (readonly [string, string])[] = [["every kind of block", RICH], ...docs];
 
-  const plain: readonly (readonly [string, string])[] = [["nothing", ""], ["one line", "Hello\n"], ["no last newline", "Hello"]];
+  const plain: readonly (readonly [string, string])[] = [
+    ["nothing", ""],
+    ["one line", "Hello\n"],
+    ["no last newline", "Hello"]
+  ];
 
   it.each([...samples, ...plain])("comes back from %s exactly as it went in", (_name, markdown) => {
     expect(codec.markdownOf(codec.seed(markdown, {}), markdown)).toBe(markdown);
@@ -113,7 +120,9 @@ describe("a document as shared state", () => {
     const first = person.getXmlFragment(LIVE_FIELD).get(1) as Y.XmlElement;
     (first.get(0) as Y.XmlText).insert(5, " typed");
     Y.applyUpdate(person, codec.align(state, base.replace("Third", "Changed third"), {}).change);
-    expect(codec.markdownOf(Y.encodeStateAsUpdate(person), base)).toBe("# Title\n\nFirst typed paragraph.\n\nSecond paragraph.\n\nChanged third paragraph.\n");
+    expect(codec.markdownOf(Y.encodeStateAsUpdate(person), base)).toBe(
+      "# Title\n\nFirst typed paragraph.\n\nSecond paragraph.\n\nChanged third paragraph.\n"
+    );
   });
 
   it("merges inside a paragraph that two people changed", () => {
@@ -159,7 +168,8 @@ describe("a document as shared state", () => {
   });
 
   it("takes time in proportion to a document's length, even at the longest a page can be", () => {
-    const section = "## A section\n\nSome text with **bold**, a [link](https://example.com) and `code`.\n\n- an item\n- another\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n```ts\nconst a = 1;\n```\n\n";
+    const section =
+      "## A section\n\nSome text with **bold**, a [link](https://example.com) and `code`.\n\n- an item\n- another\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n```ts\nconst a = 1;\n```\n\n";
     const markdown = section.repeat(Math.ceil(2_000_000 / section.length));
     const started = performance.now();
     const state = codec.seed(markdown, {});
@@ -209,7 +219,11 @@ describe("what the editor keeps of a page", () => {
       "1. Check the papers.\n    - [ ] Number\n    - [ ] Address\n2. Sign.\n"
     ]) {
       const tasks = editorDoc(markdown).firstChild!.firstChild!.child(1);
-      expect([tasks.type.name, tasks.childCount, tasks.firstChild!.childCount]).toEqual(["taskList", markdown.includes("Phone") ? 3 : 2, 1]);
+      expect([tasks.type.name, tasks.childCount, tasks.firstChild!.childCount]).toEqual([
+        "taskList",
+        markdown.includes("Phone") ? 3 : 2,
+        1
+      ]);
     }
   });
 
@@ -217,9 +231,16 @@ describe("what the editor keeps of a page", () => {
     const markdown = "A claim.[^n]\n\n[^n]: First part.\n\n    Second part.\n";
     const footnote = editorDoc(markdown).child(1);
     expect(footnote.attrs.text).toBe("First part.\n\nSecond part.");
-    expect(manager.serialize({ type: "doc", content: [footnote.toJSON()] })).toBe("[^n]: First part.\n\n    Second part.");
-    const typed = { type: "footnoteDefinition", attrs: { label: "n", text: "First part.\n\nA second, typed in the box.\n- and a list" } };
-    expect(manager.serialize({ type: "doc", content: [typed] })).toBe("[^n]: First part.\n\n    A second, typed in the box.\n    - and a list");
+    expect(manager.serialize({ type: "doc", content: [footnote.toJSON()] })).toBe(
+      "[^n]: First part.\n\n    Second part."
+    );
+    const typed = {
+      type: "footnoteDefinition",
+      attrs: { label: "n", text: "First part.\n\nA second, typed in the box.\n- and a list" }
+    };
+    expect(manager.serialize({ type: "doc", content: [typed] })).toBe(
+      "[^n]: First part.\n\n    A second, typed in the box.\n    - and a list"
+    );
   });
 });
 
@@ -227,7 +248,7 @@ describe("two people changing one picture", () => {
   const codec = createLiveCodec();
 
   it("keeps a new caption from one and a new alignment from the other", () => {
-    const markdown = "Intro.\n\n![Entrance](assets/abc.png \"First caption width=320\")\n\nEnd.\n";
+    const markdown = 'Intro.\n\n![Entrance](assets/abc.png "First caption width=320")\n\nEnd.\n';
     const state = codec.seed(markdown, {});
     const [captioning, aligning] = [new Y.Doc(), new Y.Doc()];
     for (const doc of [captioning, aligning]) Y.applyUpdate(doc, state);
@@ -238,7 +259,9 @@ describe("two people changing one picture", () => {
     Y.applyUpdate(captioning, Y.encodeStateAsUpdate(aligning));
     Y.applyUpdate(aligning, Y.encodeStateAsUpdate(captioning));
     for (const doc of [captioning, aligning]) {
-      expect(codec.markdownOf(Y.encodeStateAsUpdate(doc), markdown)).toBe("Intro.\n\n![Entrance](assets/abc.png \"A caption written offline align=right width=320\")\n\nEnd.\n");
+      expect(codec.markdownOf(Y.encodeStateAsUpdate(doc), markdown)).toBe(
+        'Intro.\n\n![Entrance](assets/abc.png "A caption written offline align=right width=320")\n\nEnd.\n'
+      );
     }
   });
 });

@@ -10,10 +10,18 @@ export function relativeTime(value: string, now = new Date()): string {
   if (minutes < 60) return t("{0} min ago", minutes);
   // hourCycle, because with hour12 off some browsers write midnight as 24:00 in English.
   const clock = at.toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-  const days = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime()) / 86_400_000);
+  const days = Math.floor(
+    (new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() -
+      new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime()) /
+      86_400_000
+  );
   if (days === 0) return t("today {0}", clock);
   if (days === 1) return t("yesterday {0}", clock);
-  const date = at.toLocaleDateString(LOCALE, { month: "short", day: "numeric", ...(at.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }) });
+  const date = at.toLocaleDateString(LOCALE, {
+    month: "short",
+    day: "numeric",
+    ...(at.getFullYear() === now.getFullYear() ? {} : { year: "numeric" })
+  });
   return `${date} ${clock}`;
 }
 

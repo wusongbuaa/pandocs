@@ -14,7 +14,12 @@ describe("the toolbar over selected text", () => {
   it("keeps the link address open while someone types it, whatever else happens in the editor meanwhile", () => {
     applyBootstrap(bootstrap({ ai: { configured: false, ask: false } }));
     const element = document.body.appendChild(document.createElement("div"));
-    const editor = new Editor({ element, extensions: [...createDialectExtensions(), createMarkdownExtension(createDialectMarked())], content: "Read the returns guide first.\n", contentType: "markdown" } as never);
+    const editor = new Editor({
+      element,
+      extensions: [...createDialectExtensions(), createMarkdownExtension(createDialectMarked())],
+      content: "Read the returns guide first.\n",
+      contentType: "markdown"
+    } as never);
     render(<SelectionBubble editor={editor} onComment={() => undefined} onAssist={() => undefined} />);
     act(() => {
       editor.view.dom.focus();

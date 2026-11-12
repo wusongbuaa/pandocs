@@ -22,8 +22,12 @@ export async function grantPandocsSchema(connectionString: string, quotedRole: s
     await pool.query(`GRANT USAGE ON SCHEMA pandocs TO ${quotedRole}`);
     await pool.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA pandocs TO ${quotedRole}`);
     await pool.query(`GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA pandocs TO ${quotedRole}`);
-    await pool.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA pandocs GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${quotedRole}`);
-    await pool.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA pandocs GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO ${quotedRole}`);
+    await pool.query(
+      `ALTER DEFAULT PRIVILEGES IN SCHEMA pandocs GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${quotedRole}`
+    );
+    await pool.query(
+      `ALTER DEFAULT PRIVILEGES IN SCHEMA pandocs GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO ${quotedRole}`
+    );
   } finally {
     await pool.end();
   }

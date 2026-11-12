@@ -42,7 +42,17 @@ const POLL_MS = 1500;
 const POLL_TIMES = 40;
 const shortCommit = (commit: string) => commit.slice(0, 7);
 
-function ConnectDialog({ base, sync, onClose, onSaved }: { base: string; sync: GitSync | null; onClose: () => void; onSaved: () => void }) {
+function ConnectDialog({
+  base,
+  sync,
+  onClose,
+  onSaved
+}: {
+  base: string;
+  sync: GitSync | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const [repository, setRepository] = React.useState(sync?.repository ?? "");
   const [branch, setBranch] = React.useState(sync?.branch ?? "main");
   const [folder, setFolder] = React.useState(sync?.folder ?? "");
@@ -52,19 +62,79 @@ function ConnectDialog({ base, sync, onClose, onSaved }: { base: string; sync: G
   // A token only goes where it was given for, so a new address means a new one.
   const sameRepository = sync?.repository === repository.trim();
   const save = async () => {
-    await api.send("PUT", base, { body: { repository: repository.trim(), branch: branch.trim(), folder: folder.trim(), firstSource, includeRestricted, enabled: sync?.enabled ?? true, ...(token ? { token } : {}) } });
+    await api.send("PUT", base, {
+      body: {
+        repository: repository.trim(),
+        branch: branch.trim(),
+        folder: folder.trim(),
+        firstSource,
+        includeRestricted,
+        enabled: sync?.enabled ?? true,
+        ...(token ? { token } : {})
+      }
+    });
     onSaved();
   };
   return (
-    <FormDialog title={sync ? t("Change the repository settings") : t("Connect a repository")} onClose={onClose} action={t("Save")} onSubmit={save}>
-      <TextField name="repository" label={t("Repository")} description={t("The address you would clone it from over HTTPS.")} required autoFocus value={repository} placeholder="https://github.com/acme/docs.git" onChange={event => setRepository(event.target.value)} />
-      <TextField name="branch" label={t("Branch")} required value={branch} onChange={event => setBranch(event.target.value)} />
-      <TextField name="folder" label={t("Folder (optional)")} description={t("Empty for the whole repository. Nothing outside it is touched.")} value={folder} placeholder="docs" onChange={event => setFolder(event.target.value)} />
-      <PasswordField name="token" label={t("Access token")} description={t("Needs permission to read and push. To give a user name as well, write it as name:token.")} autoComplete="off" value={token} placeholder={sync?.hasToken && sameRepository ? t("Set. Leave empty to keep it.") : ""} onChange={event => setToken(event.target.value)} />
+    <FormDialog
+      title={sync ? t("Change the repository settings") : t("Connect a repository")}
+      onClose={onClose}
+      action={t("Save")}
+      onSubmit={save}
+    >
+      <TextField
+        name="repository"
+        label={t("Repository")}
+        description={t("The address you would clone it from over HTTPS.")}
+        required
+        autoFocus
+        value={repository}
+        placeholder="https://github.com/acme/docs.git"
+        onChange={event => setRepository(event.target.value)}
+      />
+      <TextField
+        name="branch"
+        label={t("Branch")}
+        required
+        value={branch}
+        onChange={event => setBranch(event.target.value)}
+      />
+      <TextField
+        name="folder"
+        label={t("Folder (optional)")}
+        description={t("Empty for the whole repository. Nothing outside it is touched.")}
+        value={folder}
+        placeholder="docs"
+        onChange={event => setFolder(event.target.value)}
+      />
+      <PasswordField
+        name="token"
+        label={t("Access token")}
+        description={t("Needs permission to read and push. To give a user name as well, write it as name:token.")}
+        autoComplete="off"
+        value={token}
+        placeholder={sync?.hasToken && sameRepository ? t("Set. Leave empty to keep it.") : ""}
+        onChange={event => setToken(event.target.value)}
+      />
       {sync ? null : (
-        <SelectField label={t("If a page and a file have the same address")} description={t("Only for the first sync. After that, changes merge.")} value={firstSource} onChange={value => setFirstSource(value as "space" | "repository")} choices={[{ value: "space", label: t("Keep the page, and write it to the repository") }, { value: "repository", label: t("Keep the file, as a new version of the page") }]} />
+        <SelectField
+          label={t("If a page and a file have the same address")}
+          description={t("Only for the first sync. After that, changes merge.")}
+          value={firstSource}
+          onChange={value => setFirstSource(value as "space" | "repository")}
+          choices={[
+            { value: "space", label: t("Keep the page, and write it to the repository") },
+            { value: "repository", label: t("Keep the file, as a new version of the page") }
+          ]}
+        />
       )}
-      <SwitchField label={t("Include pages only some people can read. Anyone who can read the repository will be able to read them.")} checked={includeRestricted} onChange={setIncludeRestricted} />
+      <SwitchField
+        label={t(
+          "Include pages only some people can read. Anyone who can read the repository will be able to read them."
+        )}
+        checked={includeRestricted}
+        onChange={setIncludeRestricted}
+      />
     </FormDialog>
   );
 }
@@ -109,81 +179,175 @@ export function GitSyncView({ space }: { space: Space }) {
       toast(failureMessage(error), "error");
     }
   };
-  const syncNow = () => void act(() => api.send("POST", `${base}/run`), () => {
-    toast(t("It will sync in a moment"), "success");
-    setPolls(POLL_TIMES);
-  });
-  const switchOn = (current: GitSync, enabled: boolean) => void act(() => api.send("PUT", base, { body: { repository: current.repository, branch: current.branch, folder: current.folder, firstSource: current.firstSource, includeRestricted: current.includeRestricted, enabled } }));
+  const syncNow = () =>
+    void act(
+      () => api.send("POST", `${base}/run`),
+      () => {
+        toast(t("It will sync in a moment"), "success");
+        setPolls(POLL_TIMES);
+      }
+    );
+  const switchOn = (current: GitSync, enabled: boolean) =>
+    void act(() =>
+      api.send("PUT", base, {
+        body: {
+          repository: current.repository,
+          branch: current.branch,
+          folder: current.folder,
+          firstSource: current.firstSource,
+          includeRestricted: current.includeRestricted,
+          enabled
+        }
+      })
+    );
   const disconnect = async () => {
-    if (!await confirm({ title: t("Disconnect this repository?"), description: t("The pages and the repository stay as they are, and stop being kept the same. Connecting again later starts by comparing them."), action: t("Disconnect"), danger: true })) return;
+    if (
+      !(await confirm({
+        title: t("Disconnect this repository?"),
+        description: t(
+          "The pages and the repository stay as they are, and stop being kept the same. Connecting again later starts by comparing them."
+        ),
+        action: t("Disconnect"),
+        danger: true
+      }))
+    )
+      return;
     await act(() => api.send("DELETE", base));
   };
   const hookUrl = sync ? new URL(sync.hookPath, location.origin).toString() : "";
   return (
     <>
-      <ManageHead title={t("Git sync")} description={t("Keep this space and a folder of a Git repository the same, in both directions.")}>
+      <ManageHead
+        title={t("Git sync")}
+        description={t("Keep this space and a folder of a Git repository the same, in both directions.")}
+      >
         {sync ? (
           <>
-            <Button disabled={!sync.enabled || sync.running} onClick={syncNow}>{t("Sync now")}</Button>
+            <Button disabled={!sync.enabled || sync.running} onClick={syncNow}>
+              {t("Sync now")}
+            </Button>
             <Menu.Root>
-              <Menu.Trigger className="pd-icon-button pd-icon-button--small" aria-label={t("More actions")}><MoreHorizontal size={16} aria-hidden="true" /></Menu.Trigger>
+              <Menu.Trigger className="pd-icon-button pd-icon-button--small" aria-label={t("More actions")}>
+                <MoreHorizontal size={16} aria-hidden="true" />
+              </Menu.Trigger>
               <Menu.Content align="end" sideOffset={4}>
                 <Menu.Item onClick={() => setEditing(true)}>{t("Edit")}</Menu.Item>
-                <Menu.Item onClick={() => switchOn(sync, !sync.enabled)}>{sync.enabled ? t("Turn off") : t("Turn on")}</Menu.Item>
+                <Menu.Item onClick={() => switchOn(sync, !sync.enabled)}>
+                  {sync.enabled ? t("Turn off") : t("Turn on")}
+                </Menu.Item>
                 <Menu.Item onClick={() => void disconnect()}>{t("Disconnect")}</Menu.Item>
               </Menu.Content>
             </Menu.Root>
           </>
-        ) : ready?.available ? <Button onClick={() => setEditing(true)}>{t("Connect a repository")}</Button> : null}
+        ) : ready?.available ? (
+          <Button onClick={() => setEditing(true)}>{t("Connect a repository")}</Button>
+        ) : null}
       </ManageHead>
       <LoadedContent loaded={state}>
         {({ available }) => {
-          if (!sync) return <EmptyState>{available ? t("Not connected to a repository.") : t("This server cannot run Git. Install it where Pandocs runs to use this.")}</EmptyState>;
+          if (!sync)
+            return (
+              <EmptyState>
+                {available
+                  ? t("Not connected to a repository.")
+                  : t("This server cannot run Git. Install it where Pandocs runs to use this.")}
+              </EmptyState>
+            );
           return (
             <>
               <dl className="pd-git-sync__facts">
                 <dt>{t("Status")}</dt>
-                <dd><Status sync={sync} />{sync.lastError ? <div className="pd-table__note">{sync.lastError}</div> : null}</dd>
-                <dt>{t("Repository")}</dt><dd>{sync.repository}</dd>
-                <dt>{t("Branch")}</dt><dd>{sync.branch}</dd>
-                <dt>{t("Folder")}</dt><dd>{sync.folder || t("The whole repository")}</dd>
-                <dt>{t("Access token")}</dt><dd>{sync.hasToken ? t("Set") : t("None")}</dd>
-                <dt>{t("Latest commit")}</dt><dd>{sync.lastCommit ? <code>{shortCommit(sync.lastCommit)}</code> : t("None yet")}</dd>
+                <dd>
+                  <Status sync={sync} />
+                  {sync.lastError ? <div className="pd-table__note">{sync.lastError}</div> : null}
+                </dd>
+                <dt>{t("Repository")}</dt>
+                <dd>{sync.repository}</dd>
+                <dt>{t("Branch")}</dt>
+                <dd>{sync.branch}</dd>
+                <dt>{t("Folder")}</dt>
+                <dd>{sync.folder || t("The whole repository")}</dd>
+                <dt>{t("Access token")}</dt>
+                <dd>{sync.hasToken ? t("Set") : t("None")}</dd>
+                <dt>{t("Latest commit")}</dt>
+                <dd>{sync.lastCommit ? <code>{shortCommit(sync.lastCommit)}</code> : t("None yet")}</dd>
               </dl>
               <section className="pd-git-sync__hook">
                 <h2>{t("Sync as soon as someone pushes")}</h2>
-                <p className="pd-muted">{t("It looks about once a minute anyway. To be quicker, add this address as a push webhook in the repository's settings. Anyone with it can only make a sync come sooner.")}</p>
+                <p className="pd-muted">
+                  {t(
+                    "It looks about once a minute anyway. To be quicker, add this address as a push webhook in the repository's settings. Anyone with it can only make a sync come sooner."
+                  )}
+                </p>
                 <CopyField label={t("Webhook address")} mono value={hookUrl} />
               </section>
               <section className="pd-git-sync__runs">
                 <h2>{t("What it has done")}</h2>
                 <LoadedContent loaded={runs}>
-                  {data => (data.length === 0 ? <EmptyState>{t("Nothing yet.")}</EmptyState> : (
-                    <table className="pd-table">
-                      <thead><tr><th>{t("When")}</th><th>{t("From the repository")}</th><th>{t("To the repository")}</th><th>{t("Result")}</th></tr></thead>
-                      <tbody>
-                        {data.map(run => (
-                          <tr key={run.startedAt}>
-                            <td className="pd-table__nowrap">{relativeTime(run.startedAt)}{run.head ? <div className="pd-table__note"><code>{shortCommit(run.head)}</code></div> : null}</td>
-                            <td>{t("{0} {0|page|pages}", run.pulled)}</td>
-                            <td>{t("{0} {0|page|pages}", run.pushed)}</td>
-                            <td>
-                              {run.error ? <span className="pd-status pd-status--failed">{t("Failed")}</span> : <span className="pd-status pd-status--done">{t("Done")}</span>}
-                              {run.error ? <div className="pd-table__note">{run.error}</div> : null}
-                              {run.notes.map((note, at) => <div className="pd-table__note" key={at}>{note.file ? `${note.file}: ` : ""}{note.reason}</div>)}
-                            </td>
+                  {data =>
+                    data.length === 0 ? (
+                      <EmptyState>{t("Nothing yet.")}</EmptyState>
+                    ) : (
+                      <table className="pd-table">
+                        <thead>
+                          <tr>
+                            <th>{t("When")}</th>
+                            <th>{t("From the repository")}</th>
+                            <th>{t("To the repository")}</th>
+                            <th>{t("Result")}</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ))}
+                        </thead>
+                        <tbody>
+                          {data.map(run => (
+                            <tr key={run.startedAt}>
+                              <td className="pd-table__nowrap">
+                                {relativeTime(run.startedAt)}
+                                {run.head ? (
+                                  <div className="pd-table__note">
+                                    <code>{shortCommit(run.head)}</code>
+                                  </div>
+                                ) : null}
+                              </td>
+                              <td>{t("{0} {0|page|pages}", run.pulled)}</td>
+                              <td>{t("{0} {0|page|pages}", run.pushed)}</td>
+                              <td>
+                                {run.error ? (
+                                  <span className="pd-status pd-status--failed">{t("Failed")}</span>
+                                ) : (
+                                  <span className="pd-status pd-status--done">{t("Done")}</span>
+                                )}
+                                {run.error ? <div className="pd-table__note">{run.error}</div> : null}
+                                {run.notes.map((note, at) => (
+                                  <div className="pd-table__note" key={at}>
+                                    {note.file ? `${note.file}: ` : ""}
+                                    {note.reason}
+                                  </div>
+                                ))}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )
+                  }
                 </LoadedContent>
               </section>
             </>
           );
         }}
       </LoadedContent>
-      {editing ? <ConnectDialog base={base} sync={sync} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); setPolls(POLL_TIMES); reload(); }} /> : null}
+      {editing ? (
+        <ConnectDialog
+          base={base}
+          sync={sync}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            setPolls(POLL_TIMES);
+            reload();
+          }}
+        />
+      ) : null}
     </>
   );
 }

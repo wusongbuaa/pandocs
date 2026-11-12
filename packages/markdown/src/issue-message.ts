@@ -13,23 +13,27 @@ export function issueMessage(issue: core.$ZodRawIssue): string {
       return issue.input === undefined ? t("Required") : t("Expected {0}", issue.expected);
     case "too_small": {
       const minimum = Number(issue.minimum);
-      if (issue.origin === "string") return minimum <= 1 ? t("Required") : t("At least {0} {0|character|characters}", minimum);
+      if (issue.origin === "string")
+        return minimum <= 1 ? t("Required") : t("At least {0} {0|character|characters}", minimum);
       if (issue.origin === "array" || issue.origin === "set") return t("At least {0} {0|item|items}", minimum);
-      if (issue.origin === "number" || issue.origin === "int" || issue.origin === "bigint") return issue.inclusive ? t("At least {0}", minimum) : t("More than {0}", minimum);
+      if (issue.origin === "number" || issue.origin === "int" || issue.origin === "bigint")
+        return issue.inclusive ? t("At least {0}", minimum) : t("More than {0}", minimum);
       return t("Not valid");
     }
     case "too_big": {
       const maximum = Number(issue.maximum);
       if (issue.origin === "string") return t("At most {0} {0|character|characters}", maximum);
       if (issue.origin === "array" || issue.origin === "set") return t("At most {0} {0|item|items}", maximum);
-      if (issue.origin === "number" || issue.origin === "int" || issue.origin === "bigint") return issue.inclusive ? t("At most {0}", maximum) : t("Less than {0}", maximum);
+      if (issue.origin === "number" || issue.origin === "int" || issue.origin === "bigint")
+        return issue.inclusive ? t("At most {0}", maximum) : t("Less than {0}", maximum);
       return t("Not valid");
     }
     case "invalid_format":
       if (issue.format === "email") return t("Not an email address");
       if (issue.format === "url") return t("Not a web address");
       if (issue.format === "uuid" || issue.format === "guid") return t("Not a valid ID");
-      if (issue.format === "datetime" || issue.format === "date" || issue.format === "time") return t("Not a valid date or time");
+      if (issue.format === "datetime" || issue.format === "date" || issue.format === "time")
+        return t("Not a valid date or time");
       return t("Not in the right format");
     case "invalid_value":
       return t("Must be one of: {0}", issue.values.map(String).join(t(", ")));

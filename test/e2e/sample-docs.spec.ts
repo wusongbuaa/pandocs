@@ -11,7 +11,13 @@ pandocsDescribe("Pandocs' own documents, for a site to see what it can do", () =
 
   beforeAll(async () => {
     app = await startPandocs(postgres.getConnectionString());
-    await app.api("admin", "PATCH", "site", { defaultLang: "zh", locales: [{ lang: "zh", label: "简体中文" }, { lang: "en", label: "English" }] });
+    await app.api("admin", "PATCH", "site", {
+      defaultLang: "zh",
+      locales: [
+        { lang: "zh", label: "简体中文" },
+        { lang: "en", label: "English" }
+      ]
+    });
   }, 120_000);
 
   afterAll(async () => {
@@ -50,7 +56,10 @@ pandocsDescribe("Pandocs' own documents, for a site to see what it can do", () =
     await browserExpect(main.getByText("不支持")).toHaveCount(0);
 
     // Sequence diagrams, which no other page has, with the names in Chinese.
-    for (const [path, diagrams] of [["agents/together", 1], ["running/storage", 3]] as const) {
+    for (const [path, diagrams] of [
+      ["agents/together", 1],
+      ["running/storage", 3]
+    ] as const) {
       await page.goto(`${app.origin}/${SPACE}/${path}`);
       await browserExpect(main.locator(".pd-diagram svg")).toHaveCount(diagrams, { timeout: 20_000 });
       await browserExpect(main.getByText("流程图无法显示")).toHaveCount(0);

@@ -12,7 +12,8 @@ export function diffBlocks(before: readonly string[], after: readonly string[]):
   const lengths = Array.from({ length: before.length + 1 }, () => new Array<number>(after.length + 1).fill(0));
   for (let i = before.length - 1; i >= 0; i -= 1) {
     for (let j = after.length - 1; j >= 0; j -= 1) {
-      lengths[i]![j] = before[i] === after[j] ? lengths[i + 1]![j + 1]! + 1 : Math.max(lengths[i + 1]![j]!, lengths[i]![j + 1]!);
+      lengths[i]![j] =
+        before[i] === after[j] ? lengths[i + 1]![j + 1]! + 1 : Math.max(lengths[i + 1]![j]!, lengths[i]![j + 1]!);
     }
   }
   const rows: DiffRow[] = [];
@@ -99,7 +100,12 @@ export function markRanges(tree: Root, ranges: readonly (readonly [number, numbe
         const left = Math.max(from, at);
         const right = Math.min(to, end);
         if (left > at) next.push({ type: "text", value: child.value.slice(at - start, left - start) });
-        next.push({ type: "element", tagName: "mark", properties: { className: [className] }, children: [{ type: "text", value: child.value.slice(left - start, right - start) }] });
+        next.push({
+          type: "element",
+          tagName: "mark",
+          properties: { className: [className] },
+          children: [{ type: "text", value: child.value.slice(left - start, right - start) }]
+        });
         at = right;
       }
       if (at < end) next.push({ type: "text", value: child.value.slice(at - start) });
@@ -110,7 +116,10 @@ export function markRanges(tree: Root, ranges: readonly (readonly [number, numbe
 }
 
 /** Only worth marking words when most of the block survived; otherwise it reads as noise, and the whole block is the change. */
-export function wordChanges(before: string, after: string): { removed: [number, number][]; added: [number, number][] } | null {
+export function wordChanges(
+  before: string,
+  after: string
+): { removed: [number, number][]; added: [number, number][] } | null {
   const parts = diffChars(before, after);
   const kept = parts.filter(part => !part.added && !part.removed).reduce((sum, part) => sum + part.value.length, 0);
   if (kept < Math.max(before.length, after.length) * 0.4) return null;

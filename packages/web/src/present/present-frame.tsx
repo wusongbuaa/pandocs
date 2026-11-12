@@ -13,7 +13,15 @@ export function usePageRoute(page: PandocsPage): string {
 }
 
 /** A view that takes the whole window. Escape or the button goes back to reading the page. */
-export function PresentFrame({ page, label, children }: { page: PandocsPage; label: string; children: React.ReactNode }) {
+export function PresentFrame({
+  page,
+  label,
+  children
+}: {
+  page: PandocsPage;
+  label: string;
+  children: React.ReactNode;
+}) {
   const navigate = useNavigate();
   const route = usePageRoute(page);
   React.useEffect(() => {
@@ -26,7 +34,10 @@ export function PresentFrame({ page, label, children }: { page: PandocsPage; lab
   }, [navigate, route]);
   return createPortal(
     <div className="pd-present" role="dialog" aria-label={label}>
-      <button type="button" className="pd-btn pd-btn--icon pd-present__exit" onClick={() => navigate(route)}><X size={14} aria-hidden="true" />{t("Exit {0}", label)}</button>
+      <button type="button" className="pd-btn pd-btn--icon pd-present__exit" onClick={() => navigate(route)}>
+        <X size={14} aria-hidden="true" />
+        {t("Exit {0}", label)}
+      </button>
       {children}
     </div>,
     document.body

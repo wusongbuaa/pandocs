@@ -4,7 +4,17 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { docx } from "../../packages/server/test/office-files.js";
 import { extractToMarkdown } from "../../packages/server/src/extract/convert.js";
 import { createExtractProcessor } from "../../packages/server/src/extract/processor.js";
-import { canReadClipboard, choose, engineName, enterForWord, pandocsDescribe, PEOPLE, selectWords, startPandocs, testPicture } from "./fixture.js";
+import {
+  canReadClipboard,
+  choose,
+  engineName,
+  enterForWord,
+  pandocsDescribe,
+  PEOPLE,
+  selectWords,
+  startPandocs,
+  testPicture
+} from "./fixture.js";
 
 const postgres = usePostgresFixture();
 const SPACE = "e2e";
@@ -13,24 +23,32 @@ const SPACE = "e2e";
 pandocsDescribe("Pandocs in a browser", () => {
   let app: Awaited<ReturnType<typeof startPandocs>>;
 
-  const createPage = async (title: string, slug: string, markdown: string) => (await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title, slug, markdown })).data.document.id as string;
+  const createPage = async (title: string, slug: string, markdown: string) =>
+    (await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title, slug, markdown })).data.document
+      .id as string;
   const readPage = async (id: string) => (await app.api("reader", "GET", `documents/${id}`)).data;
   const clickButton = (page: Page, name: string) => page.getByRole("button", { name, exact: true }).click();
-  const editorReady = async (page: Page) => browserExpect(page.locator(".ProseMirror")).toBeVisible({ timeout: 15_000 });
+  const editorReady = async (page: Page) =>
+    browserExpect(page.locator(".ProseMirror")).toBeVisible({ timeout: 15_000 });
   /** The editor sits in the same place as the page, so its text proves nothing until it has gone. */
-  const backToReading = async (page: Page) => browserExpect(page.locator(".ProseMirror")).toHaveCount(0, { timeout: 15_000 });
+  const backToReading = async (page: Page) =>
+    browserExpect(page.locator(".ProseMirror")).toHaveCount(0, { timeout: 15_000 });
 
   beforeAll(async () => {
     app = await startPandocs(postgres.getConnectionString(), {
       processors: [createExtractProcessor(extractToMarkdown)],
       llm: {
         complete: async () => "总结",
-        assist: async ({ action, content }) => (action === "apply_discussion" ? content.replace("旧说法", "新说法") : "AI 的结果")
+        assist: async ({ action, content }) =>
+          action === "apply_discussion" ? content.replace("旧说法", "新说法") : "AI 的结果"
       }
     });
     await app.api("admin", "POST", "spaces", { slug: SPACE, name: "端到端", defaultRole: "viewer" });
     await app.api("admin", "PUT", `spaces/${SPACE}/members`, { subject: `user:${PEOPLE.editor.id}`, role: "editor" });
-    await app.api("admin", "PUT", `spaces/${SPACE}/members`, { subject: `user:${PEOPLE.commenter.id}`, role: "commenter" });
+    await app.api("admin", "PUT", `spaces/${SPACE}/members`, {
+      subject: `user:${PEOPLE.commenter.id}`,
+      role: "commenter"
+    });
   }, 120_000);
 
   afterAll(async () => {
@@ -42,11 +60,20 @@ pandocsDescribe("Pandocs in a browser", () => {
     const page = await app.open("commenter", `/${SPACE}/select`);
     await browserExpect(page.getByText("第二段普通说明")).toBeVisible({ timeout: 15_000 });
     await selectWords(page, "第二段普通");
-    await page.getByRole("toolbar", { name: "选中文字的操作" }).getByRole("button", { name: "评论", exact: true }).click();
+    await page
+      .getByRole("toolbar", { name: "选中文字的操作" })
+      .getByRole("button", { name: "评论", exact: true })
+      .click();
     await page.getByPlaceholder("写下评论，@ 提及同事").fill("这里要确认");
     await page.locator(".pd-panel").getByRole("button", { name: "发送", exact: true }).click();
     await browserExpect(page.locator(".pd-card").getByText("这里要确认")).toBeVisible();
-    const highlighted = () => page.evaluate(() => ["pd-comment", "pd-comment-active"].flatMap(name => [...((CSS as any).highlights.get(name) ?? [])]).map((range: Range) => range.toString()).join("|"));
+    const highlighted = () =>
+      page.evaluate(() =>
+        ["pd-comment", "pd-comment-active"]
+          .flatMap(name => [...((CSS as any).highlights.get(name) ?? [])])
+          .map((range: Range) => range.toString())
+          .join("|")
+      );
     await expect.poll(highlighted).toBe("第二段普通");
     await page.reload();
     await expect.poll(highlighted, { timeout: 15_000 }).toBe("第二段普通");
@@ -56,21 +83,39 @@ pandocsDescribe("Pandocs in a browser", () => {
     const id = await createPage("实时页", "live", "# 实时页\n\n第一段说明。\n");
     const page = await app.open("reader", `/${SPACE}/live`);
     await browserExpect(page.getByText("第一段说明")).toBeVisible({ timeout: 15_000 });
-    const highlighted = () => page.evaluate(() => [...((CSS as any).highlights.get("pd-comment") ?? [])].map((range: Range) => range.toString()).join("|"));
+    const highlighted = () =>
+      page.evaluate(() =>
+        [...((CSS as any).highlights.get("pd-comment") ?? [])].map((range: Range) => range.toString()).join("|")
+      );
     await expect.poll(highlighted).toBe("");
 
     // Nothing here moves focus or reloads, so these can only have come over the live connection.
-    await app.api("commenter", "POST", `documents/${id}/threads`, { anchor: { kind: "quote", quote: "第一段" }, body: "这里要确认" });
+    await app.api("commenter", "POST", `documents/${id}/threads`, {
+      anchor: { kind: "quote", quote: "第一段" },
+      body: "这里要确认"
+    });
     await expect.poll(highlighted, { timeout: 5000 }).toBe("第一段");
 
-    await app.api("editor", "PUT", `documents/${id}/content`, { markdown: "# 实时页\n\n第一段说明。\n\n第二段。\n", expectedRevision: 1 }, { "idempotency-key": "live-page-save" });
+    await app.api(
+      "editor",
+      "PUT",
+      `documents/${id}/content`,
+      { markdown: "# 实时页\n\n第一段说明。\n\n第二段。\n", expectedRevision: 1 },
+      { "idempotency-key": "live-page-save" }
+    );
     await browserExpect(page.getByText("文档已更新")).toBeVisible({ timeout: 5000 });
     await clickButton(page, "刷新");
     await browserExpect(page.getByText("第二段。")).toBeVisible();
     await browserExpect(page.getByText("文档已更新")).toHaveCount(0);
 
     // And it still listens after that reload, for the next one.
-    await app.api("editor", "PUT", `documents/${id}/content`, { markdown: "# 实时页\n\n第一段说明。\n\n第二段。\n\n第三段。\n", expectedRevision: 2 }, { "idempotency-key": "live-page-save-2" });
+    await app.api(
+      "editor",
+      "PUT",
+      `documents/${id}/content`,
+      { markdown: "# 实时页\n\n第一段说明。\n\n第二段。\n\n第三段。\n", expectedRevision: 2 },
+      { "idempotency-key": "live-page-save-2" }
+    );
     await browserExpect(page.getByText("文档已更新")).toBeVisible({ timeout: 5000 });
     await page.close();
   });
@@ -78,7 +123,9 @@ pandocsDescribe("Pandocs in a browser", () => {
   it("makes a page from a Word file, and keeps the file on it", async () => {
     const page = await app.open("editor", `/_/spaces/${SPACE}/imports`);
     await browserExpect(page.getByRole("heading", { name: /导入导出/u })).toBeVisible({ timeout: 15_000 });
-    await page.getByLabel("上传要导入的文件").setInputFiles({ name: "退货流程.docx", mimeType: "application/octet-stream", buffer: Buffer.from(docx()) });
+    await page
+      .getByLabel("上传要导入的文件")
+      .setInputFiles({ name: "退货流程.docx", mimeType: "application/octet-stream", buffer: Buffer.from(docx()) });
     await app.settleImports();
     await page.reload();
     await browserExpect(page.getByText("退货流程.docx").first()).toBeVisible({ timeout: 15_000 });
@@ -114,22 +161,25 @@ pandocsDescribe("Pandocs in a browser", () => {
   });
 
   // A shared draft stays in any case, which live.spec.ts is about.
-  it.skipIf(process.env.PANDOCS_E2E_LIVE === "1")("keeps what was just typed when someone clicks away, and offers it back", async () => {
-    await createPage("另一页", "other", "另一页内容\n");
-    const id = await createPage("草稿页", "draft", "草稿页内容\n");
-    const page = await app.open("editor", `/${SPACE}/draft?mode=edit`);
-    await editorReady(page);
-    await page.locator(".ProseMirror").click();
-    await page.keyboard.press("End");
-    await page.keyboard.type("刚打的字");
-    await page.locator(".rp-sidebar-item", { hasText: "另一页" }).click();
-    await browserExpect(page.getByText("另一页内容")).toBeVisible({ timeout: 15_000 });
-    await page.goto(`${app.origin}/${SPACE}/draft?mode=edit`);
-    await clickButton(page, "继续编辑草稿");
-    await editorReady(page);
-    await browserExpect(page.locator(".ProseMirror")).toContainText("刚打的字");
-    expect((await readPage(id)).revision.no).toBe(1);
-  });
+  it.skipIf(process.env.PANDOCS_E2E_LIVE === "1")(
+    "keeps what was just typed when someone clicks away, and offers it back",
+    async () => {
+      await createPage("另一页", "other", "另一页内容\n");
+      const id = await createPage("草稿页", "draft", "草稿页内容\n");
+      const page = await app.open("editor", `/${SPACE}/draft?mode=edit`);
+      await editorReady(page);
+      await page.locator(".ProseMirror").click();
+      await page.keyboard.press("End");
+      await page.keyboard.type("刚打的字");
+      await page.locator(".rp-sidebar-item", { hasText: "另一页" }).click();
+      await browserExpect(page.getByText("另一页内容")).toBeVisible({ timeout: 15_000 });
+      await page.goto(`${app.origin}/${SPACE}/draft?mode=edit`);
+      await clickButton(page, "继续编辑草稿");
+      await editorReady(page);
+      await browserExpect(page.locator(".ProseMirror")).toContainText("刚打的字");
+      expect((await readPage(id)).revision.no).toBe(1);
+    }
+  );
 
   it("moves a block by dragging its handle", async () => {
     const id = await createPage("拖动页", "drag", "第一块\n\n第二块\n\n第三块\n");
@@ -185,16 +235,25 @@ pandocsDescribe("Pandocs in a browser", () => {
     await asEditor.getByRole("tab", { name: /修改建议/u }).click();
     await asEditor.locator(".pd-proposal-card").click();
     await clickButton(asEditor, "接受");
-    await browserExpect(asEditor.locator("main .rp-doc").getByText("权限页内容和建议")).toBeVisible({ timeout: 15_000 });
+    await browserExpect(asEditor.locator("main .rp-doc").getByText("权限页内容和建议")).toBeVisible({
+      timeout: 15_000
+    });
     expect((await readPage(id)).revision.no).toBe(2);
   });
 
   it("turns a discussion into a suggestion, and accepting it resolves the discussion", async () => {
     const id = await createPage("讨论页", "discuss", "这里是旧说法。\n\n另一段不动。\n");
-    const thread = (await app.api("commenter", "POST", `documents/${id}/threads`, { anchor: { kind: "quote", quote: "旧说法" }, body: "应该改成新说法" })).data.id as string;
+    const thread = (
+      await app.api("commenter", "POST", `documents/${id}/threads`, {
+        anchor: { kind: "quote", quote: "旧说法" },
+        body: "应该改成新说法"
+      })
+    ).data.id as string;
     const page = await app.open("editor", `/${SPACE}/discuss?thread=${thread}`);
     await clickButton(page, "根据讨论生成修改建议");
-    await browserExpect(page.getByRole("dialog").getByRole("textbox", { name: "改成" })).toHaveValue("这里是新说法。", { timeout: 15_000 });
+    await browserExpect(page.getByRole("dialog").getByRole("textbox", { name: "改成" })).toHaveValue("这里是新说法。", {
+      timeout: 15_000
+    });
     await browserExpect(page.getByRole("dialog").locator(".pd-diff__row--added")).toContainText("这里是新说法。");
     await clickButton(page, "提交建议");
     await page.locator(".pd-proposal-card").click();
@@ -230,16 +289,20 @@ pandocsDescribe("Pandocs in a browser", () => {
     const before = await app.upload("editor", SPACE, "old.png", testPicture(226, 232, 240));
     const after = await app.upload("editor", SPACE, "new.png", testPicture(14, 165, 233));
     await createPage("卡片指向的页面", "card-target", "卡片指向的正文\n");
-    await createPage("演示页", "demo", [
-      ":::steps\n\n### 第一步\n\n先做这个\n\n### 第二步\n\n再做那个\n\n:::",
-      "::::tabs\n\n:::tab[甲]\n\n甲标签的内容\n\n:::\n\n:::tab[乙]\n\n乙标签的内容\n\n:::\n\n::::",
-      '::::cards\n\n:::card[去看看]{href="./card-target.md"}\n\n卡片的说明\n\n:::\n\n::::',
-      '```prompt title="排查报错"\n读取日志，告诉我原因\n```',
-      `\`\`\`hotspots src="${before}" alt="控制台"\n[{"x":20,"y":30,"title":"入口","text":"从这里开始"}]\n\`\`\``,
-      `::compare[改版]{before="${before}" after="${after}"}`,
-      `![图](${after} "图片的说明")`,
-      "带脚注的话[^1]\n\n[^1]: 脚注的内容"
-    ].join("\n\n"));
+    await createPage(
+      "演示页",
+      "demo",
+      [
+        ":::steps\n\n### 第一步\n\n先做这个\n\n### 第二步\n\n再做那个\n\n:::",
+        "::::tabs\n\n:::tab[甲]\n\n甲标签的内容\n\n:::\n\n:::tab[乙]\n\n乙标签的内容\n\n:::\n\n::::",
+        '::::cards\n\n:::card[去看看]{href="./card-target.md"}\n\n卡片的说明\n\n:::\n\n::::',
+        '```prompt title="排查报错"\n读取日志，告诉我原因\n```',
+        `\`\`\`hotspots src="${before}" alt="控制台"\n[{"x":20,"y":30,"title":"入口","text":"从这里开始"}]\n\`\`\``,
+        `::compare[改版]{before="${before}" after="${after}"}`,
+        `![图](${after} "图片的说明")`,
+        "带脚注的话[^1]\n\n[^1]: 脚注的内容"
+      ].join("\n\n")
+    );
     const page = await app.open("commenter", `/${SPACE}/demo`);
     await browserExpect(page.locator(".rp-steps > h3")).toHaveCount(2, { timeout: 15_000 });
 
@@ -248,11 +311,20 @@ pandocsDescribe("Pandocs in a browser", () => {
     await browserExpect(page.getByText("乙标签的内容")).toBeVisible();
 
     await selectWords(page, "乙标签");
-    await page.getByRole("toolbar", { name: "选中文字的操作" }).getByRole("button", { name: "评论", exact: true }).click();
+    await page
+      .getByRole("toolbar", { name: "选中文字的操作" })
+      .getByRole("button", { name: "评论", exact: true })
+      .click();
     await page.getByPlaceholder("写下评论，@ 提及同事").fill("这里要确认");
     await page.locator(".pd-panel").getByRole("button", { name: "发送", exact: true }).click();
     await browserExpect(page.locator(".pd-card").getByText("这里要确认")).toBeVisible();
-    const highlighted = () => page.evaluate(() => ["pd-comment", "pd-comment-active"].flatMap(name => [...((CSS as any).highlights.get(name) ?? [])]).map((range: Range) => range.toString()).join("|"));
+    const highlighted = () =>
+      page.evaluate(() =>
+        ["pd-comment", "pd-comment-active"]
+          .flatMap(name => [...((CSS as any).highlights.get(name) ?? [])])
+          .map((range: Range) => range.toString())
+          .join("|")
+      );
     await expect.poll(highlighted).toBe("乙标签");
     await page.reload();
     await expect.poll(highlighted, { timeout: 15_000 }).toBe("乙标签");
@@ -262,7 +334,8 @@ pandocsDescribe("Pandocs in a browser", () => {
     await browserExpect(page.getByText("乙标签的内容")).toBeVisible();
 
     await page.locator(".rp-prompt__action-copy").click();
-    if (canReadClipboard) expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("读取日志，告诉我原因");
+    if (canReadClipboard)
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("读取日志，告诉我原因");
 
     await page.locator(".pd-hotspots__mark").click();
     await browserExpect(page.locator(".pd-hotspots__tip")).toContainText("从这里开始");
@@ -274,7 +347,13 @@ pandocsDescribe("Pandocs in a browser", () => {
     await page.keyboard.press("ArrowRight");
     await expect.poll(() => slider.getAttribute("aria-valuenow")).not.toBe(position);
 
-    const brokenImages = () => page.evaluate(() => [...document.querySelectorAll<HTMLImageElement>(".pd-hotspots img, .pd-compare img, .pd-figure img")].filter(image => !image.complete || image.naturalWidth === 0).length);
+    const brokenImages = () =>
+      page.evaluate(
+        () =>
+          [...document.querySelectorAll<HTMLImageElement>(".pd-hotspots img, .pd-compare img, .pd-figure img")].filter(
+            image => !image.complete || image.naturalWidth === 0
+          ).length
+      );
     await expect.poll(brokenImages).toBe(0);
     await browserExpect(page.locator(".pd-figure__caption")).toHaveText("图片的说明");
     await browserExpect(page.locator(".rp-toc-exclude")).toHaveText(/脚注/u);
@@ -285,14 +364,18 @@ pandocsDescribe("Pandocs in a browser", () => {
 
   it("marks a screenshot by clicking on it, and edits captions, tabs and footnotes in place", async () => {
     const picture = await app.upload("editor", SPACE, "screen.png", testPicture(148, 163, 184));
-    const id = await createPage("编辑演示", "demo-edit", [
-      "开头[^1]",
-      `\`\`\`hotspots src="${picture}"\n[]\n\`\`\``,
-      `![图](${picture})`,
-      "::::tabs\n\n:::tab[甲]\n\n内容\n\n:::\n\n::::",
-      "[^1]: 脚注的内容",
-      ""
-    ].join("\n\n"));
+    const id = await createPage(
+      "编辑演示",
+      "demo-edit",
+      [
+        "开头[^1]",
+        `\`\`\`hotspots src="${picture}"\n[]\n\`\`\``,
+        `![图](${picture})`,
+        "::::tabs\n\n:::tab[甲]\n\n内容\n\n:::\n\n::::",
+        "[^1]: 脚注的内容",
+        ""
+      ].join("\n\n")
+    );
     const page = await app.open("editor", `/${SPACE}/demo-edit?mode=edit`);
     await editorReady(page);
 
@@ -330,8 +413,21 @@ pandocsDescribe("Pandocs in a browser", () => {
   });
 
   it("fits a diagram's words inside their boxes, on the page and on a slide", async () => {
-    await createPage("流程图文字", "diagram-words", '## 第一节\n\n```mermaid\nflowchart TD\n  A["第一行<br/>第二行<br/>第三行"] --> B["项目<br/>一个团队的日常项目在这里写得比较长"]\n```\n');
-    const overflowing = (page: Page) => page.locator("svg foreignObject").evaluateAll(labels => labels.filter(label => label.firstElementChild!.getBoundingClientRect().height > label.getBoundingClientRect().height + 1).length);
+    await createPage(
+      "流程图文字",
+      "diagram-words",
+      '## 第一节\n\n```mermaid\nflowchart TD\n  A["第一行<br/>第二行<br/>第三行"] --> B["项目<br/>一个团队的日常项目在这里写得比较长"]\n```\n'
+    );
+    const overflowing = (page: Page) =>
+      page
+        .locator("svg foreignObject")
+        .evaluateAll(
+          labels =>
+            labels.filter(
+              label =>
+                label.firstElementChild!.getBoundingClientRect().height > label.getBoundingClientRect().height + 1
+            ).length
+        );
     const reading = await app.open("reader", `/${SPACE}/diagram-words`);
     await browserExpect(reading.locator("main svg foreignObject").first()).toBeVisible({ timeout: 20_000 });
     expect(await overflowing(reading)).toBe(0);
@@ -343,7 +439,11 @@ pandocsDescribe("Pandocs in a browser", () => {
   });
 
   it("enlarges a diagram on click, to zoom and move around, on the page and on a slide", async () => {
-    await createPage("放大流程图", "diagram-zoom", '## 第一节\n\n```mermaid\nflowchart LR\n  A["第一步"] --> B["第二步"] --> C["第三步"] --> D["第四步"] --> E["第五步"] --> F["第六步"] --> G["第七步"] --> H["第八步"]\n```\n');
+    await createPage(
+      "放大流程图",
+      "diagram-zoom",
+      '## 第一节\n\n```mermaid\nflowchart LR\n  A["第一步"] --> B["第二步"] --> C["第三步"] --> D["第四步"] --> E["第五步"] --> F["第六步"] --> G["第七步"] --> H["第八步"]\n```\n'
+    );
     const page = await app.open("reader", `/${SPACE}/diagram-zoom`);
     const diagram = page.locator("main .pd-diagram");
     await browserExpect(diagram.locator("svg")).toBeVisible({ timeout: 20_000 });
@@ -402,12 +502,16 @@ pandocsDescribe("Pandocs in a browser", () => {
   it("zooms ordinary images, but not the ones a block has its own use for", async () => {
     const picture = await app.upload("editor", SPACE, "zoom.png", testPicture(148, 163, 184));
     const other = await app.upload("editor", SPACE, "zoom-other.png", testPicture(14, 165, 233));
-    await createPage("图片放大", "image-zoom", [
-      `![普通图片](${picture})`,
-      `\`\`\`hotspots src="${picture}"\n[{"x":20,"y":30,"title":"入口"}]\n\`\`\``,
-      `::compare{before="${picture}" after="${other}"}`,
-      ""
-    ].join("\n\n"));
+    await createPage(
+      "图片放大",
+      "image-zoom",
+      [
+        `![普通图片](${picture})`,
+        `\`\`\`hotspots src="${picture}"\n[{"x":20,"y":30,"title":"入口"}]\n\`\`\``,
+        `::compare{before="${picture}" after="${other}"}`,
+        ""
+      ].join("\n\n")
+    );
     const page = await app.open("reader", `/${SPACE}/image-zoom`);
     await browserExpect(page.locator(".pd-compare img").first()).toBeVisible({ timeout: 20_000 });
     await page.waitForTimeout(400);
@@ -417,7 +521,10 @@ pandocsDescribe("Pandocs in a browser", () => {
     await page.waitForTimeout(300);
     await browserExpect(opened).toHaveCount(0);
 
-    await page.locator(".pd-compare img").first().click({ position: { x: 100, y: 100 } });
+    await page
+      .locator(".pd-compare img")
+      .first()
+      .click({ position: { x: 100, y: 100 } });
     await page.waitForTimeout(300);
     await browserExpect(opened).toHaveCount(0);
 
@@ -465,7 +572,11 @@ pandocsDescribe("Pandocs in a browser", () => {
     await clickButton(page, "退出编辑");
     await backToReading(page);
     await page.waitForTimeout(300);
-    expect(await page.evaluate(() => (window as unknown as { seen: string[] }).seen)).toEqual(["reading", "editing", "reading"]);
+    expect(await page.evaluate(() => (window as unknown as { seen: string[] }).seen)).toEqual([
+      "reading",
+      "editing",
+      "reading"
+    ]);
   });
 
   it("shows hostile titles and headings as text, and no script runs", async () => {
@@ -474,37 +585,60 @@ pandocsDescribe("Pandocs in a browser", () => {
     const page = await app.open("reader", `/${SPACE}/xss`);
     await browserExpect(page.locator("main h1")).toContainText(attack, { timeout: 15_000 });
     await page.waitForTimeout(500);
-    expect(await page.evaluate(() => ({ ran: (window as any).__xss, images: document.querySelectorAll('img[src="x"]').length }))).toEqual({ images: 0 });
+    expect(
+      await page.evaluate(() => ({
+        ran: (window as any).__xss,
+        images: document.querySelectorAll('img[src="x"]').length
+      }))
+    ).toEqual({ images: 0 });
 
     const map = await app.open("reader", `/${SPACE}/xss?view=mindmap`);
-    await browserExpect(map.locator(".markmap-foreign").filter({ hasText: attack }).first()).toBeVisible({ timeout: 15_000 });
+    await browserExpect(map.locator(".markmap-foreign").filter({ hasText: attack }).first()).toBeVisible({
+      timeout: 15_000
+    });
     await map.waitForTimeout(500);
-    expect(await map.evaluate(() => ({ ran: (window as any).__xss, images: document.querySelectorAll('img[src="x"]').length }))).toEqual({ images: 0 });
+    expect(
+      await map.evaluate(() => ({
+        ran: (window as any).__xss,
+        images: document.querySelectorAll('img[src="x"]').length
+      }))
+    ).toEqual({ images: 0 });
 
     const slides = await app.open("reader", `/${SPACE}/xss?view=slides`);
     await browserExpect(slides.locator(".reveal .present h1")).toContainText(attack, { timeout: 15_000 });
     await slides.waitForTimeout(500);
-    expect(await slides.evaluate(() => ({ ran: (window as any).__xss, images: document.querySelectorAll('img[src="x"]').length }))).toEqual({ images: 0 });
+    expect(
+      await slides.evaluate(() => ({
+        ran: (window as any).__xss,
+        images: document.querySelectorAll('img[src="x"]').length
+      }))
+    ).toEqual({ images: 0 });
   });
 
   it("presents a page as slides and as a mind map, and comes back to reading", async () => {
     const picture = await app.upload("editor", SPACE, "deck.png", testPicture(148, 163, 184));
-    await createPage("讲给大家听", "deck", [
-      "开场白",
-      "## 第一节",
-      "第一节的内容",
-      "```mermaid\nflowchart LR\n  A --> B\n```",
-      "---",
-      "分隔线后面的内容[^1]",
-      "## 第二节",
-      "第二节的内容",
-      "```mindmap\n# 中心\n\n- 第一个分支\n- 第二个分支\n```",
-      `\`\`\`hotspots src="${picture}"\n[{"x":20,"y":30,"title":"入口","text":"从这里开始"}]\n\`\`\``,
-      "[^1]: 脚注的内容",
-      ""
-    ].join("\n\n"));
+    await createPage(
+      "讲给大家听",
+      "deck",
+      [
+        "开场白",
+        "## 第一节",
+        "第一节的内容",
+        "```mermaid\nflowchart LR\n  A --> B\n```",
+        "---",
+        "分隔线后面的内容[^1]",
+        "## 第二节",
+        "第二节的内容",
+        "```mindmap\n# 中心\n\n- 第一个分支\n- 第二个分支\n```",
+        `\`\`\`hotspots src="${picture}"\n[{"x":20,"y":30,"title":"入口","text":"从这里开始"}]\n\`\`\``,
+        "[^1]: 脚注的内容",
+        ""
+      ].join("\n\n")
+    );
     const page = await app.open("reader", `/${SPACE}/deck`);
-    await browserExpect(page.locator(".pd-mindmap .markmap-foreign").filter({ hasText: "第二个分支" })).toBeVisible({ timeout: 20_000 });
+    await browserExpect(page.locator(".pd-mindmap .markmap-foreign").filter({ hasText: "第二个分支" })).toBeVisible({
+      timeout: 20_000
+    });
 
     await page.getByRole("button", { name: "此页更多操作" }).click();
     await page.getByRole("menuitem", { name: "演示" }).click();
@@ -539,9 +673,14 @@ pandocsDescribe("Pandocs in a browser", () => {
 
   it("leaves comment highlights off paper", async () => {
     const id = await createPage("打印页", "print", "要打印的内容\n");
-    await app.api("commenter", "POST", `documents/${id}/threads`, { anchor: { kind: "quote", quote: "打印" }, body: "看这里" });
+    await app.api("commenter", "POST", `documents/${id}/threads`, {
+      anchor: { kind: "quote", quote: "打印" },
+      body: "看这里"
+    });
     const page = await app.open("reader", `/${SPACE}/print`);
-    await expect.poll(() => page.evaluate(() => (CSS as any).highlights.get("pd-comment")?.size ?? 0), { timeout: 15_000 }).toBe(1);
+    await expect
+      .poll(() => page.evaluate(() => (CSS as any).highlights.get("pd-comment")?.size ?? 0), { timeout: 15_000 })
+      .toBe(1);
     const shade = () => page.evaluate(() => getComputedStyle(document.body, "::highlight(pd-comment)").backgroundColor);
     expect(await shade()).not.toBe("rgba(0, 0, 0, 0)");
     await page.emulateMedia({ media: "print" });
@@ -581,7 +720,9 @@ pandocsDescribe("Pandocs in a browser", () => {
       { name: "第一个.md", mimeType: "text/markdown", buffer: Buffer.from("第一个文件\n") },
       { name: "第二个.md", mimeType: "text/markdown", buffer: Buffer.from("第二个文件\n") }
     ]);
-    await browserExpect(page.getByLabel("压缩包导入结果")).toContainText(/压缩包导入完成：新建 \d+ 页/u, { timeout: 30_000 });
+    await browserExpect(page.getByLabel("压缩包导入结果")).toContainText(/压缩包导入完成：新建 \d+ 页/u, {
+      timeout: 30_000
+    });
     await browserExpect(page.locator(".pd-notice-row")).toHaveCount(2, { timeout: 30_000 });
     const restored = (await app.api("editor", "GET", "spaces/restored/tree")).data as { title: string }[];
     expect(restored.map(node => node.title)).toContain("旧标题".replace("旧", "新"));
@@ -598,14 +739,26 @@ pandocsDescribe("Pandocs in a browser", () => {
   it("gives a new Chinese page a short address and offers it for old ones, and old links keep working", async () => {
     await app.api("admin", "POST", "spaces", { slug: "addresses", name: "地址", defaultRole: "viewer" });
     await app.api("admin", "PUT", "spaces/addresses/members", { subject: `user:${PEOPLE.editor.id}`, role: "editor" });
-    await app.api("editor", "POST", "spaces/addresses/documents", { title: "旧页", slug: "旧地址", markdown: "旧页内容\n" });
+    await app.api("editor", "POST", "spaces/addresses/documents", {
+      title: "旧页",
+      slug: "旧地址",
+      markdown: "旧页内容\n"
+    });
     const page = await app.open("editor", "/_/spaces/addresses/pages");
     await clickButton(page, "新建页面");
     await page.getByRole("dialog").getByLabel("标题").fill("新的中文页面");
     await page.getByRole("dialog").getByRole("button", { name: "新建" }).click();
     // It opens in the editor, which has to finish before going anywhere else.
     await page.waitForURL(/\?mode=edit$/u);
-    await expect.poll(async () => ((await app.api("editor", "GET", "spaces/addresses/tree")).data as { title: string; path: string }[]).find(node => node.title === "新的中文页面")?.path, { timeout: 15_000 }).toMatch(/^[0-9a-f]{8}$/u);
+    await expect
+      .poll(
+        async () =>
+          ((await app.api("editor", "GET", "spaces/addresses/tree")).data as { title: string; path: string }[]).find(
+            node => node.title === "新的中文页面"
+          )?.path,
+        { timeout: 15_000 }
+      )
+      .toMatch(/^[0-9a-f]{8}$/u);
 
     await page.goto(`${app.origin}/_/spaces/addresses/pages`);
     await clickButton(page, "换成短地址");
@@ -614,7 +767,15 @@ pandocsDescribe("Pandocs in a browser", () => {
     const reloaded = page.waitForEvent("load");
     await page.getByRole("alertdialog").getByRole("button", { name: "更换" }).click();
     await reloaded;
-    await expect.poll(async () => ((await app.api("editor", "GET", "spaces/addresses/tree")).data as { title: string; path: string }[]).find(node => node.title === "旧页")?.path, { timeout: 15_000 }).toMatch(/^[0-9a-f]{8}$/u);
+    await expect
+      .poll(
+        async () =>
+          ((await app.api("editor", "GET", "spaces/addresses/tree")).data as { title: string; path: string }[]).find(
+            node => node.title === "旧页"
+          )?.path,
+        { timeout: 15_000 }
+      )
+      .toMatch(/^[0-9a-f]{8}$/u);
     await page.goto(`${app.origin}/addresses/${encodeURIComponent("旧地址")}`);
     await browserExpect(page.getByText("旧页内容")).toBeVisible({ timeout: 15_000 });
   });
@@ -636,22 +797,27 @@ pandocsDescribe("Pandocs in a browser", () => {
   });
 
   // WebKit does not ask again for a chunk that has failed, even after a reload. A release renames what it changes, which this cannot imitate.
-  it.skipIf(engineName === "webkit")("reloads once to pick up a release that took away code an open page still needs", async () => {
-    await createPage("新版本", "new-release", "新版本\n");
-    const page = await app.open("editor", `/${SPACE}/new-release`);
-    await page.route(/\/assets\/editor-page-[^/]+\.js$/u, route => route.fulfill({ status: 404 }), { times: 1 });
-    const reloaded = page.waitForEvent("load");
-    await page.getByRole("link", { name: "编辑", exact: true }).first().click();
-    await reloaded;
-    await editorReady(page);
-  });
+  it.skipIf(engineName === "webkit")(
+    "reloads once to pick up a release that took away code an open page still needs",
+    async () => {
+      await createPage("新版本", "new-release", "新版本\n");
+      const page = await app.open("editor", `/${SPACE}/new-release`);
+      await page.route(/\/assets\/editor-page-[^/]+\.js$/u, route => route.fulfill({ status: 404 }), { times: 1 });
+      const reloaded = page.waitForEvent("load");
+      await page.getByRole("link", { name: "编辑", exact: true }).first().click();
+      await reloaded;
+      await editorReady(page);
+    }
+  );
 
   it("does not keep reloading when that code cannot be had", async () => {
     await createPage("还是缺", "still-missing", "还是缺\n");
     const page = await app.open("editor", `/${SPACE}/still-missing`);
     await page.route(/\/assets\/editor-page-[^/]+\.js$/u, route => route.fulfill({ status: 404 }));
     let loads = 0;
-    page.on("load", () => { loads += 1; });
+    page.on("load", () => {
+      loads += 1;
+    });
     await page.getByRole("link", { name: "编辑", exact: true }).first().click();
     await expect.poll(() => loads, { timeout: 15_000 }).toBe(1);
     await page.waitForTimeout(3000);
@@ -675,7 +841,9 @@ pandocsDescribe("Pandocs in a browser", () => {
     await page.keyboard.press("ControlOrMeta+k");
     const search = page.locator(".rp-search-panel__input");
     await search.fill("落款");
-    await browserExpect(page.locator(".rp-suggest-item__title, .rp-suggest-item__header").filter({ hasText: "输入法目标" }).first()).toBeVisible({ timeout: 15_000 });
+    await browserExpect(
+      page.locator(".rp-suggest-item__title, .rp-suggest-item__header").filter({ hasText: "输入法目标" }).first()
+    ).toBeVisible({ timeout: 15_000 });
     await enterForWord(search);
     await page.waitForTimeout(1000);
     expect(new URL(page.url()).pathname).toBe(`/${SPACE}/input-method`);
@@ -688,16 +856,24 @@ pandocsDescribe("Pandocs in a browser", () => {
     const page = await app.open("editor", "/");
     await browserExpect(page.locator(".rp-nav__title__logo-image").first()).toHaveAttribute("src", /\/logo\.svg$/u);
     await browserExpect(page.getByRole("link", { name: "开始阅读" })).toBeVisible({ timeout: 15_000 });
-    await browserExpect(page.getByRole("region", { name: "最近更新" }).getByRole("link", { name: "最近改过" })).toBeVisible();
+    await browserExpect(
+      page.getByRole("region", { name: "最近更新" }).getByRole("link", { name: "最近改过" })
+    ).toBeVisible();
   });
 
   it("says which space a search result came from", async () => {
-    await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "搜索目标页", slug: "search-target", markdown: "搜索目标的正文\n" });
+    await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+      title: "搜索目标页",
+      slug: "search-target",
+      markdown: "搜索目标的正文\n"
+    });
     const page = await app.open("reader", `/${SPACE}/select`);
     await browserExpect(page.getByText("第二段普通说明")).toBeVisible({ timeout: 15_000 });
     await page.keyboard.press("ControlOrMeta+k");
     await page.locator(".rp-search-panel input, [class*=search-panel] input").first().fill("搜索目标");
-    await browserExpect(page.locator(".rp-suggest-item__header, .rp-suggest-item__title").filter({ hasText: "端到端" }).first()).toBeVisible({ timeout: 15_000 });
+    await browserExpect(
+      page.locator(".rp-suggest-item__header, .rp-suggest-item__title").filter({ hasText: "端到端" }).first()
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   it("reminds people of a draft on the page and lists it, and fills terms from a table", async () => {
@@ -715,7 +891,9 @@ pandocsDescribe("Pandocs in a browser", () => {
     const admin = await app.open("admin", `/_/spaces/${SPACE}/glossary`);
     await choose(admin.getByLabel("从页面的表格导入"), "术语来源");
     await clickButton(admin, "导入");
-    await browserExpect(admin.locator("input").and(admin.locator('[value="书脊"]'))).toHaveCount(1, { timeout: 15_000 });
+    await browserExpect(admin.locator("input").and(admin.locator('[value="书脊"]'))).toHaveCount(1, {
+      timeout: 15_000
+    });
   });
 
   it("empties the trash", async () => {
@@ -728,9 +906,20 @@ pandocsDescribe("Pandocs in a browser", () => {
   });
 
   it("deletes a translation from its page", async () => {
-    await app.api("admin", "PATCH", "site", { defaultLang: "zh", locales: [{ lang: "zh", label: "简体中文" }, { lang: "en", label: "English" }] });
+    await app.api("admin", "PATCH", "site", {
+      defaultLang: "zh",
+      locales: [
+        { lang: "zh", label: "简体中文" },
+        { lang: "en", label: "English" }
+      ]
+    });
     const id = await createPage("有译文的页", "translated", "原文内容\n");
-    await app.api("editor", "PUT", `documents/${id}/translations/en`, { title: "Translated", markdown: "English body\n", sourceRevision: 1, machine: false });
+    await app.api("editor", "PUT", `documents/${id}/translations/en`, {
+      title: "Translated",
+      markdown: "English body\n",
+      sourceRevision: 1,
+      machine: false
+    });
     const page = await app.open("editor", `/en/${SPACE}/translated`);
     await browserExpect(page.getByText("English body")).toBeVisible({ timeout: 15_000 });
     // Pages under /en are read in English, whatever this browser asks for elsewhere.

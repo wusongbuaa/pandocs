@@ -46,7 +46,11 @@ pandocsDescribe("API references", () => {
 
   it("gives a page that is only a reference the whole width, with its own navigation", async () => {
     const src = await app.upload("editor", SPACE, "parcels.yaml", Buffer.from(SPEC));
-    await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "Parcel API", slug: "parcels", markdown: `::openapi{src="${src}"}\n` });
+    await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+      title: "Parcel API",
+      slug: "parcels",
+      markdown: `::openapi{src="${src}"}\n`
+    });
     const page = watched(await app.open("reader", `/${SPACE}/parcels`));
     const reference = page.locator(".pd-api-reference");
     await browserExpect(reference.getByText("Send a parcel").first()).toBeVisible({ timeout: 30_000 });
@@ -57,25 +61,39 @@ pandocsDescribe("API references", () => {
     expect(width).toBeGreaterThan(1000);
     await browserExpect(reference.getByRole("button", { name: /Test Request/u })).toHaveCount(0);
     // Its panel lines up with the page's title, and its list stays in view as the page goes down.
-    expect(Math.round(x)).toBe(Math.round(await page.locator("h1.rp-toc-include").evaluate(title => title.getBoundingClientRect().left)));
+    expect(Math.round(x)).toBe(
+      Math.round(await page.locator("h1.rp-toc-include").evaluate(title => title.getBoundingClientRect().left))
+    );
     await page.evaluate(() => window.scrollBy(0, 600));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
     const listTop = await reference.evaluate(element => {
-      const list = [...element.querySelectorAll("*")].find(item => getComputedStyle(item).position === "sticky" && item.getBoundingClientRect().height > 200);
+      const list = [...element.querySelectorAll("*")].find(
+        item => getComputedStyle(item).position === "sticky" && item.getBoundingClientRect().height > 200
+      );
       return list?.getBoundingClientRect().top ?? Number.NaN;
     });
     expect(listTop).toBeGreaterThanOrEqual(56);
     expect(listTop).toBeLessThan(120);
     // Someone who can label the page has a row of labels above the panel, and the panel keeps its distance from it.
     const asEditor = watched(await app.open("editor", `/${SPACE}/parcels`));
-    await browserExpect(asEditor.locator(".pd-api-reference").getByText("Send a parcel").first()).toBeVisible({ timeout: 30_000 });
-    const gap = await asEditor.evaluate(() => document.querySelector(".pd-api-reference")!.getBoundingClientRect().top - document.querySelector(".pd-labels")!.getBoundingClientRect().bottom);
+    await browserExpect(asEditor.locator(".pd-api-reference").getByText("Send a parcel").first()).toBeVisible({
+      timeout: 30_000
+    });
+    const gap = await asEditor.evaluate(
+      () =>
+        document.querySelector(".pd-api-reference")!.getBoundingClientRect().top -
+        document.querySelector(".pd-labels")!.getBoundingClientRect().bottom
+    );
     expect(gap).toBeGreaterThanOrEqual(16);
   }, 90_000);
 
   it("keeps to the width of the text when it is one part of a page", async () => {
     const src = await app.upload("editor", SPACE, "parcels.yaml", Buffer.from(SPEC));
-    await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "With words", slug: "words", markdown: `Before the reference.\n\n::openapi{src="${src}"}\n\nAfter the reference.\n` });
+    await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+      title: "With words",
+      slug: "words",
+      markdown: `Before the reference.\n\n::openapi{src="${src}"}\n\nAfter the reference.\n`
+    });
     const page = watched(await app.open("reader", `/${SPACE}/words`));
     const reference = page.locator(".pd-api-reference");
     await browserExpect(reference.getByText("Send a parcel").first()).toBeVisible({ timeout: 30_000 });
@@ -86,13 +104,19 @@ pandocsDescribe("API references", () => {
 
   it("offers the document itself to whoever reads a page without running it", async () => {
     const page = await app.open("reader", `/${SPACE}/parcels`);
-    await browserExpect(page.locator(".pd-api-reference").getByText("Send a parcel").first()).toBeVisible({ timeout: 30_000 });
+    await browserExpect(page.locator(".pd-api-reference").getByText("Send a parcel").first()).toBeVisible({
+      timeout: 30_000
+    });
     const served = await page.request.get(`${app.origin}/${SPACE}/parcels`, { headers: { accept: "text/html" } });
     expect(await served.text()).toContain("OpenAPI");
   }, 60_000);
 
   it("leaves the rest of the site looking as it did, after moving on from one", async () => {
-    await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "Plain page", slug: "plain", markdown: "## A heading\n\nSome words with a [link](https://example.com).\n" });
+    await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+      title: "Plain page",
+      slug: "plain",
+      markdown: "## A heading\n\nSome words with a [link](https://example.com).\n"
+    });
     const measure = async (target: Page) => {
       await browserExpect(target.getByRole("heading", { name: "A heading" })).toBeVisible({ timeout: 15_000 });
       return target.evaluate(() => {
@@ -100,13 +124,20 @@ pandocsDescribe("API references", () => {
           const style = getComputedStyle(document.querySelector(selector)!);
           return names.map(name => style.getPropertyValue(name)).join(" ");
         };
-        return [look("body", "font-family", "font-size", "line-height", "color", "background-color"), look("main .rp-doc h2", "font-size", "font-weight", "margin-top"), look("main .rp-doc a", "color"), look("main .rp-doc p", "font-size", "line-height", "margin-bottom")];
+        return [
+          look("body", "font-family", "font-size", "line-height", "color", "background-color"),
+          look("main .rp-doc h2", "font-size", "font-weight", "margin-top"),
+          look("main .rp-doc a", "color"),
+          look("main .rp-doc p", "font-size", "line-height", "margin-bottom")
+        ];
       });
     };
     const fresh = await app.open("reader", `/${SPACE}/plain`);
     const before = await measure(fresh);
     const page = await app.open("reader", `/${SPACE}/parcels`);
-    await browserExpect(page.locator(".pd-api-reference").getByText("Send a parcel").first()).toBeVisible({ timeout: 30_000 });
+    await browserExpect(page.locator(".pd-api-reference").getByText("Send a parcel").first()).toBeVisible({
+      timeout: 30_000
+    });
     await page.evaluate(path => {
       history.pushState(null, "", path);
       dispatchEvent(new PopStateEvent("popstate"));
@@ -122,7 +153,11 @@ pandocsDescribe("API references", () => {
   }, 90_000);
 
   it("offers to add one in the editor, by uploading the document", async () => {
-    await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "Being edited", slug: "edited", markdown: "Words.\n" });
+    await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+      title: "Being edited",
+      slug: "edited",
+      markdown: "Words.\n"
+    });
     const page = await app.open("editor", `/${SPACE}/edited?mode=edit`);
     const editor = page.locator(".ProseMirror");
     await browserExpect(editor).toBeVisible({ timeout: 15_000 });

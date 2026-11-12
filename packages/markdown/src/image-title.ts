@@ -18,5 +18,8 @@ export function parseImageTitle(raw: string): ImageLayout {
 }
 
 export function formatImageTitle({ title, align, width }: ImageLayout): string | null {
-  return [title, ...(align ? [`align=${align}`] : []), ...(width ? [`width=${width}`] : [])].filter(Boolean).join(" ") || null;
+  return (
+    [title, ...(align ? [`align=${align}`] : []), ...(width ? [`width=${width}`] : [])].filter(Boolean).join(" ") ||
+    null
+  );
 }

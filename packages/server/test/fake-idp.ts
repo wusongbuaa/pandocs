@@ -18,13 +18,32 @@ export async function startFakeIdp() {
   const codes = new Map<string, { nonce?: string; challenge: string; profile: FakeProfile }>();
   const accessTokens = new Map<string, FakeProfile>();
   let issuer = "";
-  const state = { profile: { sub: "person-1", email: "person@example.test", email_verified: true, name: "员工一", groups: ["staff"] } as FakeProfile };
+  const state = {
+    profile: {
+      sub: "person-1",
+      email: "person@example.test",
+      email_verified: true,
+      name: "员工一",
+      groups: ["staff"]
+    } as FakeProfile
+  };
 
   const respond = async (request: IncomingMessage, response: ServerResponse) => {
     const url = new URL(request.url!, issuer);
-    const send = (status: number, body: unknown) => response.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
+    const send = (status: number, body: unknown) =>
+      response.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
     if (url.pathname === "/.well-known/openid-configuration") {
-      send(200, { issuer, authorization_endpoint: `${issuer}/authorize`, token_endpoint: `${issuer}/token`, userinfo_endpoint: `${issuer}/userinfo`, jwks_uri: `${issuer}/jwks`, response_types_supported: ["code"], subject_types_supported: ["public"], id_token_signing_alg_values_supported: ["RS256"], code_challenge_methods_supported: ["S256"] });
+      send(200, {
+        issuer,
+        authorization_endpoint: `${issuer}/authorize`,
+        token_endpoint: `${issuer}/token`,
+        userinfo_endpoint: `${issuer}/userinfo`,
+        jwks_uri: `${issuer}/jwks`,
+        response_types_supported: ["code"],
+        subject_types_supported: ["public"],
+        id_token_signing_alg_values_supported: ["RS256"],
+        code_challenge_methods_supported: ["S256"]
+      });
       return;
     }
     if (url.pathname === "/jwks") {
@@ -33,7 +52,11 @@ export async function startFakeIdp() {
     }
     if (url.pathname === "/authorize") {
       const code = randomUUID();
-      codes.set(code, { nonce: url.searchParams.get("nonce") ?? undefined!, challenge: url.searchParams.get("code_challenge")!, profile: state.profile });
+      codes.set(code, {
+        nonce: url.searchParams.get("nonce") ?? undefined!,
+        challenge: url.searchParams.get("code_challenge")!,
+        profile: state.profile
+      });
       const target = new URL(url.searchParams.get("redirect_uri")!);
       target.searchParams.set("code", code);
       target.searchParams.set("state", url.searchParams.get("state")!);
@@ -55,7 +78,13 @@ export async function startFakeIdp() {
       const accessToken = randomUUID();
       accessTokens.set(accessToken, entry.profile);
       const idToken = await new SignJWT({ ...(entry.nonce ? { nonce: entry.nonce } : {}) })
-        .setProtectedHeader({ alg: "RS256", kid: "test" }).setIssuer(issuer).setAudience("pandocs").setSubject(entry.profile.sub).setIssuedAt().setExpirationTime("5m").sign(privateKey);
+        .setProtectedHeader({ alg: "RS256", kid: "test" })
+        .setIssuer(issuer)
+        .setAudience("pandocs")
+        .setSubject(entry.profile.sub)
+        .setIssuedAt()
+        .setExpirationTime("5m")
+        .sign(privateKey);
       send(200, { access_token: accessToken, token_type: "Bearer", expires_in: 300, id_token: idToken });
       return;
     }
@@ -65,7 +94,12 @@ export async function startFakeIdp() {
         send(401, { error: "invalid_token" });
         return;
       }
-      send(200, url.pathname === "/userinfo" ? profile : { id: 4242, email: profile.email, name: profile.name, groups: profile.groups });
+      send(
+        200,
+        url.pathname === "/userinfo"
+          ? profile
+          : { id: 4242, email: profile.email, name: profile.name, groups: profile.groups }
+      );
       return;
     }
     send(404, {});

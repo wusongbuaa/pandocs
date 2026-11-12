@@ -12,7 +12,12 @@ export interface ReaderContextValue {
   readonly onCommentBlock?: ((ref: string) => void) | undefined;
 }
 
-const ReaderContext = React.createContext<ReaderContextValue>({ space: { slug: "", name: "" }, currentPath: "", routePrefix: "", children: [] });
+const ReaderContext = React.createContext<ReaderContextValue>({
+  space: { slug: "", name: "" },
+  currentPath: "",
+  routePrefix: "",
+  children: []
+});
 
 export const ReaderContextProvider = ReaderContext.Provider;
 export const useReader = () => React.useContext(ReaderContext);

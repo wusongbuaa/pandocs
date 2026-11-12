@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { analyzeDocument, MOST_TREE_DEPTH, nestsTooDeeply, parseDocument, topLevelBlocks, treeDepth, visibleText } from "../src/index.js";
+import {
+  analyzeDocument,
+  MOST_TREE_DEPTH,
+  nestsTooDeeply,
+  parseDocument,
+  topLevelBlocks,
+  treeDepth,
+  visibleText
+} from "../src/index.js";
 
-const repeat = (count: number, make: (at: number) => string) => Array.from({ length: count }, (_, at) => make(at)).join("");
+const repeat = (count: number, make: (at: number) => string) =>
+  Array.from({ length: count }, (_, at) => make(at)).join("");
 
 describe("a page nested too deeply", () => {
   const deep: Record<string, string> = {

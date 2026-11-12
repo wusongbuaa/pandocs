@@ -41,7 +41,11 @@ export function tarEntry(path: string, content: Uint8Array, mtime: number): Uint
     const pax = paxRecord("path", path);
     parts.push(header(encoder.encode("PaxHeader"), pax.length, mtime, "x"), pax, padding(pax.length));
   }
-  parts.push(header(plain ? name : encoder.encode("long-name"), content.length, mtime, "0"), content, padding(content.length));
+  parts.push(
+    header(plain ? name : encoder.encode("long-name"), content.length, mtime, "0"),
+    content,
+    padding(content.length)
+  );
   return parts;
 }
 

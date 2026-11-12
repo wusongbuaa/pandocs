@@ -10,7 +10,10 @@ const app = join(here, "..");
 const work = join(here, ".work");
 const GOLDEN_PORT = 4173;
 const APP_PORT = 4174;
-const PAGES = [["elements", "元素样例"], ["second", "第二页"]];
+const PAGES = [
+  ["elements", "元素样例"],
+  ["second", "第二页"]
+];
 const WIDTHS = [1440, 1024, 390];
 const THEMES = ["light", "dark"];
 const MAX_DIFF_PERCENT = 0.2;
@@ -24,14 +27,16 @@ function prepareGolden() {
   const root = join(work, "golden");
   mkdirSync(join(root, "docs/parity"), { recursive: true });
   if (!existsSync(join(root, "node_modules/@rspress/core"))) {
-    writeFileSync(join(root, "package.json"), "{\"private\":true,\"type\":\"module\"}\n");
+    writeFileSync(join(root, "package.json"), '{"private":true,"type":"module"}\n');
     run("npm", ["install", ...npm, "@rspress/core@2.1.0", "rspress-plugin-mermaid@2.0.0"], root);
   }
   for (const [name, title] of PAGES) {
     const body = readFileSync(join(here, "fixtures", `${name}.md`), "utf8");
     writeFileSync(join(root, "docs/parity", `${name}.md`), `# ${title}\n\n${body}`);
   }
-  writeFileSync(join(root, "rspress.config.ts"), `
+  writeFileSync(
+    join(root, "rspress.config.ts"),
+    `
 import * as path from "node:path";
 import { defineConfig } from "@rspress/core";
 import pluginMermaid from "rspress-plugin-mermaid";
@@ -58,12 +63,21 @@ export default defineConfig({
     outlineTitle: "目录", prevPageText: "上一页", nextPageText: "下一页", searchPlaceholderText: "搜索", editLinkText: "编辑此页面", lastUpdatedText: "最后更新于"
   }
 });
-`);
+`
+  );
   if (!existsSync(join(root, ".git"))) {
     run("git", ["init", "-q", "."], root);
   }
   run("git", ["add", "-A", "docs"], root);
-  try { run("git", ["-c", "user.name=parity", "-c", "user.email=parity@example.invalid", "commit", "-qm", "parity", "--allow-empty"], root); } catch { /* nothing to commit */ }
+  try {
+    run(
+      "git",
+      ["-c", "user.name=parity", "-c", "user.email=parity@example.invalid", "commit", "-qm", "parity", "--allow-empty"],
+      root
+    );
+  } catch {
+    /* nothing to commit */
+  }
   run("npx", ["rspress", "build"], root);
   return join(root, "out");
 }
@@ -92,7 +106,7 @@ async function main() {
   const toolRoot = join(work, "tools");
   if (!existsSync(join(toolRoot, "node_modules/pixelmatch"))) {
     mkdirSync(toolRoot, { recursive: true });
-    writeFileSync(join(toolRoot, "package.json"), "{\"private\":true,\"type\":\"module\"}\n");
+    writeFileSync(join(toolRoot, "package.json"), '{"private":true,"type":"module"}\n');
     run("npm", ["install", ...npm, "pixelmatch@7", "pngjs@7"], toolRoot);
   }
   const require = createRequire(join(toolRoot, "package.json"));
@@ -113,7 +127,12 @@ async function main() {
   try {
     for (const width of WIDTHS) {
       for (const theme of THEMES) {
-        const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1, reducedMotion: "reduce", locale: "zh-CN" });
+        const context = await browser.newContext({
+          viewport: { width, height: 900 },
+          deviceScaleFactor: 1,
+          reducedMotion: "reduce",
+          locale: "zh-CN"
+        });
         await context.addInitScript(value => localStorage.setItem("rspress-theme-appearance", value), theme);
         const page = await context.newPage();
         for (const [name] of PAGES) {
@@ -130,7 +149,11 @@ async function main() {
           const b = await capture(APP_PORT, "app");
           const w = Math.min(a.width, b.width);
           const h = Math.min(a.height, b.height);
-          const crop = source => { const out = new PNG({ width: w, height: h }); PNG.bitblt(source, out, 0, 0, w, h, 0, 0); return out; };
+          const crop = source => {
+            const out = new PNG({ width: w, height: h });
+            PNG.bitblt(source, out, 0, 0, w, h, 0, 0);
+            return out;
+          };
           const diff = new PNG({ width: w, height: h });
           const count = pixelmatch(crop(a).data, crop(b).data, diff.data, w, h, { threshold: 0.1 });
           writeFileSync(join(shots, `${name}-${width}-${theme}-diff.png`), PNG.sync.write(diff));
@@ -138,7 +161,9 @@ async function main() {
           const sameSize = a.width === b.width && a.height === b.height;
           const ok = sameSize && percent <= MAX_DIFF_PERCENT;
           failed ||= !ok;
-          console.log(`${ok ? "ok  " : "FAIL"} ${name} ${width} ${theme} size ${a.width}x${a.height}/${b.width}x${b.height} diff ${count}px ${percent.toFixed(4)}%`);
+          console.log(
+            `${ok ? "ok  " : "FAIL"} ${name} ${width} ${theme} size ${a.width}x${a.height}/${b.width}x${b.height} diff ${count}px ${percent.toFixed(4)}%`
+          );
         }
         await context.close();
       }

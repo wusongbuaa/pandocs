@@ -22,9 +22,28 @@ import { createTwoFilesPatch } from "diff";
 import { z } from "zod";
 import { atLeast, canChangeSite, effectiveRole, spaceRoleOf, subjectsOf } from "../domain/access.js";
 import { PandocsError, forbidden, invalid, notFound, revisionConflict } from "../domain/errors.js";
-import type { DocumentRecord, MemberRecord, Principal, RevisionRecord, Role, SpaceDefaultRole, SpaceRecord } from "../domain/types.js";
+import type {
+  DocumentRecord,
+  MemberRecord,
+  Principal,
+  RevisionRecord,
+  Role,
+  SpaceDefaultRole,
+  SpaceRecord
+} from "../domain/types.js";
 import type { Queryable } from "../infrastructure/db.js";
-import { assertDirectWrites, audit, documentMembers, mapDocument, nameMembers, requireDocument, requireSpace, spaceMembers, type AppContext, type NamedMember } from "./context.js";
+import {
+  assertDirectWrites,
+  audit,
+  documentMembers,
+  mapDocument,
+  nameMembers,
+  requireDocument,
+  requireSpace,
+  spaceMembers,
+  type AppContext,
+  type NamedMember
+} from "./context.js";
 import { tellFollowers } from "./subscriptions.js";
 import { loadRevision, mapRevision, metaOf, type RevisionMeta } from "./revisions.js";
 import { relocateOpenThreads } from "./threads.js";
@@ -105,7 +124,12 @@ export interface SearchIndexEntry {
   readonly id: number;
   readonly title: string;
   readonly routePath: string;
-  readonly toc: readonly { readonly id: string; readonly text: string; readonly depth: number; readonly charIndex: number }[];
+  readonly toc: readonly {
+    readonly id: string;
+    readonly text: string;
+    readonly depth: number;
+    readonly charIndex: number;
+  }[];
   readonly content: string;
   readonly frontmatter: Readonly<Record<string, never>>;
   readonly lang: string;
@@ -126,14 +150,32 @@ const RESERVED_NAME = /^(?:con|prn|aux|nul|com\d|lpt\d)(?:\.|$)/iu;
  */
 /** A percent sign or a hash in an address reads as an escape or as where in the page to go, and `.html` is dropped by the site. */
 const NOT_AN_ADDRESS = /[%#]|\.html$/iu;
-export const validSlug = (slug: string) => slug.length > 0 && slug.length <= 120 && Buffer.byteLength(slug, "utf8") <= 240
-  && !UNPORTABLE_NAME.test(slug) && !slug.startsWith(".") && !slug.endsWith(".") && !/\.md$/iu.test(slug) && !RESERVED_NAME.test(slug) && !NOT_AN_ADDRESS.test(slug);
-export const slugRule = () => t("A path segment cannot contain slashes, whitespace or < > : \" | ? * % #, start or end with a dot, end in .md or .html, or be a name systems reserve such as CON or NUL. Only a space's front page is called index.");
+export const validSlug = (slug: string) =>
+  slug.length > 0 &&
+  slug.length <= 120 &&
+  Buffer.byteLength(slug, "utf8") <= 240 &&
+  !UNPORTABLE_NAME.test(slug) &&
+  !slug.startsWith(".") &&
+  !slug.endsWith(".") &&
+  !/\.md$/iu.test(slug) &&
+  !RESERVED_NAME.test(slug) &&
+  !NOT_AN_ADDRESS.test(slug);
+export const slugRule = () =>
+  t(
+    "A path segment cannot contain slashes, whitespace or < > : \" | ? * % #, start or end with a dot, end in .md or .html, or be a name systems reserve such as CON or NUL. Only a space's front page is called index."
+  );
 /** The site opens `a/index` as `a`, and `Index` as the front page, so only the front page itself can be called that. */
-export const reservedForFrontPage = (slug: string, parentPath: string | undefined) => slug.toLowerCase() === HOME_DOCUMENT_PATH && (Boolean(parentPath) || slug !== HOME_DOCUMENT_PATH);
+export const reservedForFrontPage = (slug: string, parentPath: string | undefined) =>
+  slug.toLowerCase() === HOME_DOCUMENT_PATH && (Boolean(parentPath) || slug !== HOME_DOCUMENT_PATH);
 
 export function slugFromTitle(title: string): string {
-  const slug = title.trim().toLowerCase().replace(/[\s/]+/gu, "-").replace(/[^\p{L}\p{N}_-]/gu, "").replace(/-{2,}/gu, "-").replace(/^-|-$/gu, "");
+  const slug = title
+    .trim()
+    .toLowerCase()
+    .replace(/[\s/]+/gu, "-")
+    .replace(/[^\p{L}\p{N}_-]/gu, "")
+    .replace(/-{2,}/gu, "-")
+    .replace(/^-|-$/gu, "");
   return slug.slice(0, 80) || `page-${Date.now().toString(36)}`;
 }
 
@@ -193,7 +235,8 @@ export class DocumentService {
         `SELECT m.document_id, m.subject, m.role FROM pandocs.document_members m JOIN pandocs.documents d ON d.id = m.document_id WHERE d.space_id = $1 AND d.restricted`,
         [space.id]
       );
-      for (const { document_id: id, subject, role } of grants) restrictedMembers.set(id, [...(restrictedMembers.get(id) ?? []), { subject, role }]);
+      for (const { document_id: id, subject, role } of grants)
+        restrictedMembers.set(id, [...(restrictedMembers.get(id) ?? []), { subject, role }]);
     }
     const visible: TreeNode[] = [];
     for (const row of rows) {
@@ -207,25 +250,52 @@ export class DocumentService {
       });
       if (principal.shared ? !principal.shared.documents.includes(document.id) : !atLeast(role, "viewer")) continue;
       const { id, parentId, slug, path, title, sortOrder, restricted, currentRevisionNo, updatedAt } = document;
-      visible.push({ id, parentId, slug, path, title, sortOrder, restricted, currentRevisionNo, updatedAt, hasContent: Boolean(row.has_content), labels: (row.labels ?? []) as string[], titles: (row.titles ?? {}) as Record<string, string> });
+      visible.push({
+        id,
+        parentId,
+        slug,
+        path,
+        title,
+        sortOrder,
+        restricted,
+        currentRevisionNo,
+        updatedAt,
+        hasContent: Boolean(row.has_content),
+        labels: (row.labels ?? []) as string[],
+        titles: (row.titles ?? {}) as Record<string, string>
+      });
     }
     return visible;
   }
 
   /** Labels are about a page rather than in it: changing them makes no new version, and needs edit access. They count as the same in any letter case. */
   async setLabels(principal: Principal, documentId: string, labels: readonly string[]): Promise<readonly string[]> {
-    const distinct = [...new Map(labels.map(label => label.trim().replace(/\s+/gu, " ")).filter(Boolean).map(label => [label.toLowerCase(), label])).values()];
+    const distinct = [
+      ...new Map(
+        labels
+          .map(label => label.trim().replace(/\s+/gu, " "))
+          .filter(Boolean)
+          .map(label => [label.toLowerCase(), label])
+      ).values()
+    ];
     return this.context.db.transaction(async tx => {
       await requireDocument(tx, principal, documentId, "editor", true);
       await tx.query(`DELETE FROM pandocs.document_labels WHERE document_id = $1`, [documentId]);
-      if (distinct.length > 0) await tx.query(`INSERT INTO pandocs.document_labels (document_id, label) SELECT $1, unnest($2::text[])`, [documentId, distinct]);
+      if (distinct.length > 0)
+        await tx.query(`INSERT INTO pandocs.document_labels (document_id, label) SELECT $1, unnest($2::text[])`, [
+          documentId,
+          distinct
+        ]);
       await audit(tx, principal, "document.labels", "document", documentId, { labels: distinct });
       return [...distinct].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
     });
   }
 
   /** What is in use in a space, by what this person can read. */
-  async spaceLabels(principal: Principal, spaceSlug: string): Promise<readonly { readonly label: string; readonly pages: number }[]> {
+  async spaceLabels(
+    principal: Principal,
+    spaceSlug: string
+  ): Promise<readonly { readonly label: string; readonly pages: number }[]> {
     const counts = new Map<string, { label: string; pages: number }>();
     for (const { labels } of await this.tree(principal, spaceSlug)) {
       for (const label of labels) {
@@ -238,15 +308,25 @@ export class DocumentService {
   }
 
   /** An address a page used to have still finds it. */
-  async resolve(principal: Principal, spaceSlug: string, path: string): Promise<{ id: string; path: string; redirected: boolean }> {
+  async resolve(
+    principal: Principal,
+    spaceSlug: string,
+    path: string
+  ): Promise<{ id: string; path: string; redirected: boolean }> {
     const { db } = this.context;
     const { space } = await requireSpace(db, principal, spaceSlug);
-    const { rows } = await db.query<{ id: string }>(`SELECT id FROM pandocs.documents WHERE space_id = $1 AND path = $2 AND deleted_at IS NULL`, [space.id, path]);
+    const { rows } = await db.query<{ id: string }>(
+      `SELECT id FROM pandocs.documents WHERE space_id = $1 AND path = $2 AND deleted_at IS NULL`,
+      [space.id, path]
+    );
     if (rows[0]) {
       await requireDocument(db, principal, rows[0].id);
       return { id: rows[0].id, path, redirected: false };
     }
-    const { rows: moved } = await db.query<{ document_id: string }>(`SELECT document_id FROM pandocs.document_redirects WHERE space_id = $1 AND old_path = $2`, [space.id, path]);
+    const { rows: moved } = await db.query<{ document_id: string }>(
+      `SELECT document_id FROM pandocs.document_redirects WHERE space_id = $1 AND old_path = $2`,
+      [space.id, path]
+    );
     if (!moved[0]) throw notFound(t("Document"));
     const { document } = await requireDocument(db, principal, moved[0].document_id);
     return { id: document.id, path: document.path, redirected: true };
@@ -256,16 +336,35 @@ export class DocumentService {
     return (await this.resolve(principal, spaceSlug, path)).id;
   }
 
-  async read(principal: Principal, documentId: string, options: { scope?: ReadScope | undefined; revision?: number | undefined } = {}): Promise<DocumentView> {
+  async read(
+    principal: Principal,
+    documentId: string,
+    options: { scope?: ReadScope | undefined; revision?: number | undefined } = {}
+  ): Promise<DocumentView> {
     const { db } = this.context;
     const { document, space, role } = await requireDocument(db, principal, documentId);
     const revision = await loadRevision(db, documentId, options.revision ?? document.currentRevisionNo);
     const analysis = await this.analysisOf(revision.sha256, revision.markdown);
-    const editing = document.editingBy && document.editingBy !== principal.id && document.editingUntil && document.editingUntil > new Date()
-      ? { name: document.editingName ?? "", until: document.editingUntil }
-      : null;
-    const { rows: labelled } = await db.query<{ label: string }>(`SELECT label FROM pandocs.document_labels WHERE document_id = $1 ORDER BY lower(label)`, [documentId]);
-    const base = { document, spaceSlug: space.slug, role, revision: metaOf(revision), diagnostics: analysis.diagnostics, editing, labels: labelled.map(row => row.label) };
+    const editing =
+      document.editingBy &&
+      document.editingBy !== principal.id &&
+      document.editingUntil &&
+      document.editingUntil > new Date()
+        ? { name: document.editingName ?? "", until: document.editingUntil }
+        : null;
+    const { rows: labelled } = await db.query<{ label: string }>(
+      `SELECT label FROM pandocs.document_labels WHERE document_id = $1 ORDER BY lower(label)`,
+      [documentId]
+    );
+    const base = {
+      document,
+      spaceSlug: space.slug,
+      role,
+      revision: metaOf(revision),
+      diagnostics: analysis.diagnostics,
+      editing,
+      labels: labelled.map(row => row.label)
+    };
     if (options.scope && options.scope.scope !== "full") {
       try {
         const scoped = readScoped({ markdown: revision.markdown, analysis }, options.scope);
@@ -278,13 +377,25 @@ export class DocumentService {
     return { ...base, markdown: revision.markdown, outline: analysis.outline, blocks: analysis.blocks };
   }
 
-  async create(principal: Principal, input: {
-    space: string; title: string; markdown: string; parentPath?: string | undefined; slug?: string | undefined;
-    sortOrder?: number | undefined; restricted?: boolean | undefined; message?: string | undefined; ingestJobId?: string | undefined; strict?: boolean | undefined;
-  }): Promise<CommitResult> {
+  async create(
+    principal: Principal,
+    input: {
+      space: string;
+      title: string;
+      markdown: string;
+      parentPath?: string | undefined;
+      slug?: string | undefined;
+      sortOrder?: number | undefined;
+      restricted?: boolean | undefined;
+      message?: string | undefined;
+      ingestJobId?: string | undefined;
+      strict?: boolean | undefined;
+    }
+  ): Promise<CommitResult> {
     const { db } = this.context;
     const { space } = await requireSpace(db, principal, input.space, "editor");
-    if (input.slug !== undefined && reservedForFrontPage(input.slug, input.parentPath)) throw invalid("SLUG_INVALID", slugRule());
+    if (input.slug !== undefined && reservedForFrontPage(input.slug, input.parentPath))
+      throw invalid("SLUG_INVALID", slugRule());
     if (input.restricted && !canChangeSite(principal)) {
       await requireSpace(db, principal, input.space, "admin");
     }
@@ -293,13 +404,28 @@ export class DocumentService {
   }
 
   /** The new page and its first version, as part of a larger change. Whoever calls this has checked they may. */
-  async createIn(tx: Queryable, principal: Principal, space: Pick<SpaceRecord, "id">, input: {
-    title: string; markdown: string; parentPath?: string | undefined; slug?: string | undefined; sortOrder?: number | undefined; restricted?: boolean | undefined;
-    message?: string | undefined; ingestJobId?: string | undefined; strict?: boolean | undefined; changeSetId?: string | undefined;
-  }): Promise<CommitResult> {
+  async createIn(
+    tx: Queryable,
+    principal: Principal,
+    space: Pick<SpaceRecord, "id">,
+    input: {
+      title: string;
+      markdown: string;
+      parentPath?: string | undefined;
+      slug?: string | undefined;
+      sortOrder?: number | undefined;
+      restricted?: boolean | undefined;
+      message?: string | undefined;
+      ingestJobId?: string | undefined;
+      strict?: boolean | undefined;
+      changeSetId?: string | undefined;
+    }
+  ): Promise<CommitResult> {
     // A page called Index, or anything that comes out as index, keeps its title and gets an address the site can open.
     const generated = input.slug === undefined ? slugFromTitle(input.title) : null;
-    const slug = input.slug ?? (generated !== null && reservedForFrontPage(generated, input.parentPath) ? `${generated}-page` : generated!);
+    const slug =
+      input.slug ??
+      (generated !== null && reservedForFrontPage(generated, input.parentPath) ? `${generated}-page` : generated!);
     if (!validSlug(slug)) throw invalid("SLUG_INVALID", slugRule());
     let parentId: string | null = null;
     let path = slug;
@@ -314,7 +440,10 @@ export class DocumentService {
       parentId = rows[0].id;
       path = `${rows[0].path}/${slug}`;
     }
-    const taken = await tx.query(`SELECT 1 FROM pandocs.documents WHERE space_id = $1 AND lower(path) = lower($2) AND deleted_at IS NULL`, [space.id, path]);
+    const taken = await tx.query(
+      `SELECT 1 FROM pandocs.documents WHERE space_id = $1 AND lower(path) = lower($2) AND deleted_at IS NULL`,
+      [space.id, path]
+    );
     if (taken.rows[0]) throw new PandocsError(409, "DOCUMENT_PATH_TAKEN", t("The path {0} is taken", path));
     // A new page goes after its siblings unless the caller says otherwise.
     const { rows: last } = await tx.query<{ next: number }>(
@@ -325,15 +454,42 @@ export class DocumentService {
     const { rows } = await tx.query(
       `INSERT INTO pandocs.documents (space_id, parent_id, slug, path, title, sort_order, restricted, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [space.id, parentId, slug, path, input.title, input.sortOrder ?? last[0]!.next, input.restricted ?? false, principal.id]
+      [
+        space.id,
+        parentId,
+        slug,
+        path,
+        input.title,
+        input.sortOrder ?? last[0]!.next,
+        input.restricted ?? false,
+        principal.id
+      ]
     );
     const document = mapDocument(rows[0]!);
     await audit(tx, principal, "document.create", "document", document.id, { path });
-    return this.commit(tx, principal, document, { markdown: input.markdown, message: input.message ?? t("Created the document"), ingestJobId: input.ingestJobId, strict: input.strict, changeSetId: input.changeSetId });
+    return this.commit(tx, principal, document, {
+      markdown: input.markdown,
+      message: input.message ?? t("Created the document"),
+      ingestJobId: input.ingestJobId,
+      strict: input.strict,
+      changeSetId: input.changeSetId
+    });
   }
 
   /** Whole-document save. `merge` lets a stale editor merge block by block instead of failing outright. */
-  async saveContent(principal: Principal, documentId: string, input: { markdown: string; expectedRevision: number; message?: string | undefined; merge?: boolean | undefined; strict?: boolean | undefined; title?: string | undefined; fromLiveDraft?: boolean | undefined }): Promise<CommitResult> {
+  async saveContent(
+    principal: Principal,
+    documentId: string,
+    input: {
+      markdown: string;
+      expectedRevision: number;
+      message?: string | undefined;
+      merge?: boolean | undefined;
+      strict?: boolean | undefined;
+      title?: string | undefined;
+      fromLiveDraft?: boolean | undefined;
+    }
+  ): Promise<CommitResult> {
     return this.context.db.transaction(async tx => {
       const { document, space } = await requireDocument(tx, principal, documentId, "editor", true);
       assertDirectWrites(space);
@@ -345,53 +501,103 @@ export class DocumentService {
         const current = await loadRevision(tx, documentId, document.currentRevisionNo);
         const result = mergeThreeWay(base.markdown, markdown, current.markdown, this.context.registry);
         if (!result.ok) {
-          throw new PandocsError(409, "MERGE_CONFLICT", t("Someone changed the same text, so this needs merging by hand"), { currentRevision: document.currentRevisionNo, conflicts: result.conflicts });
+          throw new PandocsError(
+            409,
+            "MERGE_CONFLICT",
+            t("Someone changed the same text, so this needs merging by hand"),
+            { currentRevision: document.currentRevisionNo, conflicts: result.conflicts }
+          );
         }
         markdown = result.markdown;
         merged = true;
       }
-      const committed = await this.commit(tx, principal, document, { markdown, message: input.fromLiveDraft ? await this.creditingOthers(tx, principal, documentId, input.message) : input.message, strict: input.strict });
+      const committed = await this.commit(tx, principal, document, {
+        markdown,
+        message: input.fromLiveDraft
+          ? await this.creditingOthers(tx, principal, documentId, input.message)
+          : input.message,
+        strict: input.strict
+      });
       // A title has no versions of its own, but the editor saves it with the text so neither lands without the other.
       if (input.title === undefined || input.title === document.title) return { ...committed, merged };
-      const { rows } = await tx.query(`UPDATE pandocs.documents SET title = $2, updated_at = now() WHERE id = $1 RETURNING *`, [documentId, input.title]);
+      const { rows } = await tx.query(
+        `UPDATE pandocs.documents SET title = $2, updated_at = now() WHERE id = $1 RETURNING *`,
+        [documentId, input.title]
+      );
       await audit(tx, principal, "document.update", "document", documentId, { title: input.title });
       return { ...committed, document: mapDocument(rows[0]!), merged };
     });
   }
 
   /** A version saved from a shared draft has one author on record, and says who else wrote it. */
-  private async creditingOthers(tx: Queryable, principal: Principal, documentId: string, message: string | undefined): Promise<string | undefined> {
-    const { rows } = await tx.query<{ contributors: Readonly<Record<string, string>> }>(`SELECT contributors FROM pandocs.live_drafts WHERE document_id = $1`, [documentId]);
-    const others = Object.entries(rows[0]?.contributors ?? {}).filter(([id]) => id !== principal.id).map(([, name]) => name);
+  private async creditingOthers(
+    tx: Queryable,
+    principal: Principal,
+    documentId: string,
+    message: string | undefined
+  ): Promise<string | undefined> {
+    const { rows } = await tx.query<{ contributors: Readonly<Record<string, string>> }>(
+      `SELECT contributors FROM pandocs.live_drafts WHERE document_id = $1`,
+      [documentId]
+    );
+    const others = Object.entries(rows[0]?.contributors ?? {})
+      .filter(([id]) => id !== principal.id)
+      .map(([, name]) => name);
     if (others.length === 0) return message;
     const credit = t("Written with {0}", others.join(", "));
     return message ? `${message} (${credit})` : credit;
   }
 
   /** Block refs only mean something against the revision they were read from, so stale edits always fail. */
-  async applyOps(principal: Principal, documentId: string, input: { ops: readonly EditOp[]; expectedRevision: number; message?: string | undefined; strict?: boolean | undefined }): Promise<CommitResult> {
+  async applyOps(
+    principal: Principal,
+    documentId: string,
+    input: {
+      ops: readonly EditOp[];
+      expectedRevision: number;
+      message?: string | undefined;
+      strict?: boolean | undefined;
+    }
+  ): Promise<CommitResult> {
     return this.context.db.transaction(async tx => {
       const { document, space } = await requireDocument(tx, principal, documentId, "editor", true);
       assertDirectWrites(space);
       if (document.currentRevisionNo !== input.expectedRevision) throw revisionConflict(document.currentRevisionNo);
       const current = await loadRevision(tx, documentId, document.currentRevisionNo);
-      return this.commit(tx, principal, document, { markdown: applyOpsOrThrow(current.markdown, input.ops, this.context), message: input.message, strict: input.strict });
+      return this.commit(tx, principal, document, {
+        markdown: applyOpsOrThrow(current.markdown, input.ops, this.context),
+        message: input.message,
+        strict: input.strict
+      });
     });
   }
 
-  async rollback(principal: Principal, documentId: string, input: { to: number; expectedRevision: number }): Promise<CommitResult> {
+  async rollback(
+    principal: Principal,
+    documentId: string,
+    input: { to: number; expectedRevision: number }
+  ): Promise<CommitResult> {
     return this.context.db.transaction(async tx => {
       const { document, space } = await requireDocument(tx, principal, documentId, "editor", true);
       assertDirectWrites(space);
       if (document.currentRevisionNo !== input.expectedRevision) throw revisionConflict(document.currentRevisionNo);
       const target = await loadRevision(tx, documentId, input.to);
-      return this.commit(tx, principal, document, { markdown: target.markdown, message: t("Restored version {0}", input.to) });
+      return this.commit(tx, principal, document, {
+        markdown: target.markdown,
+        message: t("Restored version {0}", input.to)
+      });
     });
   }
 
   /** The single write path: every version, from any channel, goes through here and relocates open threads. */
-  async commit(tx: Queryable, principal: Principal, document: DocumentRecord, input: CommitInput): Promise<CommitResult> {
-    if (Buffer.byteLength(input.markdown, "utf8") > MAX_MARKDOWN_BYTES) throw invalid("DOCUMENT_TOO_LARGE", t("The document is larger than 2 MiB"));
+  async commit(
+    tx: Queryable,
+    principal: Principal,
+    document: DocumentRecord,
+    input: CommitInput
+  ): Promise<CommitResult> {
+    if (Buffer.byteLength(input.markdown, "utf8") > MAX_MARKDOWN_BYTES)
+      throw invalid("DOCUMENT_TOO_LARGE", t("The document is larger than 2 MiB"));
     const sha256 = createHash("sha256").update(input.markdown).digest("hex");
     const analysis = await this.context.analyze(input.markdown);
     this.analyses.set(analysisKey(sha256), { ...analysis, searchTokens: undefined });
@@ -399,12 +605,20 @@ export class DocumentService {
     const tooDeep = analysis.diagnostics.find(item => item.code === "DOCUMENT_TOO_DEEP");
     if (tooDeep) throw invalid("DOCUMENT_TOO_DEEP", tooDeep.message);
     if (input.strict && analysis.diagnostics.some(item => item.severity === "error")) {
-      throw invalid("DOCUMENT_INVALID", t("The document has blocks with markup errors"), { diagnostics: analysis.diagnostics });
+      throw invalid("DOCUMENT_INVALID", t("The document has blocks with markup errors"), {
+        diagnostics: analysis.diagnostics
+      });
     }
     if (document.currentRevisionNo > 0) {
       const current = await loadRevision(tx, document.id, document.currentRevisionNo);
       if (current.sha256 === sha256) {
-        return { document, revision: metaOf(current), changed: false, merged: false, diagnostics: analysis.diagnostics };
+        return {
+          document,
+          revision: metaOf(current),
+          changed: false,
+          merged: false,
+          diagnostics: analysis.diagnostics
+        };
       }
     }
     const no = document.currentRevisionNo + 1;
@@ -412,12 +626,35 @@ export class DocumentService {
     const { rows } = await tx.query(
       `INSERT INTO pandocs.revisions (document_id, no, markdown, sha256, visible_text, actor_id, actor_name, actor_kind, channel, on_behalf_of, proposal_id, ingest_job_id, message, change_set_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
-      [document.id, no, input.markdown, sha256, text, principal.id, principal.displayName, principal.kind, principal.channel,
-        principal.onBehalfOf?.id ?? null, input.proposalId ?? null, input.ingestJobId ?? null, input.message ?? "", input.changeSetId ?? null]
+      [
+        document.id,
+        no,
+        input.markdown,
+        sha256,
+        text,
+        principal.id,
+        principal.displayName,
+        principal.kind,
+        principal.channel,
+        principal.onBehalfOf?.id ?? null,
+        input.proposalId ?? null,
+        input.ingestJobId ?? null,
+        input.message ?? "",
+        input.changeSetId ?? null
+      ]
     );
     const { rows: updated } = await tx.query(
       `UPDATE pandocs.documents SET current_revision_no = $2, has_content = $3, outline = $4, visible_chars = $5, sha256 = $6, size_bytes = $7, asset_refs = $8, updated_at = now() WHERE id = $1 RETURNING *`,
-      [document.id, no, text.trim() !== "", JSON.stringify(analysis.outline), text.length, sha256, Buffer.byteLength(input.markdown, "utf8"), assetHashesIn(input.markdown)]
+      [
+        document.id,
+        no,
+        text.trim() !== "",
+        JSON.stringify(analysis.outline),
+        text.length,
+        sha256,
+        Buffer.byteLength(input.markdown, "utf8"),
+        assetHashesIn(input.markdown)
+      ]
     );
     await tx.query(
       `INSERT INTO pandocs.document_search (document_id, vector) VALUES ($1, array_to_tsvector($2::text[]))
@@ -428,12 +665,27 @@ export class DocumentService {
     await audit(tx, principal, "document.commit", "document", document.id, { revision: no, sha256 });
     await tellFollowers(tx, principal, document, input.message ?? "");
     // A repository kept the same as this space hears about it soon, and a run of saves is still one commit there.
-    if (principal.channel !== "git") await tx.query(`UPDATE pandocs.git_syncs SET due_at = now() + interval '5 seconds' WHERE space_id = $1 AND enabled AND due_at > now() + interval '5 seconds'`, [document.spaceId]);
-    return { document: mapDocument(updated[0]!), revision: metaOf(mapRevision(rows[0]!)), changed: true, merged: false, diagnostics: analysis.diagnostics };
+    if (principal.channel !== "git")
+      await tx.query(
+        `UPDATE pandocs.git_syncs SET due_at = now() + interval '5 seconds' WHERE space_id = $1 AND enabled AND due_at > now() + interval '5 seconds'`,
+        [document.spaceId]
+      );
+    return {
+      document: mapDocument(updated[0]!),
+      revision: metaOf(mapRevision(rows[0]!)),
+      changed: true,
+      merged: false,
+      diagnostics: analysis.diagnostics
+    };
   }
 
   /** Newest first. `before` is a version number, to page back through a long history from the oldest one shown. */
-  async revisions(principal: Principal, documentId: string, limit = 50, before?: number | undefined): Promise<RevisionMeta[]> {
+  async revisions(
+    principal: Principal,
+    documentId: string,
+    limit = 50,
+    before?: number | undefined
+  ): Promise<RevisionMeta[]> {
     const { db } = this.context;
     await requireDocument(db, principal, documentId);
     const { rows } = await db.query(
@@ -458,22 +710,37 @@ export class DocumentService {
       to,
       before: before.markdown,
       after: after.markdown,
-      patch: createTwoFilesPatch(`revision-${from}.md`, `revision-${to}.md`, before.markdown, after.markdown, "", "", { context: 2 })
+      patch: createTwoFilesPatch(`revision-${from}.md`, `revision-${to}.md`, before.markdown, after.markdown, "", "", {
+        context: 2
+      })
     };
   }
 
-  async updateMeta(principal: Principal, documentId: string, patch: { title?: string | undefined; sortOrder?: number | undefined; restricted?: boolean | undefined }): Promise<DocumentRecord> {
+  async updateMeta(
+    principal: Principal,
+    documentId: string,
+    patch: { title?: string | undefined; sortOrder?: number | undefined; restricted?: boolean | undefined }
+  ): Promise<DocumentRecord> {
     return this.context.db.transaction(async tx => {
       const { document, role, space } = await requireDocument(tx, principal, documentId, "editor", true);
       // What a page is called and where it sits among its siblings are what readers see of it, so they go through review
       // where its text does. Who can see it is for its administrators either way.
-      if ((patch.title !== undefined && patch.title !== document.title) || (patch.sortOrder !== undefined && patch.sortOrder !== document.sortOrder)) assertDirectWrites(space);
+      if (
+        (patch.title !== undefined && patch.title !== document.title) ||
+        (patch.sortOrder !== undefined && patch.sortOrder !== document.sortOrder)
+      )
+        assertDirectWrites(space);
       if (patch.restricted !== undefined && patch.restricted !== document.restricted && !atLeast(role, "admin")) {
         throw forbidden(t("Only space administrators can change who can see a page"));
       }
       const { rows } = await tx.query(
         `UPDATE pandocs.documents SET title = $2, sort_order = $3, restricted = $4, updated_at = now() WHERE id = $1 RETURNING *`,
-        [documentId, patch.title ?? document.title, patch.sortOrder ?? document.sortOrder, patch.restricted ?? document.restricted]
+        [
+          documentId,
+          patch.title ?? document.title,
+          patch.sortOrder ?? document.sortOrder,
+          patch.restricted ?? document.restricted
+        ]
       );
       await audit(tx, principal, "document.update", "document", documentId, patch);
       return mapDocument(rows[0]!);
@@ -485,11 +752,20 @@ export class DocumentService {
     return nameMembers(this.context, await documentMembers(this.context.db, documentId));
   }
 
-  async setDocumentMember(principal: Principal, documentId: string, subject: string, role: Role | null): Promise<readonly NamedMember[]> {
+  async setDocumentMember(
+    principal: Principal,
+    documentId: string,
+    subject: string,
+    role: Role | null
+  ): Promise<readonly NamedMember[]> {
     const { db } = this.context;
     await db.transaction(async tx => {
       await requireDocument(tx, principal, documentId, "admin", true);
-      if (role === null) await tx.query(`DELETE FROM pandocs.document_members WHERE document_id = $1 AND subject = $2`, [documentId, subject]);
+      if (role === null)
+        await tx.query(`DELETE FROM pandocs.document_members WHERE document_id = $1 AND subject = $2`, [
+          documentId,
+          subject
+        ]);
       else {
         await tx.query(
           `INSERT INTO pandocs.document_members (document_id, subject, role) VALUES ($1, $2, $3)
@@ -507,20 +783,42 @@ export class DocumentService {
     return lang ? "editor" : "commenter";
   }
 
-  async draft(principal: Principal, documentId: string, lang = ""): Promise<{ markdown: string; title: string | null; baseRevision: number; updatedAt: Date } | null> {
+  async draft(
+    principal: Principal,
+    documentId: string,
+    lang = ""
+  ): Promise<{ markdown: string; title: string | null; baseRevision: number; updatedAt: Date } | null> {
     const { db } = this.context;
     await requireDocument(db, principal, documentId, this.draftRole(lang));
-    const { rows } = await db.query<{ markdown: string; title: string | null; base_revision_no: number; updated_at: string }>(
+    const { rows } = await db.query<{
+      markdown: string;
+      title: string | null;
+      base_revision_no: number;
+      updated_at: string;
+    }>(
       `SELECT markdown, title, base_revision_no, updated_at FROM pandocs.drafts WHERE document_id = $1 AND user_id = $2 AND lang = $3`,
       [documentId, principal.id, lang]
     );
-    return rows[0] ? { markdown: rows[0].markdown, title: rows[0].title, baseRevision: Number(rows[0].base_revision_no), updatedAt: new Date(rows[0].updated_at) } : null;
+    return rows[0]
+      ? {
+          markdown: rows[0].markdown,
+          title: rows[0].title,
+          baseRevision: Number(rows[0].base_revision_no),
+          updatedAt: new Date(rows[0].updated_at)
+        }
+      : null;
   }
 
-  async saveDraft(principal: Principal, documentId: string, input: { markdown: string; baseRevision: number; title?: string | undefined }, lang = ""): Promise<{ updatedAt: Date }> {
+  async saveDraft(
+    principal: Principal,
+    documentId: string,
+    input: { markdown: string; baseRevision: number; title?: string | undefined },
+    lang = ""
+  ): Promise<{ updatedAt: Date }> {
     const { db } = this.context;
     await requireDocument(db, principal, documentId, this.draftRole(lang));
-    if (Buffer.byteLength(input.markdown, "utf8") > MAX_MARKDOWN_BYTES) throw invalid("DOCUMENT_TOO_LARGE", t("The document is larger than 2 MiB"));
+    if (Buffer.byteLength(input.markdown, "utf8") > MAX_MARKDOWN_BYTES)
+      throw invalid("DOCUMENT_TOO_LARGE", t("The document is larger than 2 MiB"));
     const { rows } = await db.query<{ updated_at: string }>(
       `INSERT INTO pandocs.drafts (document_id, user_id, lang, title, markdown, base_revision_no) VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (document_id, user_id, lang) DO UPDATE SET title = EXCLUDED.title, markdown = EXCLUDED.markdown, base_revision_no = EXCLUDED.base_revision_no, updated_at = now()
@@ -533,13 +831,26 @@ export class DocumentService {
   async deleteDraft(principal: Principal, documentId: string, lang = ""): Promise<void> {
     const { db } = this.context;
     await requireDocument(db, principal, documentId, this.draftRole(lang));
-    await db.query(`DELETE FROM pandocs.drafts WHERE document_id = $1 AND user_id = $2 AND lang = $3`, [documentId, principal.id, lang]);
+    await db.query(`DELETE FROM pandocs.drafts WHERE document_id = $1 AND user_id = $2 AND lang = $3`, [
+      documentId,
+      principal.id,
+      lang
+    ]);
   }
 
   /** What this person left unfinished, on pages they can still work on. */
   async myDrafts(principal: Principal): Promise<MyDraft[]> {
     const { db } = this.context;
-    const { rows } = await db.query<{ document_id: string; lang: string; draft_title: string | null; title: string; path: string; space_slug: string; space_name: string; updated_at: string }>(
+    const { rows } = await db.query<{
+      document_id: string;
+      lang: string;
+      draft_title: string | null;
+      title: string;
+      path: string;
+      space_slug: string;
+      space_name: string;
+      updated_at: string;
+    }>(
       `SELECT dr.document_id, dr.lang, dr.title AS draft_title, dr.updated_at, d.title, d.path, s.slug AS space_slug, s.name AS space_name
        FROM pandocs.drafts dr
        JOIN pandocs.documents d ON d.id = dr.document_id AND d.deleted_at IS NULL
@@ -549,17 +860,37 @@ export class DocumentService {
     );
     const drafts: MyDraft[] = [];
     for (const row of rows) {
-      const allowed = await requireDocument(db, principal, row.document_id, this.draftRole(row.lang)).then(() => true, () => false);
-      if (allowed) drafts.push({ documentId: row.document_id, lang: row.lang, title: row.draft_title ?? row.title, path: row.path, spaceSlug: row.space_slug, spaceName: row.space_name, updatedAt: new Date(row.updated_at) });
+      const allowed = await requireDocument(db, principal, row.document_id, this.draftRole(row.lang)).then(
+        () => true,
+        () => false
+      );
+      if (allowed)
+        drafts.push({
+          documentId: row.document_id,
+          lang: row.lang,
+          title: row.draft_title ?? row.title,
+          path: row.path,
+          spaceSlug: row.space_slug,
+          spaceName: row.space_name,
+          updatedAt: new Date(row.updated_at)
+        });
     }
     return drafts;
   }
 
   /** A soft lock: it warns the next editor and blocks nothing, because saves are protected by CAS. */
-  async setEditing(principal: Principal, documentId: string, editing: boolean): Promise<{ name: string; until: Date } | null> {
+  async setEditing(
+    principal: Principal,
+    documentId: string,
+    editing: boolean
+  ): Promise<{ name: string; until: Date } | null> {
     const { db } = this.context;
     const { document } = await requireDocument(db, principal, documentId, "editor");
-    const someoneElse = document.editingBy && document.editingBy !== principal.id && document.editingUntil && document.editingUntil > new Date();
+    const someoneElse =
+      document.editingBy &&
+      document.editingBy !== principal.id &&
+      document.editingUntil &&
+      document.editingUntil > new Date();
     if (someoneElse) return { name: document.editingName ?? "", until: document.editingUntil! };
     if (editing) {
       await db.query(
@@ -567,7 +898,10 @@ export class DocumentService {
         [documentId, principal.id, principal.displayName, EDITING_TTL_SECONDS]
       );
     } else {
-      await db.query(`UPDATE pandocs.documents SET editing_by = NULL, editing_name = NULL, editing_until = NULL WHERE id = $1 AND editing_by = $2`, [documentId, principal.id]);
+      await db.query(
+        `UPDATE pandocs.documents SET editing_by = NULL, editing_name = NULL, editing_until = NULL WHERE id = $1 AND editing_by = $2`,
+        [documentId, principal.id]
+      );
     }
     return null;
   }
@@ -582,7 +916,12 @@ export class DocumentService {
   }
 
   /** Everything the person can read, in the shape the theme's search panel indexes in the browser. A large site sends titles and headings only. */
-  async searchIndex(translations: Pick<TranslationService, "forIndex">, lang: string, routePrefix: string, spaces: readonly { readonly id: string; readonly slug: string; readonly tree: readonly TreeNode[] }[]): Promise<SearchIndexEntry[]> {
+  async searchIndex(
+    translations: Pick<TranslationService, "forIndex">,
+    lang: string,
+    routePrefix: string,
+    spaces: readonly { readonly id: string; readonly slug: string; readonly tree: readonly TreeNode[] }[]
+  ): Promise<SearchIndexEntry[]> {
     const { db, registry } = this.context;
     const titlesOnly = await this.fullTextOnServer(spaces.map(space => space.id));
     const entries: SearchIndexEntry[] = [];
@@ -597,7 +936,9 @@ export class DocumentService {
         [ids]
       );
       const byDocument = new Map(rows.map(row => [row.id, row]));
-      const translated = titlesOnly ? new Map<string, { title: string; markdown: string; visibleText: string }>() : await translations.forIndex(ids, lang);
+      const translated = titlesOnly
+        ? new Map<string, { title: string; markdown: string; visibleText: string }>()
+        : await translations.forIndex(ids, lang);
       for (const node of tree) {
         const page = byDocument.get(node.id);
         if (!page) continue;
@@ -635,13 +976,29 @@ export class DocumentService {
    * its way down to nothing. In another language, a page with a translation into it is searched, and found, as its
    * translation, which is what the site shows there; one without is searched as written.
    */
-  async search(principal: Principal, input: { query: string; space?: string | undefined; label?: string | undefined; limit?: number | undefined; lang?: string | undefined }) {
+  async search(
+    principal: Principal,
+    input: {
+      query: string;
+      space?: string | undefined;
+      label?: string | undefined;
+      limit?: number | undefined;
+      lang?: string | undefined;
+    }
+  ) {
     const { db } = this.context;
     const query = input.query.trim();
     const label = input.label?.trim() || null;
     if (!query && !label) return [];
     const limit = Math.min(input.limit ?? 30, 100);
-    const { rows: spaces } = await db.query<{ id: string; slug: string; name: string; default_role: SpaceDefaultRole; public_read: boolean; members: MemberRecord[] | null }>(
+    const { rows: spaces } = await db.query<{
+      id: string;
+      slug: string;
+      name: string;
+      default_role: SpaceDefaultRole;
+      public_read: boolean;
+      members: MemberRecord[] | null;
+    }>(
       `SELECT s.id, s.slug, s.name, s.default_role, s.public_read,
          (SELECT jsonb_agg(jsonb_build_object('subject', m.subject, 'role', m.role)) FROM pandocs.space_members m WHERE m.space_id = s.id) AS members
        FROM pandocs.spaces s WHERE s.deleted_at IS NULL AND ($1::text IS NULL OR s.slug = $1)`,
@@ -650,7 +1007,11 @@ export class DocumentService {
     const readable: typeof spaces = [];
     const allRestricted: string[] = [];
     for (const space of spaces) {
-      const context = { defaultRole: space.default_role, publicRead: space.public_read, spaceMembers: space.members ?? [] };
+      const context = {
+        defaultRole: space.default_role,
+        publicRead: space.public_read,
+        spaceMembers: space.members ?? []
+      };
       if (!atLeast(effectiveRole(principal, context), "viewer")) continue;
       readable.push(space);
       if (atLeast(spaceRoleOf(principal, context), "admin")) allRestricted.push(space.id);
@@ -671,22 +1032,25 @@ export class DocumentService {
     const terms = searchQuery(query);
     const { rows: matched } = terms
       ? await db.query(
-        `SELECT d.* FROM pandocs.document_search s JOIN pandocs.documents d ON d.id = s.document_id
+          `SELECT d.* FROM pandocs.document_search s JOIN pandocs.documents d ON d.id = s.document_id
          WHERE ${readableRow} AND s.vector @@ $5::tsquery AND NOT EXISTS (SELECT 1 FROM pandocs.document_translations t WHERE t.document_id = d.id AND t.lang = $7)
          ORDER BY d.updated_at DESC LIMIT $6`,
-        [...access, terms, SEARCH_CANDIDATES, lang]
-      )
+          [...access, terms, SEARCH_CANDIDATES, lang]
+        )
       : { rows: [] };
     // Translations have no index of their own, and are far fewer than pages.
-    const { rows: translated } = lang && query
-      ? await db.query(
-        `SELECT d.*, t.title AS translated_title FROM pandocs.document_translations t JOIN pandocs.documents d ON d.id = t.document_id
+    const { rows: translated } =
+      lang && query
+        ? await db.query(
+            `SELECT d.*, t.title AS translated_title FROM pandocs.document_translations t JOIN pandocs.documents d ON d.id = t.document_id
          WHERE ${readableRow} AND t.lang = $7 AND t.visible_text ILIKE $5 ORDER BY d.updated_at DESC LIMIT $6`,
-        [...access, pattern, SEARCH_CANDIDATES, lang]
-      )
-      : { rows: [] };
+            [...access, pattern, SEARCH_CANDIDATES, lang]
+          )
+        : { rows: [] };
     const seen = new Set<string>();
-    const candidates = [...titled, ...matched, ...translated].filter(row => !seen.has(String(row.id)) && seen.add(String(row.id)));
+    const candidates = [...titled, ...matched, ...translated].filter(
+      row => !seen.has(String(row.id)) && seen.add(String(row.id))
+    );
     if (candidates.length === 0) return [];
     const { rows: texts } = await db.query<{ document_id: string; visible_text: string }>(
       `SELECT d.id AS document_id, COALESCE(t.visible_text, r.visible_text) AS visible_text
@@ -705,14 +1069,26 @@ export class DocumentService {
       // Tokens can all be there without being next to each other; what someone typed should actually appear. A last word still being typed stays a prefix.
       if (!titledIds.has(document.id) && !text.replace(/\s+/gu, " ").toLowerCase().includes(needle)) continue;
       const space = spaceOf.get(document.spaceId)!;
-      results.push({ id: document.id, spaceSlug: space.slug, spaceName: space.name, path: document.path, title: row.translated_title ? String(row.translated_title) : document.title, snippet: snippetOf(text, query), updatedAt: document.updatedAt });
+      results.push({
+        id: document.id,
+        spaceSlug: space.slug,
+        spaceName: space.name,
+        path: document.path,
+        title: row.translated_title ? String(row.translated_title) : document.title,
+        snippet: snippetOf(text, query),
+        updatedAt: document.updatedAt
+      });
       if (results.length >= limit) break;
     }
     return results;
   }
 }
 
-export function applyOpsOrThrow(markdown: string, ops: readonly EditOp[], context: Pick<AppContext, "registry">): string {
+export function applyOpsOrThrow(
+  markdown: string,
+  ops: readonly EditOp[],
+  context: Pick<AppContext, "registry">
+): string {
   try {
     return applyEditOps(markdown, ops, context.registry);
   } catch (error) {

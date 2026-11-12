@@ -54,12 +54,30 @@ const sizeOf = (page: RenderedPage) => page.html.length + page.headTags.length;
  * a language nobody reads costs nothing, and one that dies is replaced. Whenever this does not produce a page in time, the
  * caller sends one for the browser to render, so a problem here costs speed rather than the page.
  */
-export function createRenderPool(workerFile: string, deps: { readonly log: Log; readonly threads?: number; readonly waitMs?: number; readonly limitMs?: number; readonly idleMs?: number; readonly base?: string }) {
+export function createRenderPool(
+  workerFile: string,
+  deps: {
+    readonly log: Log;
+    readonly threads?: number;
+    readonly waitMs?: number;
+    readonly limitMs?: number;
+    readonly idleMs?: number;
+    readonly base?: string;
+  }
+) {
   const threads = deps.threads ?? 1;
   const waitMs = deps.waitMs ?? WAIT_MS;
   const limitMs = deps.limitMs ?? LIMIT_MS;
   const idleMs = deps.idleMs ?? IDLE_MS;
-  const lanes = new Map<Language, { queue: Job[]; idle: Worker[]; running: Map<Worker, { job: Job; id: number; timer: NodeJS.Timeout }>; spawned: number }>();
+  const lanes = new Map<
+    Language,
+    {
+      queue: Job[];
+      idle: Worker[];
+      running: Map<Worker, { job: Job; id: number; timer: NodeJS.Timeout }>;
+      spawned: number;
+    }
+  >();
   const inFlight = new Map<string, Promise<RenderedPage>>();
   const remembered = new Map<string, RenderedPage>();
   const refused = new Map<string, number>();
@@ -90,7 +108,7 @@ export function createRenderPool(workerFile: string, deps: { readonly log: Log; 
 
   const laneOf = (language: Language) => {
     let lane = lanes.get(language);
-    if (!lane) lanes.set(language, lane = { queue: [], idle: [], running: new Map(), spawned: 0 });
+    if (!lane) lanes.set(language, (lane = { queue: [], idle: [], running: new Map(), spawned: 0 }));
     return lane;
   };
 
@@ -111,7 +129,10 @@ export function createRenderPool(workerFile: string, deps: { readonly log: Log; 
 
   const spawn = (language: Language) => {
     const lane = laneOf(language);
-    const worker = new Worker(workerFile, { workerData: { language, base: deps.base ?? "" }, resourceLimits: { maxOldGenerationSizeMb: THREAD_HEAP_MB } });
+    const worker = new Worker(workerFile, {
+      workerData: { language, base: deps.base ?? "" },
+      resourceLimits: { maxOldGenerationSizeMb: THREAD_HEAP_MB }
+    });
     lane.spawned += 1;
     worker.unref();
     const finish = () => {
@@ -155,18 +176,20 @@ export function createRenderPool(workerFile: string, deps: { readonly log: Log; 
     const page = new Promise<RenderedPage>((resolve, reject) => {
       laneOf(language).queue.push({ key, input, resolve, reject });
       pump(language);
-    }).then(
-      rendered => {
-        remember(key, rendered);
-        return rendered;
-      },
-      (error: Error) => {
-        refused.set(key, Date.now() + RETRY_AFTER_MS);
-        // The browser renders it instead, so this is about speed; the reason is here for whoever looks into that.
-        deps.log("web.render_failed", { url: input.url, language, error: error.message.slice(0, 2000) });
-        throw error;
-      }
-    ).finally(() => inFlight.delete(key));
+    })
+      .then(
+        rendered => {
+          remember(key, rendered);
+          return rendered;
+        },
+        (error: Error) => {
+          refused.set(key, Date.now() + RETRY_AFTER_MS);
+          // The browser renders it instead, so this is about speed; the reason is here for whoever looks into that.
+          deps.log("web.render_failed", { url: input.url, language, error: error.message.slice(0, 2000) });
+          throw error;
+        }
+      )
+      .finally(() => inFlight.delete(key));
     inFlight.set(key, page);
     return page;
   };
@@ -182,7 +205,9 @@ export function createRenderPool(workerFile: string, deps: { readonly log: Log; 
       if (!inFlight.has(key) && laneOf(language).queue.length >= QUEUE_LIMIT) return null;
       const page = inFlight.get(key) ?? start(language, key, input);
       let timer: NodeJS.Timeout | undefined;
-      const late = new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), waitMs); });
+      const late = new Promise<null>(resolve => {
+        timer = setTimeout(() => resolve(null), waitMs);
+      });
       try {
         // Carries on after the wait runs out, so that what took long only takes long once.
         return await Promise.race([page, late]);
@@ -194,7 +219,8 @@ export function createRenderPool(workerFile: string, deps: { readonly log: Log; 
     },
     stop(): void {
       stopped = true;
-      for (const lane of lanes.values()) for (const worker of [...lane.idle, ...lane.running.keys()]) void worker.terminate();
+      for (const lane of lanes.values())
+        for (const worker of [...lane.idle, ...lane.running.keys()]) void worker.terminate();
     }
   };
 }

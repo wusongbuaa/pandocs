@@ -8,7 +8,17 @@ import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
-import { assetHash, boundedTree, defaultBlockRegistry, dialectRemarkPlugins, headingsStepDown, parseImageTitle, plainText, sourceTree, type BlockRegistry } from "@pandocs/markdown";
+import {
+  assetHash,
+  boundedTree,
+  defaultBlockRegistry,
+  dialectRemarkPlugins,
+  headingsStepDown,
+  parseImageTitle,
+  plainText,
+  sourceTree,
+  type BlockRegistry
+} from "@pandocs/markdown";
 import { rehypeCodeMeta } from "../../vendor/rspress/node/mdx/rehypePlugins/codeMeta";
 import { rehypeHeaderAnchor } from "../../vendor/rspress/node/mdx/rehypePlugins/headerAnchor";
 import { t } from "../i18n";
@@ -34,12 +44,18 @@ export function inlineMarkdown(node: Nodes): string {
   // A formula in a heading reads as its source in the outline, which only shows text.
   if ((node.type as string) === "inlineMath") return `\`${(node as unknown as { value: string }).value}\``;
   switch (node.type) {
-    case "text": return node.value;
-    case "inlineCode": return `\`${node.value}\``;
-    case "strong": return `**${node.children.map(inlineMarkdown).join("")}**`;
-    case "emphasis": return `*${node.children.map(inlineMarkdown).join("")}*`;
-    case "delete": return `~~${node.children.map(inlineMarkdown).join("")}~~`;
-    default: return "children" in node ? node.children.map(inlineMarkdown).join("") : "";
+    case "text":
+      return node.value;
+    case "inlineCode":
+      return `\`${node.value}\``;
+    case "strong":
+      return `**${node.children.map(inlineMarkdown).join("")}**`;
+    case "emphasis":
+      return `*${node.children.map(inlineMarkdown).join("")}*`;
+    case "delete":
+      return `~~${node.children.map(inlineMarkdown).join("")}~~`;
+    default:
+      return "children" in node ? node.children.map(inlineMarkdown).join("") : "";
   }
 }
 
@@ -53,14 +69,20 @@ function structureHeadings(tree: MdastRoot, title: string, output: { toc: TocEnt
   const first = tree.children.find(node => node.type !== "yaml");
   const titled = first?.type === "heading" && first.depth === 1 && plainText(first).trim() === title.trim();
   if (titled) output.headingTitle = title;
-  if (headingsStepDown(headings.map(node => node.depth), titled)) {
+  if (
+    headingsStepDown(
+      headings.map(node => node.depth),
+      titled
+    )
+  ) {
     for (const heading of headings) {
       if (heading !== first || !titled) heading.depth = Math.min(heading.depth + 1, 6) as Heading["depth"];
     }
   }
   for (const heading of headings) {
     const id = (heading.data as { hProperties?: { id?: string } } | undefined)?.hProperties?.id;
-    if (id && heading.depth >= 2 && heading.depth < 5) output.toc.push({ id, text: inlineMarkdown(heading).trim(), depth: heading.depth });
+    if (id && heading.depth >= 2 && heading.depth < 5)
+      output.toc.push({ id, text: inlineMarkdown(heading).trim(), depth: heading.depth });
   }
 }
 
@@ -68,12 +90,13 @@ export const SAFE_URL = /^(?:https?:|mailto:|tel:|#|\/|\.{0,2}\/|[^:]*$)/iu;
 
 /** The body may come from anyone with write access, including agents, so links cannot carry `javascript:`. */
 function rehypeSafeUrls() {
-  return (tree: HastRoot) => visit(tree, "element", (node: Element) => {
-    for (const property of ["href", "src"]) {
-      const value = node.properties?.[property];
-      if (typeof value === "string" && !assetHash(value) && !SAFE_URL.test(value)) delete node.properties[property];
-    }
-  });
+  return (tree: HastRoot) =>
+    visit(tree, "element", (node: Element) => {
+      for (const property of ["href", "src"]) {
+        const value = node.properties?.[property];
+        if (typeof value === "string" && !assetHash(value) && !SAFE_URL.test(value)) delete node.properties[property];
+      }
+    });
 }
 
 const DESCRIPTION_CHARS = 160;
@@ -87,7 +110,11 @@ function firstParagraph(tree: MdastRoot): string {
 const hasCode = (tree: HastRoot) => {
   let found = false;
   visit(tree, "element", (node: Element) => {
-    if (node.tagName === "pre" && node.children.some((child: ElementContent) => child.type === "element" && child.tagName === "code")) found = true;
+    if (
+      node.tagName === "pre" &&
+      node.children.some((child: ElementContent) => child.type === "element" && child.tagName === "code")
+    )
+      found = true;
   });
   return found;
 };
@@ -101,7 +128,9 @@ function rehypeLazyShiki() {
       import("../../vendor/rspress/node/mdx/rehypePlugins/shiki")
     ]);
     // A language it has no grammar for, such as curl, is shown as plain code: failing there took the whole page with it.
-    await unified().use(rehypeShiki, createRehypeShikiOptions(false, false, undefined, { fallbackLanguage: "txt" })).run(tree);
+    await unified()
+      .use(rehypeShiki, createRehypeShikiOptions(false, false, undefined, { fallbackLanguage: "txt" }))
+      .run(tree);
   };
 }
 
@@ -115,7 +144,8 @@ function displayLoneFormulas(tree: HastRoot): void {
     if (node.tagName !== "p") return;
     const content = node.children.filter(child => child.type !== "text" || child.value.trim() !== "");
     const only = content[0];
-    if (content.length === 1 && only?.type === "element" && classesOf(only).includes(MATH_CLASS)) only.properties.className = [MATH_CLASS, "math-display"];
+    if (content.length === 1 && only?.type === "element" && classesOf(only).includes(MATH_CLASS))
+      only.properties.className = [MATH_CLASS, "math-display"];
   });
 }
 
@@ -135,17 +165,25 @@ function rehypeLazyKatex() {
 
 /** Alignment and width travel in the image's title, which every Markdown tool keeps and shows no one. */
 function rehypeImageLayout() {
-  return (tree: HastRoot) => visit(tree, "element", (node: Element) => {
-    if (node.tagName !== "img" || typeof node.properties.title !== "string") return;
-    const { title, align, width } = parseImageTitle(node.properties.title);
-    node.properties.title = title || undefined;
-    if (align) node.properties.dataAlign = align;
-    if (width) node.properties.style = `width: ${width}px`;
-  });
+  return (tree: HastRoot) =>
+    visit(tree, "element", (node: Element) => {
+      if (node.tagName !== "img" || typeof node.properties.title !== "string") return;
+      const { title, align, width } = parseImageTitle(node.properties.title);
+      node.properties.title = title || undefined;
+      if (align) node.properties.dataAlign = align;
+      if (width) node.properties.style = `width: ${width}px`;
+    });
 }
 
-export async function renderMarkdown(markdown: string, options: { readonly title: string; readonly registry?: BlockRegistry; readonly glossary?: readonly GlossaryEntry[] }): Promise<RenderedMarkdown> {
-  const output: { toc: TocEntry[]; headingTitle: string; description: string } = { toc: [], headingTitle: "", description: "" };
+export async function renderMarkdown(
+  markdown: string,
+  options: { readonly title: string; readonly registry?: BlockRegistry; readonly glossary?: readonly GlossaryEntry[] }
+): Promise<RenderedMarkdown> {
+  const output: { toc: TocEntry[]; headingTitle: string; description: string } = {
+    toc: [],
+    headingTitle: "",
+    description: ""
+  };
   const processor = unified()
     .use(remarkParse)
     .use(dialectRemarkPlugins(options.registry ?? defaultBlockRegistry))
@@ -155,7 +193,11 @@ export async function renderMarkdown(markdown: string, options: { readonly title
     })
     // No raw HTML: `<br>` is the only tag the dialect keeps, and it arrives as a line break.
     // The list of footnotes closes the page; it is not a section of it, so the outline leaves its title out.
-    .use(remarkRehype, { footnoteLabel: t("Footnotes"), footnoteBackLabel: reference => t("Back to reference {0}", reference), footnoteLabelProperties: { className: ["rp-toc-exclude"] } })
+    .use(remarkRehype, {
+      footnoteLabel: t("Footnotes"),
+      footnoteBackLabel: reference => t("Back to reference {0}", reference),
+      footnoteLabelProperties: { className: ["rp-toc-exclude"] }
+    })
     // Before anything treats formulas' `pre` and `code` as code.
     .use(rehypeLazyKatex)
     .use(rehypeHeaderAnchor)
@@ -167,6 +209,12 @@ export async function renderMarkdown(markdown: string, options: { readonly title
     .use(rehypeGlossary, options.glossary ?? []);
   // A page nested too deeply reads as its source, here as everywhere else, rather than taking the tab down.
   const tree = boundedTree(markdown, text => processor.parse(text) as MdastRoot) ?? sourceTree(markdown);
-  const hast = await processor.run(tree, { value: markdown } as never) as unknown as HastRoot;
-  return { hast, toc: output.toc, headingTitle: output.headingTitle, readingMinutes: readingMinutes(hast), description: output.description };
+  const hast = (await processor.run(tree, { value: markdown } as never)) as unknown as HastRoot;
+  return {
+    hast,
+    toc: output.toc,
+    headingTitle: output.headingTitle,
+    readingMinutes: readingMinutes(hast),
+    description: output.description
+  };
 }

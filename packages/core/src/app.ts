@@ -60,9 +60,18 @@ export interface PandocsServices {
   readonly ingest: IngestService;
 }
 
-export function createPandocsServices(input: { db: PandocsDb; ports: PandocsPorts; routes?: readonly IngestRoute[] | undefined }): PandocsServices {
+export function createPandocsServices(input: {
+  db: PandocsDb;
+  ports: PandocsPorts;
+  routes?: readonly IngestRoute[] | undefined;
+}): PandocsServices {
   const registry = input.ports.registry ?? defaultBlockRegistry;
-  const context: AppContext = { db: input.db, ports: input.ports, registry, analyze: input.ports.analyze ?? (async markdown => analyzeDocument(markdown, registry)) };
+  const context: AppContext = {
+    db: input.db,
+    ports: input.ports,
+    registry,
+    analyze: input.ports.analyze ?? (async markdown => analyzeDocument(markdown, registry))
+  };
   const site = new SiteService(context);
   const spaces = new SpaceService(context);
   const documents = new DocumentService(context);
@@ -79,7 +88,35 @@ export function createPandocsServices(input: { db: PandocsDb; ports: PandocsPort
   const live = new LiveDraftService(context);
   const tree = new TreeService(context, documents);
   const changeSets = new ChangeSetService(context, documents, tree);
-  return { context, site, spaces, documents, changes: new ChangeService(context, documents), archives, tree, changeSets, gitSync: new GitSyncService(context, documents, tree, assets, changeSets, proposals, site), live, export: new ExportService(context, documents, assets), audit: new AuditLogService(context), llms: new LlmsService(context, documents, spaces, site, translations), translations, threads, assist, ask, stats, feedback, templates: new TemplateService(context), subscriptions: new SubscriptionService(context), webhooks: new WebhookService(context, site), bulkImports: new BulkImportService(context, documents, assets, site), shareLinks: new ShareLinkService(context), proposals, assets, ingest };
+  return {
+    context,
+    site,
+    spaces,
+    documents,
+    changes: new ChangeService(context, documents),
+    archives,
+    tree,
+    changeSets,
+    gitSync: new GitSyncService(context, documents, tree, assets, changeSets, proposals, site),
+    live,
+    export: new ExportService(context, documents, assets),
+    audit: new AuditLogService(context),
+    llms: new LlmsService(context, documents, spaces, site, translations),
+    translations,
+    threads,
+    assist,
+    ask,
+    stats,
+    feedback,
+    templates: new TemplateService(context),
+    subscriptions: new SubscriptionService(context),
+    webhooks: new WebhookService(context, site),
+    bulkImports: new BulkImportService(context, documents, assets, site),
+    shareLinks: new ShareLinkService(context),
+    proposals,
+    assets,
+    ingest
+  };
 }
 
 const SWEEP_INTERVAL_MS = 3_600_000;
@@ -113,7 +150,9 @@ export function createIngestWorker(services: PandocsServices, intervalMs = 5000)
   };
   const pumps = [
     pump(async () => {
-      while (await services.ingest.tick()) { /* drain due jobs */ }
+      while (await services.ingest.tick()) {
+        /* drain due jobs */
+      }
       if (Date.now() - swept >= SWEEP_INTERVAL_MS) {
         swept = Date.now();
         await sweepIdempotencyKeys(services);
@@ -121,19 +160,29 @@ export function createIngestWorker(services: PandocsServices, intervalMs = 5000)
       }
     }),
     pump(async () => {
-      while (await services.subscriptions.sendDueMail() > 0) { /* until none are due */ }
+      while ((await services.subscriptions.sendDueMail()) > 0) {
+        /* until none are due */
+      }
     }),
     pump(async () => {
-      while (await services.webhooks.tick()) { /* until none are due */ }
+      while (await services.webhooks.tick()) {
+        /* until none are due */
+      }
     }),
     pump(async () => {
-      while (await services.bulkImports.tick()) { /* until none are due */ }
+      while (await services.bulkImports.tick()) {
+        /* until none are due */
+      }
     }),
     pump(async () => {
-      while (await services.gitSync.tick()) { /* until none are due */ }
+      while (await services.gitSync.tick()) {
+        /* until none are due */
+      }
     }),
     pump(async () => {
-      while (await services.live.sweep() > 0) { /* until none are left */ }
+      while ((await services.live.sweep()) > 0) {
+        /* until none are left */
+      }
     })
   ];
   const run = () => {

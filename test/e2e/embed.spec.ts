@@ -12,7 +12,10 @@ import { launchBrowser, pandocsDescribe } from "./fixture.js";
 
 const postgres = usePostgresFixture();
 const ROOT = resolve(import.meta.dirname, "../..");
-const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64"
+);
 
 /** The real server and a host page on another origin, the way another system would use this. */
 pandocsDescribe("a page embedded in another system", () => {
@@ -42,7 +45,9 @@ pandocsDescribe("a page embedded in another system", () => {
     return ((await response.json()) as { data: { token: string } }).data.token;
   };
 
-  const hostPage = (attributes: string) => `<!doctype html><meta charset="utf-8"><title>对方系统</title><h1 id="host-title">对方系统的页面</h1>
+  const hostPage = (
+    attributes: string
+  ) => `<!doctype html><meta charset="utf-8"><title>对方系统</title><h1 id="host-title">对方系统的页面</h1>
 <pandocs-doc id="doc" server="${origin}" app="helpdesk" ${attributes} style="height:700px"></pandocs-doc>
 <script type="module">
   import "${origin}/embed.js";
@@ -53,13 +58,14 @@ pandocsDescribe("a page embedded in another system", () => {
   doc.getToken = async () => (await fetch("/token")).text();
 </script>`;
 
-  const serveHost = (attributes: () => string) => createServer((request, response) => {
-    if (request.url === "/token") {
-      void issueToken().then(token => response.writeHead(200, { "content-type": "text/plain" }).end(token));
-      return;
-    }
-    response.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(hostPage(attributes()));
-  });
+  const serveHost = (attributes: () => string) =>
+    createServer((request, response) => {
+      if (request.url === "/token") {
+        void issueToken().then(token => response.writeHead(200, { "content-type": "text/plain" }).end(token));
+        return;
+      }
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(hostPage(attributes()));
+    });
 
   let attributes = 'space="shared" path="guide"';
   const openHost = async (address: string): Promise<{ page: Page; frame: FrameLocator }> => {
@@ -108,7 +114,9 @@ pandocsDescribe("a page embedded in another system", () => {
         done();
       });
     });
-    stopListener = createChangeListener(postgres.getConnectionString(), server.runtime.events.wake, { fallbackMs: 3_600_000 }).stop;
+    stopListener = createChangeListener(postgres.getConnectionString(), server.runtime.events.wake, {
+      fallbackMs: 3_600_000
+    }).stop;
     host = serveHost(() => attributes);
     await new Promise<void>(done => host.listen(0, "localhost", done));
     hostOrigin = `http://localhost:${(host.address() as AddressInfo).port}`;
@@ -116,13 +124,31 @@ pandocsDescribe("a page embedded in another system", () => {
     await new Promise<void>(done => otherHost.listen(0, "localhost", done));
     otherOrigin = `http://localhost:${(otherHost.address() as AddressInfo).port}`;
 
-    secret = (await admin.json("POST", "/api/v1/admin/embed-apps", { slug: "helpdesk", name: "服务台", allowedOrigins: [hostOrigin] })).data.secret;
+    secret = (
+      await admin.json("POST", "/api/v1/admin/embed-apps", {
+        slug: "helpdesk",
+        name: "服务台",
+        allowedOrigins: [hostOrigin]
+      })
+    ).data.secret;
     await admin.json("POST", "/api/v1/spaces", { slug: "shared", name: "给外部看的", defaultRole: "none" });
     await admin.json("PUT", "/api/v1/spaces/shared/members", { subject: "group:embed:helpdesk", role: "commenter" });
-    const upload = await admin.request("/api/v1/spaces/shared/assets?filename=a.png", { method: "POST", headers: { "content-type": "image/png" }, body: PNG });
+    const upload = await admin.request("/api/v1/spaces/shared/assets?filename=a.png", {
+      method: "POST",
+      headers: { "content-type": "image/png" },
+      body: PNG
+    });
     const image = ((await upload.json()) as { data: { path: string } }).data.path;
-    await admin.json("POST", "/api/v1/spaces/shared/documents", { title: "说明", slug: "guide", markdown: `# 说明\n\n第一段普通说明。\n\n![示意图](${image})\n\n[另一页](./other)\n` });
-    await admin.json("POST", "/api/v1/spaces/shared/documents", { title: "另一页", slug: "other", markdown: "# 另一页\n\n另一页的内容。\n" });
+    await admin.json("POST", "/api/v1/spaces/shared/documents", {
+      title: "说明",
+      slug: "guide",
+      markdown: `# 说明\n\n第一段普通说明。\n\n![示意图](${image})\n\n[另一页](./other)\n`
+    });
+    await admin.json("POST", "/api/v1/spaces/shared/documents", {
+      title: "另一页",
+      slug: "other",
+      markdown: "# 另一页\n\n另一页的内容。\n"
+    });
 
     browser = await launchBrowser();
   }, 240_000);
@@ -147,7 +173,9 @@ pandocsDescribe("a page embedded in another system", () => {
     await browserExpect(image).toBeVisible();
     await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0);
     // The token never appears anywhere a script on the host, or a log, could pick it up from the address.
-    expect(await page.locator("pandocs-doc").evaluate(element => element.shadowRoot!.querySelector("iframe")!.src)).not.toContain("pdg_");
+    expect(
+      await page.locator("pandocs-doc").evaluate(element => element.shadowRoot!.querySelector("iframe")!.src)
+    ).not.toContain("pdg_");
     await page.close();
   }, 60_000);
 
@@ -155,16 +183,24 @@ pandocsDescribe("a page embedded in another system", () => {
     const { page, frame } = await openHost(hostOrigin);
     await browserExpect(frame.getByText("第一段普通说明")).toBeVisible({ timeout: 20_000 });
     await selectWordsInFrame(page, "第一段普通");
-    await frame.getByRole("toolbar", { name: "选中文字的操作" }).getByRole("button", { name: "评论", exact: true }).click();
+    await frame
+      .getByRole("toolbar", { name: "选中文字的操作" })
+      .getByRole("button", { name: "评论", exact: true })
+      .click();
     await frame.getByPlaceholder(/写下评论/u).fill("外部同事的看法");
     await frame.locator(".pd-panel").getByRole("button", { name: "发送", exact: true }).click();
     await browserExpect(frame.locator(".pd-card").getByText("外部同事的看法")).toBeVisible();
 
     const { id } = (await admin.json("GET", "/api/v1/spaces/shared/resolve?path=guide")).data;
-    const threadsNow = async () => (await admin.json("GET", `/api/v1/documents/${id}/threads`)).data as { id: string; comments: object[] }[];
+    const threadsNow = async () =>
+      (await admin.json("GET", `/api/v1/documents/${id}/threads`)).data as { id: string; comments: object[] }[];
     await expect.poll(async () => (await threadsNow()).length).toBeGreaterThan(0);
     const threads = await threadsNow();
-    expect(threads.at(-1)!.comments[0]).toMatchObject({ body: "外部同事的看法", authorName: "外部同事", channel: "embed" });
+    expect(threads.at(-1)!.comments[0]).toMatchObject({
+      body: "外部同事的看法",
+      authorName: "外部同事",
+      channel: "embed"
+    });
 
     // And the visitor hears about a reply from the site right away, with nothing reloading.
     await admin.json("POST", `/api/v1/threads/${threads.at(-1)!.id}/comments`, { body: "站内同事的回复" });
@@ -185,7 +221,9 @@ pandocsDescribe("a page embedded in another system", () => {
     await browserExpect(frame.getByText("第一段普通说明")).toBeVisible({ timeout: 20_000 });
     await frame.getByRole("link", { name: "另一页", exact: true }).click();
     await browserExpect(frame.getByText("另一页的内容")).toBeVisible({ timeout: 10_000 });
-    await expect.poll(() => page.evaluate(() => (window as unknown as { navigated: string[] }).navigated.at(-1))).toBe("/shared/other");
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { navigated: string[] }).navigated.at(-1)))
+      .toBe("/shared/other");
 
     await page.locator("pandocs-doc").evaluate(element => element.setAttribute("path", "guide"));
     await browserExpect(frame.getByText("第一段普通说明")).toBeVisible({ timeout: 10_000 });

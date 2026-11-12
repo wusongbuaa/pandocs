@@ -58,7 +58,13 @@ function problemWith(input: HTMLInputElement | null): string | undefined {
 }
 
 /** Waits for how the site signs people in and for the card's look, so that it opens once, ready. */
-export default function SignInDialog({ request, onClose }: { readonly request: SignInRequest; readonly onClose: () => void }) {
+export default function SignInDialog({
+  request,
+  onClose
+}: {
+  readonly request: SignInRequest;
+  readonly onClose: () => void;
+}) {
   const next = request.next ?? here();
   const [options, setOptions] = React.useState<LoginOptions | null>(null);
   React.useEffect(() => {
@@ -84,13 +90,26 @@ export default function SignInDialog({ request, onClose }: { readonly request: S
 }
 
 /** The sign-in page's card over the page someone was reading: the same parts and words, and the same answers. */
-function SignInCard({ options, request, next, onClose }: { readonly options: LoginOptions; readonly request: SignInRequest; readonly next: string; readonly onClose: () => void }) {
+function SignInCard({
+  options,
+  request,
+  next,
+  onClose
+}: {
+  readonly options: LoginOptions;
+  readonly request: SignInRequest;
+  readonly next: string;
+  readonly onClose: () => void;
+}) {
   useCoveredPage();
   const { site } = app.bootstrap;
   const id = React.useId();
   const emailRef = React.useRef<HTMLInputElement>(null);
   const passwordRef = React.useRef<HTMLInputElement>(null);
-  const [problems, setProblems] = React.useState<{ readonly email?: string | undefined; readonly password?: string | undefined }>({});
+  const [problems, setProblems] = React.useState<{
+    readonly email?: string | undefined;
+    readonly password?: string | undefined;
+  }>({});
   const [problem, setProblem] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const lead = request.reason ?? site.description;
@@ -110,7 +129,10 @@ function SignInCard({ options, request, next, onClose }: { readonly options: Log
       method: "POST",
       credentials: "same-origin",
       headers: { ...ASKING_FOR_DATA, "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ email: emailRef.current?.value.trim() ?? "", password: passwordRef.current?.value ?? "" })
+      body: new URLSearchParams({
+        email: emailRef.current?.value.trim() ?? "",
+        password: passwordRef.current?.value ?? ""
+      })
     }).catch(() => null);
     // Signed in, it stays busy until the page it goes to has come.
     if (response?.ok) {
@@ -123,13 +145,29 @@ function SignInCard({ options, request, next, onClose }: { readonly options: Log
     passwordRef.current?.focus();
   };
 
-  const field = (name: "email" | "password", label: string, input: React.ComponentProps<"input">, aside?: React.ReactNode) => {
+  const field = (
+    name: "email" | "password",
+    label: string,
+    input: React.ComponentProps<"input">,
+    aside?: React.ReactNode
+  ) => {
     const fieldId = `${id}-${name}`;
     const said = problems[name];
-    const labelled = <label className="pd-sign-in__label" htmlFor={fieldId}>{label}</label>;
+    const labelled = (
+      <label className="pd-sign-in__label" htmlFor={fieldId}>
+        {label}
+      </label>
+    );
     return (
       <div className="pd-sign-in__field">
-        {aside ? <div className="pd-sign-in__label-row">{labelled}{aside}</div> : labelled}
+        {aside ? (
+          <div className="pd-sign-in__label-row">
+            {labelled}
+            {aside}
+          </div>
+        ) : (
+          labelled
+        )}
         <input
           ref={name === "email" ? emailRef : passwordRef}
           className="pd-sign-in__input"
@@ -138,28 +176,57 @@ function SignInCard({ options, request, next, onClose }: { readonly options: Log
           required
           aria-invalid={said ? true : undefined}
           aria-describedby={said ? `${fieldId}-problem` : undefined}
-          onChange={() => { if (said) setProblems(current => ({ ...current, [name]: undefined })); }}
+          onChange={() => {
+            if (said) setProblems(current => ({ ...current, [name]: undefined }));
+          }}
           {...input}
         />
-        {said ? <p className="pd-sign-in__field-problem" id={`${fieldId}-problem`}>{said}</p> : null}
+        {said ? (
+          <p className="pd-sign-in__field-problem" id={`${fieldId}-problem`}>
+            {said}
+          </p>
+        ) : null}
       </div>
     );
   };
 
   return (
-    <DialogPrimitive.Root open onOpenChange={open => { if (!open) onClose(); }}>
+    <DialogPrimitive.Root
+      open
+      onOpenChange={open => {
+        if (!open) onClose();
+      }}
+    >
       <DialogPortal>
         <DialogOverlay />
         <div className="pd-sign-in-dialog">
           <DialogPrimitive.Popup className="pd-sign-in duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95">
-            <div className="pd-sign-in__logo"><img src={logoOf(site)} alt="" width={64} height={64} /></div>
-            <DialogPrimitive.Title className="pd-sign-in__title">{t("Sign in to {0}", site.title)}</DialogPrimitive.Title>
-            {lead ? <DialogPrimitive.Description className="pd-sign-in__lead">{lead}</DialogPrimitive.Description> : null}
-            {problem ? <p className="pd-sign-in__problem" role="alert">{problem}</p> : null}
+            <div className="pd-sign-in__logo">
+              <img src={logoOf(site)} alt="" width={64} height={64} />
+            </div>
+            <DialogPrimitive.Title className="pd-sign-in__title">
+              {t("Sign in to {0}", site.title)}
+            </DialogPrimitive.Title>
+            {lead ? (
+              <DialogPrimitive.Description className="pd-sign-in__lead">{lead}</DialogPrimitive.Description>
+            ) : null}
+            {problem ? (
+              <p className="pd-sign-in__problem" role="alert">
+                {problem}
+              </p>
+            ) : null}
             {options.providers.length > 0 ? (
               <div className="pd-sign-in__providers">
                 {options.providers.map(provider => (
-                  <a key={provider.id} className="pd-sign-in__provider" href={sitePath(`/auth/${encodeURIComponent(provider.id)}/start?${new URLSearchParams({ next: insideSite(next) })}`)}>{t("Sign in with {0}", provider.name)}</a>
+                  <a
+                    key={provider.id}
+                    className="pd-sign-in__provider"
+                    href={sitePath(
+                      `/auth/${encodeURIComponent(provider.id)}/start?${new URLSearchParams({ next: insideSite(next) })}`
+                    )}
+                  >
+                    {t("Sign in with {0}", provider.name)}
+                  </a>
                 ))}
               </div>
             ) : null}
@@ -167,14 +234,27 @@ function SignInCard({ options, request, next, onClose }: { readonly options: Log
             {options.passwordLogin ? (
               <form className="pd-sign-in__form" noValidate onSubmit={event => void submit(event)}>
                 {field("email", t("Email"), { type: "email", autoComplete: "username" })}
-                {field("password", t("Password"), { type: "password", autoComplete: "current-password" }, <a className="pd-sign-in__aside" href={sitePath("/forgot-password")}>{t("Forgot your password?")}</a>)}
-                <button className="pd-sign-in__submit" type="submit" disabled={busy}>{busy ? t("Signing in…") : t("Sign in")}</button>
+                {field(
+                  "password",
+                  t("Password"),
+                  { type: "password", autoComplete: "current-password" },
+                  <a className="pd-sign-in__aside" href={sitePath("/forgot-password")}>
+                    {t("Forgot your password?")}
+                  </a>
+                )}
+                <button className="pd-sign-in__submit" type="submit" disabled={busy}>
+                  {busy ? t("Signing in…") : t("Sign in")}
+                </button>
               </form>
             ) : null}
             {/* Accounts come from the company's provider when there is one, so only a site of passwords needs telling who makes them. */}
-            {options.providers.length === 0 ? <p className="pd-sign-in__note">{t("No account yet? Ask an administrator of this site.")}</p> : null}
+            {options.providers.length === 0 ? (
+              <p className="pd-sign-in__note">{t("No account yet? Ask an administrator of this site.")}</p>
+            ) : null}
             {/* Last, so that opening it starts on what it asks for rather than on leaving it. */}
-            <DialogPrimitive.Close className="pd-sign-in__close" aria-label={t("Close")}><X size={16} aria-hidden="true" /></DialogPrimitive.Close>
+            <DialogPrimitive.Close className="pd-sign-in__close" aria-label={t("Close")}>
+              <X size={16} aria-hidden="true" />
+            </DialogPrimitive.Close>
           </DialogPrimitive.Popup>
         </div>
       </DialogPortal>

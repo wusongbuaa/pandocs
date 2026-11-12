@@ -38,7 +38,11 @@ function ZoomStage({ svg, label }: { svg: string; label: string }) {
     const { width = 0, height = 0 } = image?.viewBox.baseVal ?? {};
     if (!image || !width || !height) return undefined;
     const fit = () => {
-      const scale = Math.min((box.clientWidth - FIT_MARGIN * 2) / width, (box.clientHeight - FIT_MARGIN * 2) / height, MOST_ENLARGED_WHEN_FITTED);
+      const scale = Math.min(
+        (box.clientWidth - FIT_MARGIN * 2) / width,
+        (box.clientHeight - FIT_MARGIN * 2) / height,
+        MOST_ENLARGED_WHEN_FITTED
+      );
       image.style.width = `${width * scale}px`;
       image.style.height = `${height * scale}px`;
       image.style.maxWidth = "none";
@@ -55,7 +59,9 @@ function ZoomStage({ svg, label }: { svg: string; label: string }) {
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       const { left, top } = box.getBoundingClientRect();
-      setView(current => zoomAround(current, { x: event.clientX - left, y: event.clientY - top }, Math.exp(-event.deltaY * WHEEL_SPEED)));
+      setView(current =>
+        zoomAround(current, { x: event.clientX - left, y: event.clientY - top }, Math.exp(-event.deltaY * WHEEL_SPEED))
+      );
     };
     box.addEventListener("wheel", onWheel, { passive: false });
     return () => box.removeEventListener("wheel", onWheel);
@@ -68,20 +74,57 @@ function ZoomStage({ svg, label }: { svg: string; label: string }) {
 
   return (
     // Focus starts here, for the keys below. On a button, it would open that button's tooltip, and Escape would close only that.
-    <div className="pd-zoom__inner" tabIndex={-1} onKeyDown={event => {
-      if (event.key === "+" || event.key === "=") zoomFromCentre(BUTTON_STEP);
-      else if (event.key === "-") zoomFromCentre(1 / BUTTON_STEP);
-      else if (event.key === "0") setView(FITTED);
-    }}>
+    <div
+      className="pd-zoom__inner"
+      tabIndex={-1}
+      onKeyDown={event => {
+        if (event.key === "+" || event.key === "=") zoomFromCentre(BUTTON_STEP);
+        else if (event.key === "-") zoomFromCentre(1 / BUTTON_STEP);
+        else if (event.key === "0") setView(FITTED);
+      }}
+    >
       <header className="pd-zoom__bar">
         <Dialog.Title className="pd-zoom__title">{label}</Dialog.Title>
         <span className="pd-zoom__hint">{t("Scroll to zoom, drag to move, Esc to close")}</span>
-        <Tip label={t("Zoom out")}><button type="button" className="pd-icon-button" aria-label={t("Zoom out")} onClick={() => zoomFromCentre(1 / BUTTON_STEP)}><Minus size={16} aria-hidden="true" /></button></Tip>
-        <Tip label={t("Zoom in")}><button type="button" className="pd-icon-button" aria-label={t("Zoom in")} onClick={() => zoomFromCentre(BUTTON_STEP)}><Plus size={16} aria-hidden="true" /></button></Tip>
-        <Tip label={t("Fit to window")}><button type="button" className="pd-icon-button" aria-label={t("Fit to window")} onClick={() => setView(FITTED)}><Maximize size={16} aria-hidden="true" /></button></Tip>
-        <Tip label={t("Close")}><Dialog.Close className="pd-icon-button" aria-label={t("Close")}><X size={16} aria-hidden="true" /></Dialog.Close></Tip>
+        <Tip label={t("Zoom out")}>
+          <button
+            type="button"
+            className="pd-icon-button"
+            aria-label={t("Zoom out")}
+            onClick={() => zoomFromCentre(1 / BUTTON_STEP)}
+          >
+            <Minus size={16} aria-hidden="true" />
+          </button>
+        </Tip>
+        <Tip label={t("Zoom in")}>
+          <button
+            type="button"
+            className="pd-icon-button"
+            aria-label={t("Zoom in")}
+            onClick={() => zoomFromCentre(BUTTON_STEP)}
+          >
+            <Plus size={16} aria-hidden="true" />
+          </button>
+        </Tip>
+        <Tip label={t("Fit to window")}>
+          <button
+            type="button"
+            className="pd-icon-button"
+            aria-label={t("Fit to window")}
+            onClick={() => setView(FITTED)}
+          >
+            <Maximize size={16} aria-hidden="true" />
+          </button>
+        </Tip>
+        <Tip label={t("Close")}>
+          <Dialog.Close className="pd-icon-button" aria-label={t("Close")}>
+            <X size={16} aria-hidden="true" />
+          </Dialog.Close>
+        </Tip>
       </header>
-      <div ref={stage} className="pd-zoom__stage"
+      <div
+        ref={stage}
+        className="pd-zoom__stage"
         onPointerDown={event => {
           event.currentTarget.setPointerCapture(event.pointerId);
           dragging.current = { x: event.clientX, y: event.clientY };
@@ -90,11 +133,25 @@ function ZoomStage({ svg, label }: { svg: string; label: string }) {
           const from = dragging.current;
           if (!from) return;
           dragging.current = { x: event.clientX, y: event.clientY };
-          setView(current => ({ ...current, x: current.x + event.clientX - from.x, y: current.y + event.clientY - from.y }));
+          setView(current => ({
+            ...current,
+            x: current.x + event.clientX - from.x,
+            y: current.y + event.clientY - from.y
+          }));
         }}
-        onPointerUp={() => { dragging.current = null; }}
-        onPointerCancel={() => { dragging.current = null; }}>
-        <div ref={canvas} className="pd-zoom__canvas" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }} dangerouslySetInnerHTML={{ __html: svg }} />
+        onPointerUp={() => {
+          dragging.current = null;
+        }}
+        onPointerCancel={() => {
+          dragging.current = null;
+        }}
+      >
+        <div
+          ref={canvas}
+          className="pd-zoom__canvas"
+          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
       </div>
     </div>
   );
@@ -105,12 +162,21 @@ export function DiagramZoom({ svg, label, onClose }: { svg: string; label: strin
   // Focus would go back to the dialog's own trigger, and the diagram that opened this is not one.
   const [opener] = React.useState(() => document.activeElement as HTMLElement | null);
   return (
-    <Dialog.Root open onOpenChange={open => { if (!open) onClose(); }}>
+    <Dialog.Root
+      open
+      onOpenChange={open => {
+        if (!open) onClose();
+      }}
+    >
       <Dialog.Portal>
-        <Dialog.Popup className="pd-zoom" initialFocus={() => document.querySelector<HTMLElement>(".pd-zoom__inner")} finalFocus={() => {
-          opener?.focus({ preventScroll: true });
-          return false;
-        }}>
+        <Dialog.Popup
+          className="pd-zoom"
+          initialFocus={() => document.querySelector<HTMLElement>(".pd-zoom__inner")}
+          finalFocus={() => {
+            opener?.focus({ preventScroll: true });
+            return false;
+          }}
+        >
           <ZoomStage svg={svg} label={label} />
         </Dialog.Popup>
       </Dialog.Portal>

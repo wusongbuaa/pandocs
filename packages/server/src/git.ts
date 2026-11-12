@@ -11,7 +11,21 @@ import { isPrivate } from "./webhooks.js";
 const NETWORK_TIMEOUT_MS = 5 * 60 * 1000;
 const LOCAL_TIMEOUT_MS = 60 * 1000;
 const MAX_OUTPUT_BYTES = 256 * 1024 * 1024;
-const PASSED_ON = ["PATH", "TMPDIR", "SSL_CERT_FILE", "SSL_CERT_DIR", "GIT_SSL_CAINFO", "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy"] as const;
+const PASSED_ON = [
+  "PATH",
+  "TMPDIR",
+  "SSL_CERT_FILE",
+  "SSL_CERT_DIR",
+  "GIT_SSL_CAINFO",
+  "HTTPS_PROXY",
+  "https_proxy",
+  "HTTP_PROXY",
+  "http_proxy",
+  "ALL_PROXY",
+  "all_proxy",
+  "NO_PROXY",
+  "no_proxy"
+] as const;
 
 interface RunOptions {
   readonly cwd?: string;
@@ -36,13 +50,21 @@ export function createGitPort(deps: { readonly allowPrivate: boolean; readonly b
     const host = url.hostname.replace(/^\[|\]$/gu, "");
     const port = url.port || (url.protocol === "https:" ? "443" : "80");
     const family = isIP(host);
-    const addresses = family ? [{ address: host, family }] : await lookup(host, { all: true, verbatim: true }).catch(() => {
-      throw new Error(t("The repository's address could not be found"));
-    });
+    const addresses = family
+      ? [{ address: host, family }]
+      : await lookup(host, { all: true, verbatim: true }).catch(() => {
+          throw new Error(t("The repository's address could not be found"));
+        });
     if (addresses.length === 0 || addresses.some(({ address, family: kind }) => isPrivate(address, kind))) {
-      throw new Error(t("This address is on a private network, which Git sync cannot reach unless the server allows it"));
+      throw new Error(
+        t("This address is on a private network, which Git sync cannot reach unless the server allows it")
+      );
     }
-    return family ? [] : [`http.curloptResolve=${host}:${port}:${addresses.map(({ address, family: kind }) => (kind === 6 ? `[${address}]` : address)).join(",")}`];
+    return family
+      ? []
+      : [
+          `http.curloptResolve=${host}:${port}:${addresses.map(({ address, family: kind }) => (kind === 6 ? `[${address}]` : address)).join(",")}`
+        ];
   };
 
   const environment = (remote: GitRemote, settings: readonly string[]): NodeJS.ProcessEnv => {
@@ -79,26 +101,48 @@ export function createGitPort(deps: { readonly allowPrivate: boolean; readonly b
     return env;
   };
 
-  const runner = (remote: GitRemote, env: NodeJS.ProcessEnv) => (args: readonly string[], options: RunOptions = {}) => new Promise<Buffer>((resolve, reject) => {
-    const child = execFile(binary, args, { cwd: options.cwd ?? tmpdir(), env: { ...env, ...options.env }, encoding: "buffer", maxBuffer: MAX_OUTPUT_BYTES, timeout: options.network ? NETWORK_TIMEOUT_MS : LOCAL_TIMEOUT_MS, killSignal: "SIGKILL" }, (error, stdout, stderr) => {
-      if (!error) {
-        resolve(stdout);
-        return;
-      }
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        reject(new Error(t("This server cannot run Git")));
-        return;
-      }
-      const said = stderr.toString("utf8").replace(/\s+/gu, " ").trim().slice(0, 500);
-      // It has no reason to repeat a token, but this ends up on a settings page, so it does not get the chance.
-      reject(new Error((said || (error.killed ? t("Git took too long") : error.message)).replaceAll(remote.token || "\0", "…")));
-    });
-    // Git may be gone before it has read this, which it says for itself when it exits.
-    child.stdin?.on("error", () => undefined);
-    if (options.input !== undefined) child.stdin!.end(options.input);
-  });
+  const runner =
+    (remote: GitRemote, env: NodeJS.ProcessEnv) =>
+    (args: readonly string[], options: RunOptions = {}) =>
+      new Promise<Buffer>((resolve, reject) => {
+        const child = execFile(
+          binary,
+          args,
+          {
+            cwd: options.cwd ?? tmpdir(),
+            env: { ...env, ...options.env },
+            encoding: "buffer",
+            maxBuffer: MAX_OUTPUT_BYTES,
+            timeout: options.network ? NETWORK_TIMEOUT_MS : LOCAL_TIMEOUT_MS,
+            killSignal: "SIGKILL"
+          },
+          (error, stdout, stderr) => {
+            if (!error) {
+              resolve(stdout);
+              return;
+            }
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+              reject(new Error(t("This server cannot run Git")));
+              return;
+            }
+            const said = stderr.toString("utf8").replace(/\s+/gu, " ").trim().slice(0, 500);
+            // It has no reason to repeat a token, but this ends up on a settings page, so it does not get the chance.
+            reject(
+              new Error(
+                (said || (error.killed ? t("Git took too long") : error.message)).replaceAll(remote.token || "\0", "…")
+              )
+            );
+          }
+        );
+        // Git may be gone before it has read this, which it says for itself when it exits.
+        child.stdin?.on("error", () => undefined);
+        if (options.input !== undefined) child.stdin!.end(options.input);
+      });
 
-  const headOf = async (remote: GitRemote, git: ReturnType<typeof runner>) => (await git(["ls-remote", "--", remote.repository, `refs/heads/${remote.branch}`], { network: true })).toString("utf8").split(/\s/u, 1)[0] || null;
+  const headOf = async (remote: GitRemote, git: ReturnType<typeof runner>) =>
+    (await git(["ls-remote", "--", remote.repository, `refs/heads/${remote.branch}`], { network: true }))
+      .toString("utf8")
+      .split(/\s/u, 1)[0] || null;
 
   return {
     async head(remote) {
@@ -113,16 +157,36 @@ export function createGitPort(deps: { readonly allowPrivate: boolean; readonly b
       const dispose = () => rm(directory, { recursive: true, force: true });
       try {
         const remoteHead = await headOf(remote, outside);
-        await git(["init", "--quiet", `--object-format=${remoteHead?.length === 64 ? "sha256" : "sha1"}`, `--initial-branch=${remote.branch}`, "."]);
+        await git([
+          "init",
+          "--quiet",
+          `--object-format=${remoteHead?.length === 64 ? "sha256" : "sha1"}`,
+          `--initial-branch=${remote.branch}`,
+          "."
+        ]);
         await git(["remote", "add", "origin", remote.repository]);
         const files = new Map<string, string>();
         let head: string | null = null;
         let author: GitWorkspace["author"] = null;
         if (remoteHead) {
           // The history is not needed, and the files only as they are asked for.
-          await git(["fetch", "--quiet", "--depth=1", "--filter=blob:none", "--no-tags", "origin", `+refs/heads/${remote.branch}:refs/remotes/origin/${remote.branch}`], { network: true });
+          await git(
+            [
+              "fetch",
+              "--quiet",
+              "--depth=1",
+              "--filter=blob:none",
+              "--no-tags",
+              "origin",
+              `+refs/heads/${remote.branch}:refs/remotes/origin/${remote.branch}`
+            ],
+            { network: true }
+          );
           head = (await git(["rev-parse", `refs/remotes/origin/${remote.branch}`])).toString("utf8").trim();
-          const [name = "", subject = ""] = (await git(["log", "-1", "--format=%an%x00%s", head])).toString("utf8").trim().split("\0");
+          const [name = "", subject = ""] = (await git(["log", "-1", "--format=%an%x00%s", head]))
+            .toString("utf8")
+            .trim()
+            .split("\0");
           author = { name, subject };
           for (const entry of (await git(["ls-tree", "-r", "-z", "--full-tree", head])).toString("utf8").split("\0")) {
             // Plain files only. A link in a repository points nowhere that means anything here.
@@ -138,7 +202,21 @@ export function createGitPort(deps: { readonly allowPrivate: boolean; readonly b
             if (paths.length < 2) return;
             const blobs = paths.flatMap(path => files.get(path) ?? []);
             // Asking for them together is one round trip instead of one each. A host that will not do this has already sent them, or will send them one at a time.
-            await git(["-c", "fetch.negotiationAlgorithm=noop", "fetch", "--quiet", "origin", "--no-tags", "--no-write-fetch-head", "--recurse-submodules=no", "--filter=blob:none", "--stdin"], { network: true, input: `${blobs.join("\n")}\n` }).catch(() => undefined);
+            await git(
+              [
+                "-c",
+                "fetch.negotiationAlgorithm=noop",
+                "fetch",
+                "--quiet",
+                "origin",
+                "--no-tags",
+                "--no-write-fetch-head",
+                "--recurse-submodules=no",
+                "--filter=blob:none",
+                "--stdin"
+              ],
+              { network: true, input: `${blobs.join("\n")}\n` }
+            ).catch(() => undefined);
           },
           async read(path) {
             const blob = files.get(path);
@@ -157,10 +235,19 @@ export function createGitPort(deps: { readonly allowPrivate: boolean; readonly b
             await git(["update-index", "-z", "--index-info"], { env: withIndex, input: `${entries.join("\0")}\0` });
             // Unchanged files have not been downloaded, and do not need to be for this.
             const tree = (await git(["write-tree", "--missing-ok"], { env: withIndex })).toString("utf8").trim();
-            const created = (await git(["commit-tree", tree, ...(head ? ["-p", head] : []), "-F", "-"], {
-              env: { GIT_AUTHOR_NAME: who.name, GIT_AUTHOR_EMAIL: who.email, GIT_COMMITTER_NAME: "Pandocs", GIT_COMMITTER_EMAIL: who.email },
-              input: `${message}\n`
-            })).toString("utf8").trim();
+            const created = (
+              await git(["commit-tree", tree, ...(head ? ["-p", head] : []), "-F", "-"], {
+                env: {
+                  GIT_AUTHOR_NAME: who.name,
+                  GIT_AUTHOR_EMAIL: who.email,
+                  GIT_COMMITTER_NAME: "Pandocs",
+                  GIT_COMMITTER_EMAIL: who.email
+                },
+                input: `${message}\n`
+              })
+            )
+              .toString("utf8")
+              .trim();
             await git(["push", "--quiet", "origin", `${created}:refs/heads/${remote.branch}`], { network: true });
             return created;
           },

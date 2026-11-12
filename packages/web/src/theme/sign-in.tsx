@@ -41,7 +41,15 @@ const SignInDialog = React.lazy(() => import("./sign-in-dialog"));
 
 /** Visitors only: everyone else is signed in, or has their identity from another system or a share link. */
 export function SignInHost() {
-  const request = React.useSyncExternalStore(subscribe, () => current, () => null);
+  const request = React.useSyncExternalStore(
+    subscribe,
+    () => current,
+    () => null
+  );
   if (!request || !isVisitor()) return null;
-  return <React.Suspense fallback={null}><SignInDialog request={request} onClose={() => setRequest(null)} /></React.Suspense>;
+  return (
+    <React.Suspense fallback={null}>
+      <SignInDialog request={request} onClose={() => setRequest(null)} />
+    </React.Suspense>
+  );
 }

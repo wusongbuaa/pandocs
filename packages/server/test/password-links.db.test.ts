@@ -16,14 +16,24 @@ describe("handing someone an account", () => {
 
   const invite = async (name = "新同事") => {
     count += 1;
-    const created = await admin.json("POST", "/api/v1/admin/users", { email: `person${count}@example.test`, displayName: name });
+    const created = await admin.json("POST", "/api/v1/admin/users", {
+      email: `person${count}@example.test`,
+      displayName: name
+    });
     expect(created.status).toBe(201);
-    return created.data as { id: string; email: string; passwordLink: { url: string; expiresAt: string; emailed: boolean } };
+    return created.data as {
+      id: string;
+      email: string;
+      passwordLink: { url: string; expiresAt: string; emailed: boolean };
+    };
   };
   const signsIn = async (email: string, password: string) => {
     const person = server.client();
     await person.form("/login", { email, password, next: "/" });
-    return (await person.json("GET", "/api/v1/me")).status === 200 && (await person.json("GET", "/api/v1/me")).data.anonymous !== true;
+    return (
+      (await person.json("GET", "/api/v1/me")).status === 200 &&
+      (await person.json("GET", "/api/v1/me")).data.anonymous !== true
+    );
   };
 
   beforeAll(async () => {
@@ -40,13 +50,19 @@ describe("handing someone an account", () => {
     expect(person.passwordLink.emailed).toBe(false);
     expect(new Date(person.passwordLink.expiresAt).getTime()).toBeGreaterThan(Date.now() + 6 * 24 * 3600_000);
     expect(JSON.stringify((await admin.json("GET", "/api/v1/admin/users")).data)).not.toContain("passwordLink");
-    const given = await admin.json("POST", "/api/v1/admin/users", { email: "given@example.test", displayName: "已有密码", password: "welcome-password" });
+    const given = await admin.json("POST", "/api/v1/admin/users", {
+      email: "given@example.test",
+      displayName: "已有密码",
+      password: "welcome-password"
+    });
     expect(given.data.passwordLink).toBeUndefined();
   });
 
   it("keeps only a hash of the link, which is no way in on its own", async () => {
     const person = await invite();
-    const { rows } = await server.pool.query(`SELECT token_hash FROM pandocs.password_links WHERE user_id = $1`, [person.id]);
+    const { rows } = await server.pool.query(`SELECT token_hash FROM pandocs.password_links WHERE user_id = $1`, [
+      person.id
+    ]);
     expect(rows).toHaveLength(1);
     expect(person.passwordLink.url).not.toContain(rows[0].token_hash);
   });
@@ -102,7 +118,10 @@ describe("handing someone an account", () => {
     expect((await server.client().request(path)).status).toBe(410);
     const newPath = pathOf(newer.data.url);
     expect((await server.client().request(newPath)).status).toBe(200);
-    await server.pool.query(`UPDATE pandocs.password_links SET expires_at = now() - interval '1 minute' WHERE user_id = $1`, [person.id]);
+    await server.pool.query(
+      `UPDATE pandocs.password_links SET expires_at = now() - interval '1 minute' WHERE user_id = $1`,
+      [person.id]
+    );
     expect((await server.client().request(newPath)).status).toBe(410);
     expect((await server.client().form(newPath, { password: PASSWORD })).status).toBe(410);
   });
@@ -133,11 +152,22 @@ describe("handing someone an account", () => {
     const other = await invite("普通同事");
     const someone = server.client();
     await someone.form(pathOf(other.passwordLink.url), { password: PASSWORD });
-    expect((await someone.json("POST", `/api/v1/admin/users/${person.id}/password-link`)).error.code).toBe("ADMIN_REQUIRED");
+    expect((await someone.json("POST", `/api/v1/admin/users/${person.id}/password-link`)).error.code).toBe(
+      "ADMIN_REQUIRED"
+    );
     expect((await server.client().json("POST", `/api/v1/admin/users/${person.id}/password-link`)).status).toBe(401);
-    const reader = (await admin.json("POST", "/api/v1/account/tokens", { name: "只读", scopes: ["read"] })).data.token as string;
-    expect((await server.client().json("POST", `/api/v1/admin/users/${person.id}/password-link`, undefined, { authorization: `Bearer ${reader}` })).error.code).toBe("SCOPE_REQUIRED");
-    expect((await admin.json("POST", "/api/v1/admin/users/00000000-0000-0000-0000-000000000000/password-link")).status).toBe(404);
+    const reader = (await admin.json("POST", "/api/v1/account/tokens", { name: "只读", scopes: ["read"] })).data
+      .token as string;
+    expect(
+      (
+        await server.client().json("POST", `/api/v1/admin/users/${person.id}/password-link`, undefined, {
+          authorization: `Bearer ${reader}`
+        })
+      ).error.code
+    ).toBe("SCOPE_REQUIRED");
+    expect(
+      (await admin.json("POST", "/api/v1/admin/users/00000000-0000-0000-0000-000000000000/password-link")).status
+    ).toBe(404);
   });
 
   describe("on a site with no mail", () => {
@@ -151,7 +181,9 @@ describe("handing someone an account", () => {
       const person = await invite();
       await server.pool.query(`DELETE FROM pandocs.password_links WHERE user_id = $1`, [person.id]);
       expect((await server.client().form("/forgot-password", { email: person.email })).status).toBe(404);
-      expect((await server.pool.query(`SELECT 1 FROM pandocs.password_links WHERE user_id = $1`, [person.id])).rows).toHaveLength(0);
+      expect(
+        (await server.pool.query(`SELECT 1 FROM pandocs.password_links WHERE user_id = $1`, [person.id])).rows
+      ).toHaveLength(0);
     });
   });
 });
@@ -174,14 +206,19 @@ describe("handing someone an account, by mail", () => {
     await (await import("../src/app.js")).migrate(server.pool);
     admin = await signInFirstAdmin(server);
   });
-  afterEach(() => { mail.inbox.length = 0; });
+  afterEach(() => {
+    mail.inbox.length = 0;
+  });
   afterAll(async () => {
     await server.close();
     await mail.close();
   });
 
   it("mails the invitation, and says so", async () => {
-    const created = await admin.json("POST", "/api/v1/admin/users", { email: "invited@example.test", displayName: "受邀人" });
+    const created = await admin.json("POST", "/api/v1/admin/users", {
+      email: "invited@example.test",
+      displayName: "受邀人"
+    });
     expect(created.data.passwordLink.emailed).toBe(true);
     const sent = await mailFor("invited@example.test");
     expect(linkIn(sent.body)).toBe(created.data.passwordLink.url);
@@ -191,7 +228,10 @@ describe("handing someone an account, by mail", () => {
   it("still gives the link if the mail cannot go out", async () => {
     await mail.close();
     try {
-      const created = await admin.json("POST", "/api/v1/admin/users", { email: "unlucky@example.test", displayName: "没收到" });
+      const created = await admin.json("POST", "/api/v1/admin/users", {
+        email: "unlucky@example.test",
+        displayName: "没收到"
+      });
       expect(created.status).toBe(201);
       expect(created.data.passwordLink.emailed).toBe(false);
       expect(created.data.passwordLink.url).toContain("/set-password/");
@@ -215,13 +255,23 @@ describe("forgetting a password", () => {
     await server.pool.query(`DROP SCHEMA pandocs CASCADE`);
     await (await import("../src/app.js")).migrate(server.pool);
     admin = await signInFirstAdmin(server);
-    await admin.json("POST", "/api/v1/admin/users", { email: "forgetful@example.test", displayName: "健忘", password: "the-old-password" });
-    await admin.json("POST", "/api/v1/admin/users", { email: "gone@example.test", displayName: "离职", password: "the-old-password" });
+    await admin.json("POST", "/api/v1/admin/users", {
+      email: "forgetful@example.test",
+      displayName: "健忘",
+      password: "the-old-password"
+    });
+    await admin.json("POST", "/api/v1/admin/users", {
+      email: "gone@example.test",
+      displayName: "离职",
+      password: "the-old-password"
+    });
     const { data } = await admin.json("GET", "/api/v1/admin/users?q=gone");
     await admin.json("PATCH", `/api/v1/admin/users/${data[0].id}`, { status: "disabled" });
     mail.inbox.length = 0;
   });
-  afterEach(() => { mail.inbox.length = 0; });
+  afterEach(() => {
+    mail.inbox.length = 0;
+  });
   afterAll(async () => {
     await server.close();
     await mail.close();
@@ -244,19 +294,26 @@ describe("forgetting a password", () => {
   it("sends a link that lasts an hour and replaces the password", async () => {
     await server.client().form("/forgot-password", { email: "FORGETFUL@example.test" });
     await vi.waitFor(() => expect(mail.inbox).toHaveLength(1));
-    const { rows } = await server.pool.query<{ left: number }>(`SELECT extract(epoch FROM expires_at - now()) AS left FROM pandocs.password_links ORDER BY created_at DESC LIMIT 1`);
+    const { rows } = await server.pool.query<{ left: number }>(
+      `SELECT extract(epoch FROM expires_at - now()) AS left FROM pandocs.password_links ORDER BY created_at DESC LIMIT 1`
+    );
     expect(Number(rows[0]!.left)).toBeLessThanOrEqual(3600);
     const person = server.client();
-    expect((await person.form(new URL(linkIn(mail.inbox[0]!.body)).pathname, { password: "the-new-password" })).status).toBe(303);
+    expect(
+      (await person.form(new URL(linkIn(mail.inbox[0]!.body)).pathname, { password: "the-new-password" })).status
+    ).toBe(303);
     expect((await person.json("GET", "/api/v1/account")).status).toBe(200);
   });
 
   it("stops after a few asks, so it cannot be used to flood someone's mailbox", async () => {
-    const asks = await Promise.all(Array.from({ length: 8 }, () => server.client().form("/forgot-password", { email: "flooded@example.test" })));
+    const asks = await Promise.all(
+      Array.from({ length: 8 }, () => server.client().form("/forgot-password", { email: "flooded@example.test" }))
+    );
     expect(asks.every(response => response.status === 200)).toBe(true);
     await server.client().form("/forgot-password", { email: "forgetful@example.test" });
     await vi.waitFor(() => expect(mail.inbox.length).toBeGreaterThan(0));
-    for (let ask = 0; ask < 8; ask += 1) await server.client().form("/forgot-password", { email: "forgetful@example.test" });
+    for (let ask = 0; ask < 8; ask += 1)
+      await server.client().form("/forgot-password", { email: "forgetful@example.test" });
     await new Promise(done => setTimeout(done, 300));
     expect(mail.inbox.length).toBeLessThanOrEqual(5);
   });
@@ -264,18 +321,35 @@ describe("forgetting a password", () => {
 
 describe("a site where accounts come from the company", () => {
   it("has no passwords to set", async () => {
-    const provider = { PANDOCS_OIDC_ISSUER: "https://idp.example.test", PANDOCS_OIDC_CLIENT_ID: "pandocs", PANDOCS_OIDC_CLIENT_SECRET: "client-secret" };
+    const provider = {
+      PANDOCS_OIDC_ISSUER: "https://idp.example.test",
+      PANDOCS_OIDC_CLIENT_ID: "pandocs",
+      PANDOCS_OIDC_CLIENT_SECRET: "client-secret"
+    };
     const server = await startServer(postgres.getConnectionString(), { ...provider, PANDOCS_PASSWORD_LOGIN: "false" });
     try {
       await server.pool.query(`DROP SCHEMA pandocs CASCADE`);
       await (await import("../src/app.js")).migrate(server.pool);
-      const user = await server.runtime.users.create({ email: "root@example.test", displayName: "管理员", isAdmin: true });
-      const { token } = await server.runtime.tokens.create(user.id, { name: "写", kind: "user", scopes: ["read", "write"] });
+      const user = await server.runtime.users.create({
+        email: "root@example.test",
+        displayName: "管理员",
+        isAdmin: true
+      });
+      const { token } = await server.runtime.tokens.create(user.id, {
+        name: "写",
+        kind: "user",
+        scopes: ["read", "write"]
+      });
       const auth = { authorization: `Bearer ${token}` };
-      const added = await server.client().json("POST", "/api/v1/admin/users", { email: "someone@example.test", displayName: "同事" }, auth);
+      const added = await server
+        .client()
+        .json("POST", "/api/v1/admin/users", { email: "someone@example.test", displayName: "同事" }, auth);
       expect(added.status).toBe(201);
       expect(added.data.passwordLink).toBeUndefined();
-      expect((await server.client().json("POST", `/api/v1/admin/users/${added.data.id}/password-link`, undefined, auth)).status).toBe(409);
+      expect(
+        (await server.client().json("POST", `/api/v1/admin/users/${added.data.id}/password-link`, undefined, auth))
+          .status
+      ).toBe(409);
       expect((await server.client().request("/forgot-password")).status).toBe(404);
       expect((await server.client().form("/forgot-password", { email: "someone@example.test" })).status).toBe(404);
       expect(await (await server.client().request("/login")).text()).not.toContain("forgot-password");

@@ -32,12 +32,50 @@ describe("Markdown dialect", () => {
 
   it("uses community container names, titles and nesting", () => {
     const markdown = [
-      ":::warning[小心]", "", "内容", "", ":::", "",
-      "::::columns", "", ':::column{width="0.5"}', "", "左", "", ":::", "", ':::column{width="0.5"}', "", "右", "", ":::", "", "::::", "",
-      ":::::columns", "", '::::column{width="1"}', "", ':::callout{emoji="💡"}', "", "嵌套", "", ":::", "", "::::", "", ":::::"
+      ":::warning[小心]",
+      "",
+      "内容",
+      "",
+      ":::",
+      "",
+      "::::columns",
+      "",
+      ':::column{width="0.5"}',
+      "",
+      "左",
+      "",
+      ":::",
+      "",
+      ':::column{width="0.5"}',
+      "",
+      "右",
+      "",
+      ":::",
+      "",
+      "::::",
+      "",
+      ":::::columns",
+      "",
+      '::::column{width="1"}',
+      "",
+      ':::callout{emoji="💡"}',
+      "",
+      "嵌套",
+      "",
+      ":::",
+      "",
+      "::::",
+      "",
+      ":::::"
     ].join("\n");
     expect(names(markdown)).toEqual([
-      "container:warning", "container:columns", "container:column", "container:column", "container:columns", "container:column", "container:callout"
+      "container:warning",
+      "container:columns",
+      "container:column",
+      "container:column",
+      "container:columns",
+      "container:column",
+      "container:callout"
     ]);
     expect(text(markdown)).toBe("小心内容左右嵌套");
   });
@@ -56,23 +94,33 @@ describe("Markdown dialect", () => {
     const document = parseDocument(markdown);
     expect(document.blocks.map(block => block.kind)).toEqual(["unknown", "unknown"]);
     expect(document.diagnostics.every(item => item.code === "BLOCK_UNKNOWN" && item.severity === "warning")).toBe(true);
-    expect(markdown.slice(document.blocks[0]!.start, document.blocks[0]!.end)).toBe(':::future{a="1"}\n\n未来的块 **内容**\n\n:::');
+    expect(markdown.slice(document.blocks[0]!.start, document.blocks[0]!.end)).toBe(
+      ':::future{a="1"}\n\n未来的块 **内容**\n\n:::'
+    );
     expect(text(markdown)).toBe("正文");
   });
 
   it("reports broken blocks without failing the document", () => {
-    const markdown = '::video{poster="p.png"}\n\n```chart\n{broken\n```\n\n:::note{bad="1"}\n\n正文\n\n:::\n\n:::column{width="2"}\n\n栏\n\n:::\n';
+    const markdown =
+      '::video{poster="p.png"}\n\n```chart\n{broken\n```\n\n:::note{bad="1"}\n\n正文\n\n:::\n\n:::column{width="2"}\n\n栏\n\n:::\n';
     const { diagnostics, blocks } = parseDocument(markdown);
     expect(blocks.map(block => block.name)).toEqual(["video", "chart", "note", "column"]);
     expect(diagnostics.map(item => `${item.severity}:${item.code}`)).toEqual([
-      "error:BLOCK_ATTR_INVALID", "error:BLOCK_BODY_INVALID", "warning:BLOCK_ATTR_UNKNOWN", "error:BLOCK_ATTR_INVALID"
+      "error:BLOCK_ATTR_INVALID",
+      "error:BLOCK_BODY_INVALID",
+      "warning:BLOCK_ATTR_UNKNOWN",
+      "error:BLOCK_ATTR_INVALID"
     ]);
   });
 
   it("reads fence attributes from the info string and hides rendered fences from visible text", () => {
-    const markdown = '```chart title="销量"\n{"type":"bar","xKey":"月","data":[{"月":"一","量":1}]}\n```\n\n```mermaid\nflowchart LR\n```\n\n```ts\nconst a = 1;\n```\n';
+    const markdown =
+      '```chart title="销量"\n{"type":"bar","xKey":"月","data":[{"月":"一","量":1}]}\n```\n\n```mermaid\nflowchart LR\n```\n\n```ts\nconst a = 1;\n```\n';
     const document = parseDocument(markdown);
-    expect(document.blocks.map(block => [block.name, block.attrs])).toEqual([["chart", { title: "销量" }], ["mermaid", {}]]);
+    expect(document.blocks.map(block => [block.name, block.attrs])).toEqual([
+      ["chart", { title: "销量" }],
+      ["mermaid", {}]
+    ]);
     expect(document.diagnostics).toEqual([]);
     expect(text(markdown)).toBe("consta=1;");
   });
@@ -95,8 +143,11 @@ describe("Markdown dialect", () => {
   });
 
   it("lets a host add blocks without touching the parser", () => {
-    const registry = createBlockRegistry([...builtinBlocks, { ...builtinBlocks[0]!, name: "task-card", kind: "leaf", summary: "任务卡片", example: "" }]);
-    expect(parseDocument('::task-card{}\n', registry).blocks[0]?.kind).toBe("leaf");
+    const registry = createBlockRegistry([
+      ...builtinBlocks,
+      { ...builtinBlocks[0]!, name: "task-card", kind: "leaf", summary: "任务卡片", example: "" }
+    ]);
+    expect(parseDocument("::task-card{}\n", registry).blocks[0]?.kind).toBe("leaf");
     expect(parseDocument("::task-card{}\n").blocks[0]?.kind).toBe("unknown");
     expect(() => createBlockRegistry([builtinBlocks[0]!, builtinBlocks[0]!])).toThrow();
   });
@@ -109,7 +160,14 @@ describe("Markdown dialect", () => {
 
 describe("block attributes", () => {
   it("reads every form the syntax allows and writes one", () => {
-    expect(parseAttributes(`a="1" b='2' c=3 d .x .y #z`)).toEqual({ a: "1", b: "2", c: "3", d: "", class: "x y", id: "z" });
+    expect(parseAttributes(`a="1" b='2' c=3 d .x .y #z`)).toEqual({
+      a: "1",
+      b: "2",
+      c: "3",
+      d: "",
+      class: "x y",
+      id: "z"
+    });
     expect(parseAttributes(undefined)).toEqual({});
     expect(formatAttributes({ a: "1", b: 'x"y', c: null })).toBe('{a="1" b="x&quot;y"}');
     expect(formatAttributes({})).toBe("");
@@ -142,10 +200,16 @@ describe("loose containers from other documentation tools", () => {
   it("leaves anything it cannot close, or does not know, as the text the author wrote", () => {
     expect(blockNames(":::tip 没有结束\n\n内容\n")).toEqual([]);
     expect(blockNames(":::nothing 标题\n\n内容\n\n:::\n")).toEqual([]);
-    expect(squashWhitespace(visibleText(parseDocument(":::nothing 标题\n\n内容\n\n:::\n")))).toBe(":::nothing标题内容:::");
+    expect(squashWhitespace(visibleText(parseDocument(":::nothing 标题\n\n内容\n\n:::\n")))).toBe(
+      ":::nothing标题内容:::"
+    );
   });
 
   it("nests inside a real directive", () => {
-    expect(blockNames(":::::columns\n\n::::column\n\n:::tip 标题\n\n内容\n\n:::\n\n::::\n\n:::::\n")).toEqual(["columns", "column", "tip"]);
+    expect(blockNames(":::::columns\n\n::::column\n\n:::tip 标题\n\n内容\n\n:::\n\n::::\n\n:::::\n")).toEqual([
+      "columns",
+      "column",
+      "tip"
+    ]);
   });
 });

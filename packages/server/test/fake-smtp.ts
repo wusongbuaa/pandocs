@@ -8,7 +8,13 @@ export interface SentMail {
   readonly body: string;
 }
 
-const decoded = (raw: string) => Buffer.from(raw.replace(/=\n/gu, "").replace(/=([0-9A-F]{2})/gu, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16))), "latin1").toString("utf8");
+const decoded = (raw: string) =>
+  Buffer.from(
+    raw
+      .replace(/=\n/gu, "")
+      .replace(/=([0-9A-F]{2})/gu, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16))),
+    "latin1"
+  ).toString("utf8");
 
 /** Enough of SMTP for nodemailer to deliver to, so mail is tested the way it goes out. */
 export async function startFakeSmtp() {
@@ -56,7 +62,12 @@ export async function startFakeSmtp() {
   await new Promise<void>(done => server.listen(0, "127.0.0.1", done));
   return {
     inbox,
-    env: { PANDOCS_SMTP_HOST: "127.0.0.1", PANDOCS_SMTP_PORT: String((server.address() as AddressInfo).port), PANDOCS_SMTP_SECURE: "false", PANDOCS_SMTP_FROM: "docs@example.test" },
+    env: {
+      PANDOCS_SMTP_HOST: "127.0.0.1",
+      PANDOCS_SMTP_PORT: String((server.address() as AddressInfo).port),
+      PANDOCS_SMTP_SECURE: "false",
+      PANDOCS_SMTP_FROM: "docs@example.test"
+    },
     async close() {
       for (const socket of sockets) socket.destroy();
       await new Promise(done => server.close(done));

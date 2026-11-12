@@ -30,31 +30,53 @@ const MOST_COMPARISONS = 2500;
 const META_FILE = ".pandocs/pages.json";
 const ASSETS_DIR = "assets/";
 
-const repositoryUrl = z.string().trim().max(2000).refine(value => {
-  if (!/^https?:\/\//iu.test(value) || !URL.canParse(value)) return false;
-  const url = new URL(value);
-  return !url.username && !url.password;
-}, { error: () => t("A repository's address starts with https://, and the token goes in its own field") });
+const repositoryUrl = z
+  .string()
+  .trim()
+  .max(2000)
+  .refine(
+    value => {
+      if (!/^https?:\/\//iu.test(value) || !URL.canParse(value)) return false;
+      const url = new URL(value);
+      return !url.username && !url.password;
+    },
+    { error: () => t("A repository's address starts with https://, and the token goes in its own field") }
+  );
 
-export const gitSyncInput = z.object({
-  repository: repositoryUrl,
-  branch: z.string().trim().regex(/^(?!-)(?!.*\.\.)[\w./-]{1,200}$/u, { error: () => t("That cannot be a branch's name") }).optional(),
-  folder: z.string().trim().regex(/^(?!.*\.\.)(?!.*[^/]\/\/+[^/])[\p{L}\p{N}_./ -]{0,500}$/u, { error: () => t("That cannot be a folder in a repository") }).optional(),
-  /** Left out, the one already there stays, as long as the repository does. */
-  token: z.string().max(1000).optional(),
-  firstSource: z.enum(["space", "repository"]).optional(),
-  includeRestricted: z.boolean().optional(),
-  enabled: z.boolean().optional()
-}).strict();
+export const gitSyncInput = z
+  .object({
+    repository: repositoryUrl,
+    branch: z
+      .string()
+      .trim()
+      .regex(/^(?!-)(?!.*\.\.)[\w./-]{1,200}$/u, { error: () => t("That cannot be a branch's name") })
+      .optional(),
+    folder: z
+      .string()
+      .trim()
+      .regex(/^(?!.*\.\.)(?!.*[^/]\/\/+[^/])[\p{L}\p{N}_./ -]{0,500}$/u, {
+        error: () => t("That cannot be a folder in a repository")
+      })
+      .optional(),
+    /** Left out, the one already there stays, as long as the repository does. */
+    token: z.string().max(1000).optional(),
+    firstSource: z.enum(["space", "repository"]).optional(),
+    includeRestricted: z.boolean().optional(),
+    enabled: z.boolean().optional()
+  })
+  .strict();
 
 const plainText = z.string().refine(value => !value.includes("\0"));
 
 const pagesFile = z.object({
-  pages: z.record(z.string(), z.object({
-    title: plainText.trim().pipe(z.string().min(1).max(200)).optional(),
-    order: z.number().int().min(-1_000_000_000).max(1_000_000_000).optional(),
-    labels: z.array(plainText).max(50).optional()
-  }))
+  pages: z.record(
+    z.string(),
+    z.object({
+      title: plainText.trim().pipe(z.string().min(1).max(200)).optional(),
+      order: z.number().int().min(-1_000_000_000).max(1_000_000_000).optional(),
+      labels: z.array(plainText).max(50).optional()
+    })
+  )
 });
 type PageDetails = z.output<typeof pagesFile>["pages"][string];
 
@@ -111,8 +133,20 @@ interface Run {
 class LeaseLost extends Error {}
 
 type Incoming =
-  | { readonly kind: "create"; readonly path: string; readonly blob: string; readonly title: string; readonly markdown: string }
-  | { readonly kind: "edit"; readonly path: string; readonly blob: string; readonly document: DocumentRecord; readonly markdown: string }
+  | {
+      readonly kind: "create";
+      readonly path: string;
+      readonly blob: string;
+      readonly title: string;
+      readonly markdown: string;
+    }
+  | {
+      readonly kind: "edit";
+      readonly path: string;
+      readonly blob: string;
+      readonly document: DocumentRecord;
+      readonly markdown: string;
+    }
   | { readonly kind: "delete"; readonly path: string; readonly blob: string; readonly document: DocumentRecord };
 
 /** What one look has found, on its way through. */
@@ -168,7 +202,14 @@ function* linesOf(markdown: string): Generator<{ readonly line: string; readonly
   }
 }
 
-const linesToCompare = (text: string) => new Set(text.replace(ASSET_IN_FILE, "assets/$1").split(/\r?\n/u).map(line => line.trim()).filter(Boolean));
+const linesToCompare = (text: string) =>
+  new Set(
+    text
+      .replace(ASSET_IN_FILE, "assets/$1")
+      .split(/\r?\n/u)
+      .map(line => line.trim())
+      .filter(Boolean)
+  );
 
 function similarity(one: ReadonlySet<string>, other: ReadonlySet<string>): number {
   if (one.size === 0 || other.size === 0) return 0;
@@ -253,14 +294,31 @@ export class GitSyncService {
     const includeRestricted = input.includeRestricted ?? false;
     const enabled = input.enabled ?? true;
     return db.transaction(async tx => {
-      const { rows: [before] } = await tx.query<SyncRow>(`SELECT * FROM pandocs.git_syncs WHERE space_id = $1 FOR UPDATE`, [space.id]);
+      const {
+        rows: [before]
+      } = await tx.query<SyncRow>(`SELECT * FROM pandocs.git_syncs WHERE space_id = $1 FOR UPDATE`, [space.id]);
       if (!before) {
         const { rows } = await tx.query(
           `INSERT INTO pandocs.git_syncs (space_id, repository, branch, folder, token, hook_token, first_source, include_restricted, enabled, created_by)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-          [space.id, input.repository, branch, folder, input.token ?? "", randomBytes(24).toString("base64url"), firstSource, includeRestricted, enabled, principal.id]
+          [
+            space.id,
+            input.repository,
+            branch,
+            folder,
+            input.token ?? "",
+            randomBytes(24).toString("base64url"),
+            firstSource,
+            includeRestricted,
+            enabled,
+            principal.id
+          ]
         );
-        await audit(tx, principal, "space.git_sync.set", "space", space.id, { repository: input.repository, branch, folder });
+        await audit(tx, principal, "space.git_sync.set", "space", space.id, {
+          repository: input.repository,
+          branch,
+          folder
+        });
         return this.view(rows[0]!);
       }
       // A token only ever goes to where it was given for. Being able to change the address must not be a way to collect it.
@@ -274,7 +332,11 @@ export class GitSyncService {
          WHERE id = $1 RETURNING *`,
         [before.id, input.repository, branch, folder, token, firstSource, includeRestricted, enabled, elsewhere]
       );
-      await audit(tx, principal, "space.git_sync.set", "space", space.id, { repository: input.repository, branch, folder });
+      await audit(tx, principal, "space.git_sync.set", "space", space.id, {
+        repository: input.repository,
+        branch,
+        folder
+      });
       return this.view(rows[0]!);
     });
   }
@@ -292,7 +354,9 @@ export class GitSyncService {
   async runNow(principal: Principal, spaceSlug: string): Promise<void> {
     const { db } = this.context;
     const { space } = await requireSpace(db, principal, spaceSlug, "admin");
-    const { rows } = await db.query(`UPDATE pandocs.git_syncs SET due_at = now() WHERE space_id = $1 RETURNING id`, [space.id]);
+    const { rows } = await db.query(`UPDATE pandocs.git_syncs SET due_at = now() WHERE space_id = $1 RETURNING id`, [
+      space.id
+    ]);
     if (!rows[0]) throw notFound(t("Git sync"));
   }
 
@@ -315,13 +379,19 @@ export class GitSyncService {
 
   /** For the repository's own webhook. Knowing the address is all it takes, and all it does is make the next look come sooner. */
   async hook(token: string): Promise<boolean> {
-    const { rows } = await this.context.db.query(`UPDATE pandocs.git_syncs SET due_at = now() WHERE hook_token = $1 AND enabled RETURNING id`, [token]);
+    const { rows } = await this.context.db.query(
+      `UPDATE pandocs.git_syncs SET due_at = now() WHERE hook_token = $1 AND enabled RETURNING id`,
+      [token]
+    );
     return rows.length > 0;
   }
 
   /** Looks at one sync that is due. */
   async tick(): Promise<boolean> {
-    const { db, ports: { git } } = this.context;
+    const {
+      db,
+      ports: { git }
+    } = this.context;
     if (!git) return false;
     const owner = randomUUID();
     const { rows } = await db.query<SyncRow>(
@@ -337,23 +407,30 @@ export class GitSyncService {
   }
 
   private async run(sync: SyncRow, owner: string): Promise<void> {
-    const { db, ports: { git } } = this.context;
+    const {
+      db,
+      ports: { git }
+    } = this.context;
     const startedAt = new Date();
     const report: Report = { pulled: 0, pushed: 0, notes: [] };
     const remote: GitRemote = { repository: sync.repository, branch: sync.branch, token: sync.token };
     let head: string | null = null;
     let workspace: GitWorkspace | null = null;
-    const finished = () => db.query(
-      `UPDATE pandocs.git_syncs SET last_commit = $2, last_success_at = $3, last_error = NULL, consecutive_failures = 0, lease_owner = NULL, lease_until = NULL WHERE id = $1 AND lease_owner = $4`,
-      [sync.id, head, startedAt, owner]
-    );
+    const finished = () =>
+      db.query(
+        `UPDATE pandocs.git_syncs SET last_commit = $2, last_success_at = $3, last_error = NULL, consecutive_failures = 0, lease_owner = NULL, lease_until = NULL WHERE id = $1 AND lease_owner = $4`,
+        [sync.id, head, startedAt, owner]
+      );
     // A large repository can take longer than a lease, and another replica starting over meanwhile would only get in the way.
     // A renewal that finds the lease taken, or that has not got through for as long as a lease lasts, ends the run before
     // it writes anything more.
     let held = true;
     let renewedAt = Date.now();
     const renewal = setInterval(() => {
-      db.query(`UPDATE pandocs.git_syncs SET lease_until = now() + make_interval(secs => $3) WHERE id = $1 AND lease_owner = $2 RETURNING 1`, [sync.id, owner, LEASE_SECONDS]).then(
+      db.query(
+        `UPDATE pandocs.git_syncs SET lease_until = now() + make_interval(secs => $3) WHERE id = $1 AND lease_owner = $2 RETURNING 1`,
+        [sync.id, owner, LEASE_SECONDS]
+      ).then(
         ({ rows }) => {
           if (rows.length > 0) renewedAt = Date.now();
           else held = false;
@@ -368,13 +445,18 @@ export class GitSyncService {
       if (!held) throw new LeaseLost();
     };
     try {
-      const { rows: spaces } = await db.query(`SELECT * FROM pandocs.spaces WHERE id = $1 AND deleted_at IS NULL`, [sync.space_id]);
+      const { rows: spaces } = await db.query(`SELECT * FROM pandocs.spaces WHERE id = $1 AND deleted_at IS NULL`, [
+        sync.space_id
+      ]);
       if (!spaces[0]) {
-        await db.query(`UPDATE pandocs.git_syncs SET lease_owner = NULL, lease_until = NULL WHERE id = $1 AND lease_owner = $2`, [sync.id, owner]);
+        await db.query(
+          `UPDATE pandocs.git_syncs SET lease_owner = NULL, lease_until = NULL WHERE id = $1 AND lease_owner = $2`,
+          [sync.id, owner]
+        );
         return;
       }
       head = await git!.head(remote);
-      if (head === sync.last_commit && sync.last_success_at && !await this.changedHere(sync)) {
+      if (head === sync.last_commit && sync.last_success_at && !(await this.changedHere(sync))) {
         await finished();
         return;
       }
@@ -390,11 +472,19 @@ export class GitSyncService {
         workspace,
         report,
         records,
-        principal: { id: this.actorId(sync), kind: "user", displayName: name ? t("{0} (through Git)", name) : t("Git"), groups: [], isAdmin: true, scopes: ["read", "write"], channel: "git" },
+        principal: {
+          id: this.actorId(sync),
+          kind: "user",
+          displayName: name ? t("{0} (through Git)", name) : t("Git"),
+          groups: [],
+          isAdmin: true,
+          scopes: ["read", "write"],
+          channel: "git"
+        },
         message: (workspace.author?.subject || t("From Git")).slice(0, 200)
       };
       await this.pull(run);
-      head = await this.push(run) ?? head;
+      head = (await this.push(run)) ?? head;
       await finished();
       await this.keepRun(sync.id, startedAt, head, report, null);
     } catch (error) {
@@ -418,12 +508,30 @@ export class GitSyncService {
   }
 
   /** A run that changed nothing is not worth a line in the record. */
-  private async keepRun(syncId: string, startedAt: Date, head: string | null, report: Report, error: string | null): Promise<void> {
+  private async keepRun(
+    syncId: string,
+    startedAt: Date,
+    head: string | null,
+    report: Report,
+    error: string | null
+  ): Promise<void> {
     if (!error && report.pulled === 0 && report.pushed === 0 && report.notes.length === 0) return;
     const { db } = this.context;
-    const notes = report.notes.length > MAX_NOTES ? [...report.notes.slice(0, MAX_NOTES), { file: "", reason: t("And {0} more", report.notes.length - MAX_NOTES) }] : report.notes;
-    await db.query(`INSERT INTO pandocs.git_sync_runs (sync_id, started_at, head, pulled, pushed, notes, error) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [syncId, startedAt, head, report.pulled, report.pushed, JSON.stringify(notes), error]);
-    await db.query(`DELETE FROM pandocs.git_sync_runs WHERE sync_id = $1 AND id NOT IN (SELECT id FROM pandocs.git_sync_runs WHERE sync_id = $1 ORDER BY started_at DESC LIMIT $2)`, [syncId, KEPT_RUNS]);
+    const notes =
+      report.notes.length > MAX_NOTES
+        ? [
+            ...report.notes.slice(0, MAX_NOTES),
+            { file: "", reason: t("And {0} more", report.notes.length - MAX_NOTES) }
+          ]
+        : report.notes;
+    await db.query(
+      `INSERT INTO pandocs.git_sync_runs (sync_id, started_at, head, pulled, pushed, notes, error) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [syncId, startedAt, head, report.pulled, report.pushed, JSON.stringify(notes), error]
+    );
+    await db.query(
+      `DELETE FROM pandocs.git_sync_runs WHERE sync_id = $1 AND id NOT IN (SELECT id FROM pandocs.git_sync_runs WHERE sync_id = $1 ORDER BY started_at DESC LIMIT $2)`,
+      [syncId, KEPT_RUNS]
+    );
   }
 
   /** Whether a look is worth more than asking where the branch is. The margin is for a save still being committed when the last one started. */
@@ -437,17 +545,30 @@ export class GitSyncService {
   }
 
   private async openReview(sync: SyncRow): Promise<string | null> {
-    const { rows } = await this.context.db.query<{ id: string }>(`SELECT id FROM pandocs.change_sets WHERE space_id = $1 AND author_id = $2 AND status = 'open' ORDER BY created_at DESC LIMIT 1`, [sync.space_id, this.actorId(sync)]);
+    const { rows } = await this.context.db.query<{ id: string }>(
+      `SELECT id FROM pandocs.change_sets WHERE space_id = $1 AND author_id = $2 AND status = 'open' ORDER BY created_at DESC LIMIT 1`,
+      [sync.space_id, this.actorId(sync)]
+    );
     return rows[0]?.id ?? null;
   }
 
   private async records(syncId: string): Promise<Map<string, FileRecord>> {
-    const { rows } = await this.context.db.query<FileRecord>(`SELECT path, document_id, revision_no, blob_id, pending FROM pandocs.git_sync_files WHERE sync_id = $1`, [syncId]);
+    const { rows } = await this.context.db.query<FileRecord>(
+      `SELECT path, document_id, revision_no, blob_id, pending FROM pandocs.git_sync_files WHERE sync_id = $1`,
+      [syncId]
+    );
     return new Map(rows.map(row => [row.path, row]));
   }
 
   /** What a file was when the two sides last agreed, written only while the lease is still this run's. */
-  private async remember(run: Run, path: string, documentId: string | null, revision: number, blob: string, pending = false): Promise<void> {
+  private async remember(
+    run: Run,
+    path: string,
+    documentId: string | null,
+    revision: number,
+    blob: string,
+    pending = false
+  ): Promise<void> {
     run.stillOurs();
     const { rowCount } = await this.context.db.query(
       `INSERT INTO pandocs.git_sync_files (sync_id, path, document_id, revision_no, blob_id, pending)
@@ -538,7 +659,17 @@ export class GitSyncService {
         }
         if (!stored.has(inRepository)) {
           try {
-            stored.set(inRepository, (await this.assets.put(principal, space.slug, await workspace.read(inRepository), posix.basename(inRepository))).path);
+            stored.set(
+              inRepository,
+              (
+                await this.assets.put(
+                  principal,
+                  space.slug,
+                  await workspace.read(inRepository),
+                  posix.basename(inRepository)
+                )
+              ).path
+            );
           } catch (error) {
             if (!(error instanceof PandocsError)) throw error;
             report.notes.push({ file: inRepository, reason: error.message });
@@ -554,24 +685,34 @@ export class GitSyncService {
   }
 
   private async lockedDocument(tx: Queryable, id: string): Promise<DocumentRecord | null> {
-    const { rows } = await tx.query(`SELECT * FROM pandocs.documents WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, [id]);
+    const { rows } = await tx.query(`SELECT * FROM pandocs.documents WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, [
+      id
+    ]);
     return rows[0] ? mapDocument(rows[0]) : null;
   }
 
   private async liveDocument(id: string): Promise<DocumentRecord | null> {
-    const { rows } = await this.context.db.query(`SELECT * FROM pandocs.documents WHERE id = $1 AND deleted_at IS NULL`, [id]);
+    const { rows } = await this.context.db.query(
+      `SELECT * FROM pandocs.documents WHERE id = $1 AND deleted_at IS NULL`,
+      [id]
+    );
     return rows[0] ? mapDocument(rows[0]) : null;
   }
 
   private async documentAt(space: SpaceRecord, path: string): Promise<DocumentRecord | null> {
-    const { rows } = await this.context.db.query(`SELECT * FROM pandocs.documents WHERE space_id = $1 AND lower(path) = lower($2) AND deleted_at IS NULL`, [space.id, path]);
+    const { rows } = await this.context.db.query(
+      `SELECT * FROM pandocs.documents WHERE space_id = $1 AND lower(path) = lower($2) AND deleted_at IS NULL`,
+      [space.id, path]
+    );
     return rows[0] ? mapDocument(rows[0]) : null;
   }
 
   private async commit(documentId: string, { principal, message }: Run, markdown: string): Promise<number | null> {
     return this.context.db.transaction(async tx => {
       const document = await this.lockedDocument(tx, documentId);
-      return document ? (await this.documents.commit(tx, principal, document, { markdown, message })).revision.no : null;
+      return document
+        ? (await this.documents.commit(tx, principal, document, { markdown, message })).revision.no
+        : null;
     });
   }
 
@@ -582,7 +723,15 @@ export class GitSyncService {
       const parent = segments.slice(0, at).join("/");
       if (await this.documentAt(space, parent)) continue;
       const above = segments.slice(0, at - 1).join("/");
-      await this.context.db.transaction(tx => this.documents.createIn(tx, principal, space, { title: segments[at - 1]!, slug: segments[at - 1]!, ...(above ? { parentPath: above } : {}), markdown: "", message }));
+      await this.context.db.transaction(tx =>
+        this.documents.createIn(tx, principal, space, {
+          title: segments[at - 1]!,
+          slug: segments[at - 1]!,
+          ...(above ? { parentPath: above } : {}),
+          markdown: "",
+          message
+        })
+      );
     }
   }
 
@@ -604,7 +753,12 @@ export class GitSyncService {
     const reviewOnly = space.mergeRules.requireChangeSets;
     await this.adoptMerged(run);
     const inRepository = this.pagesInRepository(run);
-    const pull: Pull = { incoming: [], emptied: new Set(), details: await this.readDetails(run), inReview: await this.openReview(sync) !== null };
+    const pull: Pull = {
+      incoming: [],
+      emptied: new Set(),
+      details: await this.readDetails(run),
+      inReview: (await this.openReview(sync)) !== null
+    };
     const arrived: { path: string; blob: string }[] = [];
     const changed: { path: string; blob: string; record: FileRecord; document: DocumentRecord }[] = [];
     for (const [path, blob] of inRepository) {
@@ -626,9 +780,12 @@ export class GitSyncService {
       await this.followEditedMoves(run, gone, arrived, changed, pull);
     }
     // What is above something comes before it, and what is below something goes before it.
-    for (const arrival of arrived.sort((a, b) => depthOf(a.path) - depthOf(b.path))) await this.attempt(run, this.fileOf(sync, arrival.path), () => this.arrive(run, arrival, pull));
-    for (const change of changed) await this.attempt(run, this.fileOf(sync, change.path), () => this.change(run, change, pull));
-    for (const record of gone.sort((a, b) => depthOf(b.path) - depthOf(a.path))) await this.attempt(run, this.fileOf(sync, record.path), () => this.depart(run, record, pull));
+    for (const arrival of arrived.sort((a, b) => depthOf(a.path) - depthOf(b.path)))
+      await this.attempt(run, this.fileOf(sync, arrival.path), () => this.arrive(run, arrival, pull));
+    for (const change of changed)
+      await this.attempt(run, this.fileOf(sync, change.path), () => this.change(run, change, pull));
+    for (const record of gone.sort((a, b) => depthOf(b.path) - depthOf(a.path)))
+      await this.attempt(run, this.fileOf(sync, record.path), () => this.depart(run, record, pull));
     if (pull.incoming.length > 0) await this.throughReview(run, pull.incoming);
     await this.tidyEmptied(run, pull.emptied);
     const detailsBlob = workspace.files.get(`${this.prefixOf(sync)}${META_FILE}`);
@@ -645,7 +802,12 @@ export class GitSyncService {
   }
 
   /** A file that left one place with the same content it arrived with in another has moved, and comments should stay with it. */
-  private async followMoves(run: Run, gone: FileRecord[], arrived: { path: string; blob: string }[], pull: Pull): Promise<void> {
+  private async followMoves(
+    run: Run,
+    gone: FileRecord[],
+    arrived: { path: string; blob: string }[],
+    pull: Pull
+  ): Promise<void> {
     const { space, report } = run;
     for (const record of [...gone].sort((a, b) => depthOf(a.path) - depthOf(b.path))) {
       const arrival = arrived.find(item => item.blob === record.blob_id);
@@ -656,7 +818,7 @@ export class GitSyncService {
       if (here && here.id !== document.id) continue;
       // Otherwise it is already there, having moved with the page above it.
       if (!here) {
-        if (!await this.moveTo(run, document, arrival.path)) continue;
+        if (!(await this.moveTo(run, document, arrival.path))) continue;
         report.pulled += 1;
       }
       await this.forget(run, record.path);
@@ -668,13 +830,20 @@ export class GitSyncService {
   }
 
   /** The same for a file that was edited as well. What comes after that is what happens to any changed file, with its page in its new place. */
-  private async followEditedMoves(run: Run, gone: FileRecord[], arrived: { path: string; blob: string }[], changed: { path: string; blob: string; record: FileRecord; document: DocumentRecord }[], pull: Pull): Promise<void> {
+  private async followEditedMoves(
+    run: Run,
+    gone: FileRecord[],
+    arrived: { path: string; blob: string }[],
+    changed: { path: string; blob: string; record: FileRecord; document: DocumentRecord }[],
+    pull: Pull
+  ): Promise<void> {
     const { sync, space, workspace } = run;
     if (gone.length === 0 || arrived.length === 0 || gone.length * arrived.length > MOST_COMPARISONS) return;
     const theirs = new Map<string, ReadonlySet<string>>();
     for (const { path } of arrived) {
       const bytes = await workspace.read(this.fileOf(sync, path));
-      if (bytes.byteLength <= MAX_MARKDOWN_BYTES && !bytes.includes(0)) theirs.set(path, linesToCompare(decoder.decode(bytes)));
+      if (bytes.byteLength <= MAX_MARKDOWN_BYTES && !bytes.includes(0))
+        theirs.set(path, linesToCompare(decoder.decode(bytes)));
     }
     for (const record of [...gone].sort((a, b) => depthOf(a.path) - depthOf(b.path))) {
       if (!record.document_id || record.revision_no === 0) continue;
@@ -690,7 +859,8 @@ export class GitSyncService {
           best = score;
         }
       }
-      if (!arrival || await this.documentAt(space, arrival.path) || !await this.moveTo(run, document, arrival.path)) continue;
+      if (!arrival || (await this.documentAt(space, arrival.path)) || !(await this.moveTo(run, document, arrival.path)))
+        continue;
       await this.forget(run, record.path);
       await this.remember(run, arrival.path, document.id, record.revision_no, record.blob_id);
       changed.push({ path: arrival.path, blob: arrival.blob, record: { ...record, path: arrival.path }, document });
@@ -727,17 +897,32 @@ export class GitSyncService {
       }
       await this.ensureParents(run, path);
       const parentPath = parentOf(path);
-      const made = await this.context.db.transaction(tx => this.documents.createIn(tx, principal, space, { title, slug: slugOf(path), ...(parentPath ? { parentPath } : {}), ...(details?.order === undefined ? {} : { sortOrder: details.order }), markdown, message }));
+      const made = await this.context.db.transaction(tx =>
+        this.documents.createIn(tx, principal, space, {
+          title,
+          slug: slugOf(path),
+          ...(parentPath ? { parentPath } : {}),
+          ...(details?.order === undefined ? {} : { sortOrder: details.order }),
+          markdown,
+          message
+        })
+      );
       await this.remember(run, path, made.document.id, made.revision.no, blob);
       report.pulled += 1;
       return;
     }
     if (existing.path !== path) {
-      report.notes.push({ file, reason: t("Another page's address differs from this only in its capitals: {0}", existing.path) });
+      report.notes.push({
+        file,
+        reason: t("Another page's address differs from this only in its capitals: {0}", existing.path)
+      });
       return;
     }
     if (this.hidden(run, existing)) {
-      report.notes.push({ file, reason: t("Only some people can read this page, so it is not kept the same as the repository") });
+      report.notes.push({
+        file,
+        reason: t("Only some people can read this page, so it is not kept the same as the repository")
+      });
       return;
     }
     const { markdown: ours } = await loadRevision(this.context.db, existing.id, existing.currentRevisionNo);
@@ -752,7 +937,13 @@ export class GitSyncService {
         pull.incoming.push({ kind: "edit", path, blob, document: existing, markdown });
         return;
       }
-      await this.remember(run, path, existing.id, await this.commit(existing.id, run, markdown) ?? existing.currentRevisionNo, blob);
+      await this.remember(
+        run,
+        path,
+        existing.id,
+        (await this.commit(existing.id, run, markdown)) ?? existing.currentRevisionNo,
+        blob
+      );
       report.pulled += 1;
       return;
     }
@@ -760,11 +951,18 @@ export class GitSyncService {
     await this.remember(run, path, existing.id, 0, blob);
   }
 
-  private async change(run: Run, { path, blob, record, document }: { path: string; blob: string; record: FileRecord; document: DocumentRecord }, pull: Pull): Promise<void> {
+  private async change(
+    run: Run,
+    { path, blob, record, document }: { path: string; blob: string; record: FileRecord; document: DocumentRecord },
+    pull: Pull
+  ): Promise<void> {
     const { space, principal, message, report } = run;
     const file = this.fileOf(run.sync, path);
     if (this.hidden(run, document)) {
-      report.notes.push({ file, reason: t("Only some people can read this page, so it is not kept the same as the repository") });
+      report.notes.push({
+        file,
+        reason: t("Only some people can read this page, so it is not kept the same as the repository")
+      });
       return;
     }
     const markdown = await this.pageText(run, file);
@@ -782,7 +980,8 @@ export class GitSyncService {
     const revision = await db.transaction(async tx => {
       const locked = await this.lockedDocument(tx, document.id);
       if (!locked) return null;
-      if (locked.currentRevisionNo === record.revision_no) return (await this.documents.commit(tx, principal, locked, { markdown, message })).revision.no;
+      if (locked.currentRevisionNo === record.revision_no)
+        return (await this.documents.commit(tx, principal, locked, { markdown, message })).revision.no;
       if (record.revision_no === 0) return null;
       const base = await loadRevision(tx, locked.id, record.revision_no);
       const ours = await loadRevision(tx, locked.id, locked.currentRevisionNo);
@@ -837,10 +1036,25 @@ export class GitSyncService {
   }
 
   /** A person decides what could not be merged. The page keeps its text meanwhile, and the repository gets that too. */
-  private async suggest({ principal, message, report }: Run, document: DocumentRecord, markdown: string, file: string, baseRevision: number): Promise<void> {
+  private async suggest(
+    { principal, message, report }: Run,
+    document: DocumentRecord,
+    markdown: string,
+    file: string,
+    baseRevision: number
+  ): Promise<void> {
     try {
-      await this.proposals.create(principal, document.id, { baseRevision, markdown, rationale: t("From Git: {0}", message) });
-      report.notes.push({ file, reason: t("Changed in the same place on both sides. The page keeps its text, and the repository's is a suggestion on it") });
+      await this.proposals.create(principal, document.id, {
+        baseRevision,
+        markdown,
+        rationale: t("From Git: {0}", message)
+      });
+      report.notes.push({
+        file,
+        reason: t(
+          "Changed in the same place on both sides. The page keeps its text, and the repository's is a suggestion on it"
+        )
+      });
     } catch (error) {
       if (!(error instanceof PandocsError) || error.code !== "PROPOSAL_EMPTY") throw error;
     }
@@ -849,7 +1063,9 @@ export class GitSyncService {
   /** In a space where everything goes through review, what comes from the repository does too. It goes back once someone has merged it. */
   private async throughReview(run: Run, incoming: readonly Incoming[]): Promise<void> {
     const { sync, space, principal, message, report } = run;
-    const id = await this.openReview(sync) ?? (await this.changeSets.create(principal, space.slug, { title: t("From Git: {0}", message).slice(0, 200) })).id;
+    const id =
+      (await this.openReview(sync)) ??
+      (await this.changeSets.create(principal, space.slug, { title: t("From Git: {0}", message).slice(0, 200) })).id;
     const creating = new Set(incoming.flatMap(change => (change.kind === "create" ? [change.path.toLowerCase()] : [])));
     let added = 0;
     for (const change of incoming) {
@@ -858,21 +1074,35 @@ export class GitSyncService {
           const segments = change.path.split("/");
           for (let at = 1; at < segments.length; at += 1) {
             const parent = segments.slice(0, at).join("/");
-            if (creating.has(parent.toLowerCase()) || await this.documentAt(space, parent)) continue;
+            if (creating.has(parent.toLowerCase()) || (await this.documentAt(space, parent))) continue;
             await this.changeSets.putPage(principal, id, { path: parent, title: segments[at - 1]!, markdown: "" });
             creating.add(parent.toLowerCase());
           }
-          await this.changeSets.putPage(principal, id, { path: change.path, title: change.title, markdown: change.markdown });
+          await this.changeSets.putPage(principal, id, {
+            path: change.path,
+            title: change.title,
+            markdown: change.markdown
+          });
           await this.remember(run, change.path, null, 0, change.blob, true);
         } else {
           const baseRevision = change.document.currentRevisionNo;
-          await this.changeSets.putPage(principal, id, change.kind === "delete" ? { document: change.document.id, baseRevision, delete: true } : { document: change.document.id, baseRevision, markdown: change.markdown });
+          await this.changeSets.putPage(
+            principal,
+            id,
+            change.kind === "delete"
+              ? { document: change.document.id, baseRevision, delete: true }
+              : { document: change.document.id, baseRevision, markdown: change.markdown }
+          );
           await this.remember(run, change.path, change.document.id, baseRevision, change.blob, true);
         }
         added += 1;
       });
     }
-    if (added > 0) report.notes.push({ file: "", reason: t("{0} {0|change|changes} from the repository went into a change set for review", added) });
+    if (added > 0)
+      report.notes.push({
+        file: "",
+        reason: t("{0} {0|change|changes} from the repository went into a change set for review", added)
+      });
   }
 
   /** A page made only to hold what was below it does not need to outlast that. */
@@ -914,8 +1144,12 @@ export class GitSyncService {
         };
         if (Object.keys(patch).length > 0) await this.documents.updateMeta(principal, document.id, patch);
         if (!page.labels) return;
-        const { rows } = await db.query<{ label: string }>(`SELECT label FROM pandocs.document_labels WHERE document_id = $1 ORDER BY lower(label)`, [document.id]);
-        if (rows.map(row => row.label).join("\n") !== page.labels.join("\n")) await this.documents.setLabels(principal, document.id, page.labels);
+        const { rows } = await db.query<{ label: string }>(
+          `SELECT label FROM pandocs.document_labels WHERE document_id = $1 ORDER BY lower(label)`,
+          [document.id]
+        );
+        if (rows.map(row => row.label).join("\n") !== page.labels.join("\n"))
+          await this.documents.setLabels(principal, document.id, page.labels);
       });
     }
   }
@@ -923,10 +1157,14 @@ export class GitSyncService {
   private async push(run: Run): Promise<string | null> {
     const { sync, space, workspace, principal, report, records } = run;
     const prefix = this.prefixOf(sync);
-    const inReview = await this.openReview(sync) !== null;
-    const nodes = (await this.documents.tree(principal, space.slug)).filter(node => sync.include_restricted || !node.restricted);
+    const inReview = (await this.openReview(sync)) !== null;
+    const nodes = (await this.documents.tree(principal, space.slug)).filter(
+      node => sync.include_restricted || !node.restricted
+    );
     const nodeOf = new Map(nodes.map(node => [node.id, node]));
-    const recordOf = new Map([...records.values()].flatMap(record => (record.document_id ? [[record.document_id, record] as const] : [])));
+    const recordOf = new Map(
+      [...records.values()].flatMap(record => (record.document_id ? [[record.document_id, record] as const] : []))
+    );
     const holdsOthers = new Set(nodes.flatMap(node => (node.parentId ? [node.parentId] : [])));
     const algorithm = workspace.head?.length === 64 ? "sha256" : "sha1";
     const write: { path: string; bytes: Uint8Array }[] = [];
@@ -940,7 +1178,11 @@ export class GitSyncService {
       const file = this.fileOf(sync, node.path);
       const record = recordOf.get(node.id);
       const inRepository = workspace.files.get(file);
-      details[node.path] = { title: node.title, order: node.sortOrder, ...(node.labels.length > 0 ? { labels: [...node.labels] } : {}) };
+      details[node.path] = {
+        title: node.title,
+        order: node.sortOrder,
+        ...(node.labels.length > 0 ? { labels: [...node.labels] } : {})
+      };
       // Nothing has happened on either side since they were last the same. A file saying something a page has the same way, such as a picture's own path, can stay as it is.
       const unchanged = record?.path === node.path && record.revision_no === node.currentRevisionNo;
       if (unchanged && !record.pending && record.blob_id === inRepository) continue;
@@ -970,7 +1212,11 @@ export class GitSyncService {
         lines.push(t("{0} (removed)", record.path));
       }
     }
-    const present = new Set([...workspace.files.keys()].filter(file => file.startsWith(`${prefix}${ASSETS_DIR}`)).map(file => posix.basename(file).slice(0, 64).toLowerCase()));
+    const present = new Set(
+      [...workspace.files.keys()]
+        .filter(file => file.startsWith(`${prefix}${ASSETS_DIR}`))
+        .map(file => posix.basename(file).slice(0, 64).toLowerCase())
+    );
     for (const picture of pictures) {
       const hash = picture.slice(0, 64).toLowerCase();
       if (present.has(hash)) continue;
@@ -981,13 +1227,21 @@ export class GitSyncService {
       });
     }
     const pagesPath = `${prefix}${META_FILE}`;
-    const pagesBytes = encoder.encode(stableJson({ version: 1, pages: Object.fromEntries(Object.entries(details).sort(([a], [b]) => (a < b ? -1 : 1))) }));
+    const pagesBytes = encoder.encode(
+      stableJson({
+        version: 1,
+        pages: Object.fromEntries(Object.entries(details).sort(([a], [b]) => (a < b ? -1 : 1)))
+      })
+    );
     const pagesBlob = gitBlobId(pagesBytes, algorithm);
     if (workspace.files.get(pagesPath) !== pagesBlob) write.push({ path: pagesPath, bytes: pagesBytes });
     let pushed: string | null = null;
     if (write.length > 0 || remove.length > 0) {
       run.stillOurs();
-      const body = lines.length > LINES_IN_A_COMMIT ? [...lines.slice(0, LINES_IN_A_COMMIT), t("And {0} more", lines.length - LINES_IN_A_COMMIT)] : lines;
+      const body =
+        lines.length > LINES_IN_A_COMMIT
+          ? [...lines.slice(0, LINES_IN_A_COMMIT), t("And {0} more", lines.length - LINES_IN_A_COMMIT)]
+          : lines;
       pushed = await workspace.commit({
         write,
         remove,

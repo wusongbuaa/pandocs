@@ -14,7 +14,8 @@ import { languageOfPage, type PageRendering } from "./rendering.js";
 import type { StaticFiles } from "./static.js";
 
 const NO_STORE = { "Cache-Control": "no-store" };
-const plainText = (status: number, body: string) => new Response(body, { status, headers: { ...NO_STORE, "Content-Type": "text/plain; charset=utf-8" } });
+const plainText = (status: number, body: string) =>
+  new Response(body, { status, headers: { ...NO_STORE, "Content-Type": "text/plain; charset=utf-8" } });
 const LLMS_PATH = /^((?:\/[^/]+){0,2})\/(llms|llms-full)\.txt$/u;
 const EMBED_PATH = /^\/embed\/([a-z0-9][a-z0-9-]*)(\/.*)?$/u;
 /** The icons `index.html` names, one after another, which a site's own favicon replaces. */
@@ -35,7 +36,8 @@ export function withFavicon(html: string, favicon: string): string {
 const SHARE_PATH = /^\/s\/(pds_[\w-]+)(\/.*)?$/u;
 const MANAGE_PREFIX = "/_/";
 /** They do not run what is on a page, so nothing else would count them. Search engines are not on this list: they are not reading for anyone. */
-const AI_CRAWLER = /GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|Claude-SearchBot|anthropic-ai|PerplexityBot|Perplexity-User|Bytespider|CCBot|cohere-ai|Amazonbot|meta-externalagent|MistralAI-User|DuckAssistBot|YouBot/iu;
+const AI_CRAWLER =
+  /GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|Claude-SearchBot|anthropic-ai|PerplexityBot|Perplexity-User|Bytespider|CCBot|cohere-ai|Amazonbot|meta-externalagent|MistralAI-User|DuckAssistBot|YouBot/iu;
 
 /** Whether this asks for Markdown ahead of HTML, the way agents ask for a page. A browser's list does not mention it. */
 export function prefersMarkdown(accept: string | null | undefined): boolean {
@@ -67,7 +69,20 @@ function siteStylesheet(c: Context, css: string): Response {
   return new Response(css, { headers: { ...headers, "Content-Type": "text/css; charset=utf-8" } });
 }
 
-export function registerPageRoutes(app: Hono, deps: { identity: Identity; services: PandocsServices; files: StaticFiles; embedApps: EmbedApps; publicAccess: PublicAccess; rendering: PageRendering; origin: string; trustProxy: number; readonly base?: string }): void {
+export function registerPageRoutes(
+  app: Hono,
+  deps: {
+    identity: Identity;
+    services: PandocsServices;
+    files: StaticFiles;
+    embedApps: EmbedApps;
+    publicAccess: PublicAccess;
+    rendering: PageRendering;
+    origin: string;
+    trustProxy: number;
+    readonly base?: string;
+  }
+): void {
   const { identity, services, files, embedApps, publicAccess, rendering, origin, trustProxy, base = "" } = deps;
   const pagePolicy = pageCsp(base);
 
@@ -80,9 +95,10 @@ export function registerPageRoutes(app: Hono, deps: { identity: Identity; servic
   /** These addresses also take API tokens, so an agent can read what the person it works for can read. */
   const asReader = async (c: Context, respond: (principal: Principal) => Promise<Response>): Promise<Response> => {
     const auth = await identity.authenticate(c.req.raw);
-    const visitor = !auth.ok && auth.code === "UNAUTHENTICATED" && await publicAccess.open();
+    const visitor = !auth.ok && auth.code === "UNAUTHENTICATED" && (await publicAccess.open());
     if (!auth.ok && !visitor) return plainText(auth.status, auth.message);
-    if (visitor && !publicAccess.allowRequest(clientAddress(c, trustProxy), new URL(c.req.url).pathname)) return tooMany();
+    if (visitor && !publicAccess.allowRequest(clientAddress(c, trustProxy), new URL(c.req.url).pathname))
+      return tooMany();
     try {
       return await respond(auth.ok ? auth.principal : ANONYMOUS_PRINCIPAL);
     } catch (error) {
@@ -101,7 +117,10 @@ export function registerPageRoutes(app: Hono, deps: { identity: Identity; servic
    * Under a share link, what is read is read with the link, and what is linked to stays under it, where whoever has the
    * link can follow it. A share page tells agents these addresses, and they should work for anyone it was shared with.
    */
-  const asLinkHolder = async (token: string, respond: (principal: Principal) => Promise<Response>): Promise<Response> => {
+  const asLinkHolder = async (
+    token: string,
+    respond: (principal: Principal) => Promise<Response>
+  ): Promise<Response> => {
     const principal = await services.shareLinks.principalOf(token);
     if (!principal) return plainText(404, t("This link does not work any more. Ask whoever sent it for a new one."));
     try {
@@ -111,52 +130,79 @@ export function registerPageRoutes(app: Hono, deps: { identity: Identity; servic
       throw error;
     }
   };
-  const readerOf = (c: Context, share: string | undefined) => (respond: (principal: Principal) => Promise<Response>) => (share ? asLinkHolder(share, respond) : asReader(c, respond));
+  const readerOf = (c: Context, share: string | undefined) => (respond: (principal: Principal) => Promise<Response>) =>
+    share ? asLinkHolder(share, respond) : asReader(c, respond);
   const siteFor = (share: string | undefined) => (share ? `${origin}/s/${share}` : origin);
 
-  const llmsResponse = (c: Context, scope: string, file: string, share?: string) => readerOf(c, share)(async principal => {
-    const segments = scope.split("/").filter(Boolean).map(decodeURIComponent);
-    const lang = await translatedLang(segments[0]);
-    if (lang) segments.shift();
-    if (segments.length > 1) return plainText(404, t("No such page"));
-    const options = { origin: siteFor(share), lang };
-    return plainText(200, file === "llms" ? await services.llms.index(principal, segments[0], options) : await services.llms.full(principal, segments[0], options));
-  });
+  const llmsResponse = (c: Context, scope: string, file: string, share?: string) =>
+    readerOf(
+      c,
+      share
+    )(async principal => {
+      const segments = scope.split("/").filter(Boolean).map(decodeURIComponent);
+      const lang = await translatedLang(segments[0]);
+      if (lang) segments.shift();
+      if (segments.length > 1) return plainText(404, t("No such page"));
+      const options = { origin: siteFor(share), lang };
+      return plainText(
+        200,
+        file === "llms"
+          ? await services.llms.index(principal, segments[0], options)
+          : await services.llms.full(principal, segments[0], options)
+      );
+    });
 
-  const markdown = (body: string, headers: Readonly<Record<string, string>> = {}) => new Response(body, { headers: { ...NO_STORE, "Content-Type": "text/markdown; charset=utf-8", Vary: "Accept", ...headers } });
-  const indexNote = (lang: string | undefined, site = origin) => `> For the complete documentation index, see [llms.txt](${site}${lang ? `/${lang}` : ""}/llms.txt).\n\n`;
+  const markdown = (body: string, headers: Readonly<Record<string, string>> = {}) =>
+    new Response(body, {
+      headers: { ...NO_STORE, "Content-Type": "text/markdown; charset=utf-8", Vary: "Accept", ...headers }
+    });
+  const indexNote = (lang: string | undefined, site = origin) =>
+    `> For the complete documentation index, see [llms.txt](${site}${lang ? `/${lang}` : ""}/llms.txt).\n\n`;
 
   /** `/<space>/<path>.md`: what "copy Markdown" fetches, and a stable address for tokens and agents. A front page written by nobody lists what is under it. */
-  const markdownResponse = (c: Context, pathname: string, share?: string) => readerOf(c, share)(async principal => {
-    const request = c.req.raw;
-    const site = siteFor(share);
-    const segments = pathname.replace(/\.md$/u, "").split("/").filter(Boolean).map(decodeURIComponent);
-    const lang = await translatedLang(segments[0]);
-    if (lang) segments.shift();
-    const options = { origin: site, lang };
-    if (segments.length === 0 || (segments.length === 1 && segments[0] === "index")) return markdown(await services.llms.index(principal, undefined, options));
-    const [space, ...rest] = segments;
-    const path = rest.join("/") || "index";
-    const id = await services.documents.resolvePath(principal, space ?? "", path).catch(async (error: unknown) => {
-      if (path === "index" && error instanceof PandocsError && error.status === 404) return null;
-      throw error;
+  const markdownResponse = (c: Context, pathname: string, share?: string) =>
+    readerOf(
+      c,
+      share
+    )(async principal => {
+      const request = c.req.raw;
+      const site = siteFor(share);
+      const segments = pathname.replace(/\.md$/u, "").split("/").filter(Boolean).map(decodeURIComponent);
+      const lang = await translatedLang(segments[0]);
+      if (lang) segments.shift();
+      const options = { origin: site, lang };
+      if (segments.length === 0 || (segments.length === 1 && segments[0] === "index"))
+        return markdown(await services.llms.index(principal, undefined, options));
+      const [space, ...rest] = segments;
+      const path = rest.join("/") || "index";
+      const id = await services.documents.resolvePath(principal, space ?? "", path).catch(async (error: unknown) => {
+        if (path === "index" && error instanceof PandocsError && error.status === 404) return null;
+        throw error;
+      });
+      if (id === null) return markdown(await services.llms.index(principal, space, options));
+      const { document, markdown: source = "", revision } = await services.documents.read(principal, id);
+      const translation = lang
+        ? await services.translations.get(principal, id, lang).catch(error => {
+            if (error instanceof PandocsError && error.status === 404) return null;
+            throw error;
+          })
+        : null;
+      const title = translation?.title ?? document.title;
+      // Front matter only means something at the very top of a file, which is not where this puts it.
+      const { body: text } = splitFrontMatter(translation?.markdown ?? source);
+      const page = text.trimStart().startsWith(`# ${title}\n`) ? text.trimStart() : `# ${title}\n\n${text.trimStart()}`;
+      if (fromTheSiteItself(request)) return markdown(page, { ETag: `"${revision.sha256}"` });
+      services.stats.countView(document.id, "agent");
+      const address = `${site}${lang ? `/${lang}` : ""}/${encodeURIComponent(space!)}/${path === "index" ? "" : path.split("/").map(encodeURIComponent).join("/")}`;
+      // Someone with a link reads and does no more, so there is nothing to tell them about saying what is wrong.
+      const reportNote = share
+        ? ""
+        : `> Something wrong on this page? POST {"kind":"report","body":"what is wrong"} to ${origin}/api/v1/documents/${document.id}/feedback.\n\n`;
+      return markdown(
+        `${indexNote(lang, site).trimEnd()}\n${reportNote}${absoluteLinks(page, address, `${origin}/api/v1/spaces/${encodeURIComponent(space!)}/assets`)}`,
+        { ETag: `"${revision.sha256}"` }
+      );
     });
-    if (id === null) return markdown(await services.llms.index(principal, space, options));
-    const { document, markdown: source = "", revision } = await services.documents.read(principal, id);
-    const translation = lang
-      ? await services.translations.get(principal, id, lang).catch(error => { if (error instanceof PandocsError && error.status === 404) return null; throw error; })
-      : null;
-    const title = translation?.title ?? document.title;
-    // Front matter only means something at the very top of a file, which is not where this puts it.
-    const { body: text } = splitFrontMatter(translation?.markdown ?? source);
-    const page = text.trimStart().startsWith(`# ${title}\n`) ? text.trimStart() : `# ${title}\n\n${text.trimStart()}`;
-    if (fromTheSiteItself(request)) return markdown(page, { ETag: `"${revision.sha256}"` });
-    services.stats.countView(document.id, "agent");
-    const address = `${site}${lang ? `/${lang}` : ""}/${encodeURIComponent(space!)}/${path === "index" ? "" : path.split("/").map(encodeURIComponent).join("/")}`;
-    // Someone with a link reads and does no more, so there is nothing to tell them about saying what is wrong.
-    const reportNote = share ? "" : `> Something wrong on this page? POST {"kind":"report","body":"what is wrong"} to ${origin}/api/v1/documents/${document.id}/feedback.\n\n`;
-    return markdown(`${indexNote(lang, site).trimEnd()}\n${reportNote}${absoluteLinks(page, address, `${origin}/api/v1/spaces/${encodeURIComponent(space!)}/assets`)}`, { ETag: `"${revision.sha256}"` });
-  });
 
   app.use("*", compress());
 
@@ -181,7 +227,13 @@ export function registerPageRoutes(app: Hono, deps: { identity: Identity; servic
       if (pathname.endsWith(".md")) return markdownResponse(c, embed[2] ?? "");
       const html = await files.indexHtml();
       if (!html) return plainText(503, "The web app has not been built. Run: pnpm build");
-      return new Response(withFavicon(html, (await services.site.get()).favicon), { headers: { ...NO_STORE, "Content-Type": "text/html; charset=utf-8", [CSP_HEADER]: embedCsp(embedApp.allowedOrigins, base) } });
+      return new Response(withFavicon(html, (await services.site.get()).favicon), {
+        headers: {
+          ...NO_STORE,
+          "Content-Type": "text/html; charset=utf-8",
+          [CSP_HEADER]: embedCsp(embedApp.allowedOrigins, base)
+        }
+      });
     }
     const shared = SHARE_PATH.exec(pathname);
     if (shared) {
@@ -190,33 +242,54 @@ export function registerPageRoutes(app: Hono, deps: { identity: Identity; servic
       if (rest.endsWith(".md")) return markdownResponse(c, rest, shared[1]);
       const llms = rest.endsWith(".txt") ? LLMS_PATH.exec(rest) : null;
       if (llms) return llmsResponse(c, llms[1]!, llms[2]!, shared[1]);
-      if (!await services.shareLinks.principalOf(shared[1]!)) return plainText(404, t("This link does not work any more. Ask whoever sent it for a new one."));
+      if (!(await services.shareLinks.principalOf(shared[1]!)))
+        return plainText(404, t("This link does not work any more. Ask whoever sent it for a new one."));
       const html = await files.indexHtml();
       if (!html) return plainText(503, "The web app has not been built. Run: pnpm build");
       // Nothing here is for search engines. Every page already says not to tell other sites where someone came from, which here is the link itself.
-      return new Response(withFavicon(html, (await services.site.get()).favicon), { headers: { ...NO_STORE, "Content-Type": "text/html; charset=utf-8", [CSP_HEADER]: pagePolicy, "X-Robots-Tag": "noindex" } });
+      return new Response(withFavicon(html, (await services.site.get()).favicon), {
+        headers: {
+          ...NO_STORE,
+          "Content-Type": "text/html; charset=utf-8",
+          [CSP_HEADER]: pagePolicy,
+          "X-Robots-Tag": "noindex"
+        }
+      });
     }
     if (pathname === "/site.css") return siteStylesheet(c, siteStyles(await services.site.get()));
     if (pathname === "/robots.txt") return plainText(200, robotsTxt(await publicAccess.open(), origin));
     if (pathname === "/sitemap.xml") {
-      if (!await publicAccess.open()) return plainText(404, t("No such page"));
+      if (!(await publicAccess.open())) return plainText(404, t("No such page"));
       if (!publicAccess.allowRequest(clientAddress(c, trustProxy), pathname)) return tooMany();
-      return new Response(await sitemapXml(services, origin), { headers: { ...NO_STORE, "Content-Type": "application/xml; charset=utf-8" } });
+      return new Response(await sitemapXml(services, origin), {
+        headers: { ...NO_STORE, "Content-Type": "application/xml; charset=utf-8" }
+      });
     }
     const llms = pathname.endsWith(".txt") ? LLMS_PATH.exec(pathname) : null;
     if (llms) return llmsResponse(c, llms[1]!, llms[2]!);
     if (pathname.endsWith(".md")) return markdownResponse(c, pathname);
-    if (!pathname.startsWith(MANAGE_PREFIX) && prefersMarkdown(c.req.header("accept"))) return markdownResponse(c, pathname);
+    if (!pathname.startsWith(MANAGE_PREFIX) && prefersMarkdown(c.req.header("accept")))
+      return markdownResponse(c, pathname);
     const auth = await identity.authenticate(c.req.raw);
     const signedIn = auth.ok && auth.via !== "embed";
-    if (!signedIn && !await publicAccess.allowsPage(pathname)) return c.redirect(`/login?${new URLSearchParams({ next: `${pathname}${search}` })}`);
+    if (!signedIn && !(await publicAccess.allowsPage(pathname)))
+      return c.redirect(`/login?${new URLSearchParams({ next: `${pathname}${search}` })}`);
     const built = await files.indexHtml();
     if (!built) return plainText(503, "The web app has not been built. Run: pnpm build");
     if (!signedIn && !publicAccess.allowRequest(clientAddress(c, trustProxy), pathname)) return tooMany();
     const site = await services.site.get();
-    const outcome = await rendering.answer(withFavicon(built, site.favicon), { pathname, search }, signedIn ? auth.principal : ANONYMOUS_PRINCIPAL, await languageOfPage(c.req.raw, pathname, async () => site.defaultLang));
+    const outcome = await rendering.answer(
+      withFavicon(built, site.favicon),
+      { pathname, search },
+      signedIn ? auth.principal : ANONYMOUS_PRINCIPAL,
+      await languageOfPage(c.req.raw, pathname, async () => site.defaultLang)
+    );
     if (outcome.kind === "redirect") return c.redirect(outcome.to, outcome.status);
-    if (outcome.documentId && outcome.status === 200 && AI_CRAWLER.test(c.req.header("user-agent") ?? "")) services.stats.countView(outcome.documentId, "agent");
-    return new Response(outcome.html, { status: outcome.status, headers: { ...NO_STORE, "Content-Type": "text/html; charset=utf-8", Vary: "Accept", [CSP_HEADER]: pagePolicy } });
+    if (outcome.documentId && outcome.status === 200 && AI_CRAWLER.test(c.req.header("user-agent") ?? ""))
+      services.stats.countView(outcome.documentId, "agent");
+    return new Response(outcome.html, {
+      status: outcome.status,
+      headers: { ...NO_STORE, "Content-Type": "text/html; charset=utf-8", Vary: "Accept", [CSP_HEADER]: pagePolicy }
+    });
   });
 }

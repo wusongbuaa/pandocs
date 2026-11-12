@@ -6,7 +6,13 @@ import type { Principal } from "../domain/types.js";
 import { audit, type AppContext } from "./context.js";
 
 /** Goes into links on every page, so it cannot carry a script even for an administrator's typo or a copied snippet. */
-const url = z.string().min(1).max(2000).refine(value => !/^(?:javascript|vbscript|data):/iu.test(value.replace(/[\p{Cc}\s]/gu, "")), { error: () => t("A link cannot start with a script protocol") });
+const url = z
+  .string()
+  .min(1)
+  .max(2000)
+  .refine(value => !/^(?:javascript|vbscript|data):/iu.test(value.replace(/[\p{Cc}\s]/gu, "")), {
+    error: () => t("A link cannot start with a script protocol")
+  });
 /** The languages the theme has interface text for. */
 const language = z.enum(["zh", "en", "ja", "ko", "ru", "ta"]);
 
@@ -14,46 +20,73 @@ const language = z.enum(["zh", "en", "ja", "ko", "ru", "ta"]);
  * A favicon goes into every page as it is, so it is an address or a small uploaded image, and nothing else: a data URL
  * of any other kind could be a document rather than an image.
  */
-const FAVICON = /^(?:https?:\/\/\S+|\/(?!\/)\S*|data:image\/(?:png|svg\+xml|x-icon|vnd\.microsoft\.icon|gif|webp);base64,[A-Za-z0-9+/]+=*)$/u;
+const FAVICON =
+  /^(?:https?:\/\/\S+|\/(?!\/)\S*|data:image\/(?:png|svg\+xml|x-icon|vnd\.microsoft\.icon|gif|webp);base64,[A-Za-z0-9+/]+=*)$/u;
 
 /** Pandocs' own green, a shade deeper than the logo's, so that links and the white text on buttons stay readable. */
 export const DEFAULT_BRAND_COLOR = "#159c5d";
 
-const navItem = z.object({
-  text: z.string().min(1).max(60),
-  link: url.optional(),
-  items: z.array(z.object({ text: z.string().min(1).max(60), link: url })).max(20).optional()
-}).strict();
+const navItem = z
+  .object({
+    text: z.string().min(1).max(60),
+    link: url.optional(),
+    items: z
+      .array(z.object({ text: z.string().min(1).max(60), link: url }))
+      .max(20)
+      .optional()
+  })
+  .strict();
 
-export const siteSettingsSchema = z.object({
-  title: z.string().min(1).max(120),
-  description: z.string().max(500),
-  /** A URL, or an uploaded image kept as a data URL: the site has no space to keep an asset in. */
-  logo: z.string().max(150_000),
-  /** The icon in browser tabs, empty for Pandocs' own. Every page carries it, which is why it is kept small. */
-  favicon: z.string().max(24_000).refine(value => value === "" || FAVICON.test(value), { error: () => t("A favicon is an image's address, or an uploaded PNG, SVG or ICO file") }),
-  footer: z.string().max(2000),
-  defaultLang: language,
-  /** One locale hides the language switch; the routes, sidebars and interface text follow this list. */
-  locales: z.array(z.object({ lang: language, label: z.string().min(1).max(30) }).strict()).min(1).max(6),
-  /** `null` lists the spaces a person can see. */
-  nav: z.array(navItem).max(20).nullable(),
-  socialLinks: z.array(z.object({ icon: z.string().min(1).max(30), link: url }).strict()).max(10),
-  /** Other applications next to this one, shown in the switcher left of the logo. */
-  appLinks: z.array(z.object({ text: z.string().min(1).max(60), link: url }).strict()).max(20),
-  /** Host actions on the selection toolbar and the page menu. `{url}`, `{title}` and `{text}` are filled in; `copy` goes to the clipboard first. */
-  actions: z.array(z.object({ id: z.string().min(1).max(40), label: z.string().min(1).max(40), href: url, copy: z.string().max(2000).optional() }).strict()).max(10),
-  /** How long deleted pages stay in the trash; `null` keeps them until someone removes them. */
-  trashRetentionDays: z.number().int().min(1).max(3650).nullable(),
-  /** The host's sign-out endpoint, which takes a POST. Empty when the host has no such thing. */
-  logoutUrl: z.string().max(2000),
-  /** Whether someone with no login can ask the site's AI, which the site pays for. */
-  askForVisitors: z.boolean(),
-  /** The brand colour, as `#rrggbb`, or empty for Pandocs' green. */
-  brandColor: z.string().regex(/^(?:#[0-9a-f]{6})?$/iu, { error: () => t("A brand colour is written like #0095ff") }),
-  /** Loaded last on every page. Only administrators can write it, and it can do no more than style a page: it goes out as a stylesheet, under the page's policy. */
-  customCss: z.string().max(100_000)
-}).strict();
+export const siteSettingsSchema = z
+  .object({
+    title: z.string().min(1).max(120),
+    description: z.string().max(500),
+    /** A URL, or an uploaded image kept as a data URL: the site has no space to keep an asset in. */
+    logo: z.string().max(150_000),
+    /** The icon in browser tabs, empty for Pandocs' own. Every page carries it, which is why it is kept small. */
+    favicon: z
+      .string()
+      .max(24_000)
+      .refine(value => value === "" || FAVICON.test(value), {
+        error: () => t("A favicon is an image's address, or an uploaded PNG, SVG or ICO file")
+      }),
+    footer: z.string().max(2000),
+    defaultLang: language,
+    /** One locale hides the language switch; the routes, sidebars and interface text follow this list. */
+    locales: z
+      .array(z.object({ lang: language, label: z.string().min(1).max(30) }).strict())
+      .min(1)
+      .max(6),
+    /** `null` lists the spaces a person can see. */
+    nav: z.array(navItem).max(20).nullable(),
+    socialLinks: z.array(z.object({ icon: z.string().min(1).max(30), link: url }).strict()).max(10),
+    /** Other applications next to this one, shown in the switcher left of the logo. */
+    appLinks: z.array(z.object({ text: z.string().min(1).max(60), link: url }).strict()).max(20),
+    /** Host actions on the selection toolbar and the page menu. `{url}`, `{title}` and `{text}` are filled in; `copy` goes to the clipboard first. */
+    actions: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1).max(40),
+            label: z.string().min(1).max(40),
+            href: url,
+            copy: z.string().max(2000).optional()
+          })
+          .strict()
+      )
+      .max(10),
+    /** How long deleted pages stay in the trash; `null` keeps them until someone removes them. */
+    trashRetentionDays: z.number().int().min(1).max(3650).nullable(),
+    /** The host's sign-out endpoint, which takes a POST. Empty when the host has no such thing. */
+    logoutUrl: z.string().max(2000),
+    /** Whether someone with no login can ask the site's AI, which the site pays for. */
+    askForVisitors: z.boolean(),
+    /** The brand colour, as `#rrggbb`, or empty for Pandocs' green. */
+    brandColor: z.string().regex(/^(?:#[0-9a-f]{6})?$/iu, { error: () => t("A brand colour is written like #0095ff") }),
+    /** Loaded last on every page. Only administrators can write it, and it can do no more than style a page: it goes out as a stylesheet, under the page's policy. */
+    customCss: z.string().max(100_000)
+  })
+  .strict();
 
 export type SiteSettings = z.infer<typeof siteSettingsSchema>;
 
@@ -81,8 +114,10 @@ function currentFields(stored: Partial<SiteSettings> | undefined): Partial<SiteS
   return Object.fromEntries(Object.entries(stored ?? {}).filter(([key]) => key in siteSettingsSchema.shape));
 }
 
-const toHex = (channels: readonly number[]) => `#${channels.map(channel => Math.round(channel).toString(16).padStart(2, "0")).join("")}`;
-const mixed = (from: readonly number[], to: number, amount: number) => from.map(channel => channel + (to - channel) * amount);
+const toHex = (channels: readonly number[]) =>
+  `#${channels.map(channel => Math.round(channel).toString(16).padStart(2, "0")).join("")}`;
+const mixed = (from: readonly number[], to: number, amount: number) =>
+  from.map(channel => channel + (to - channel) * amount);
 
 /**
  * The theme's front page fades from its blue to purple. With the green, it fades to teal, and its background glows green.
@@ -139,7 +174,9 @@ export class SiteService {
 
   /** Stored fields win over the host's defaults, so an environment works before anyone opens the settings page. */
   async get(): Promise<SiteSettings> {
-    const { rows } = await this.context.db.query<{ settings: Partial<SiteSettings> }>(`SELECT settings FROM pandocs.site_settings`);
+    const { rows } = await this.context.db.query<{ settings: Partial<SiteSettings> }>(
+      `SELECT settings FROM pandocs.site_settings`
+    );
     return { ...this.defaults, ...currentFields(rows[0]?.settings) };
   }
 
@@ -148,7 +185,10 @@ export class SiteService {
     await audit(this.context.db, principal, action, "site", target, detail);
   }
 
-  async update(principal: Principal, patch: { readonly [Key in keyof SiteSettings]?: SiteSettings[Key] | undefined }): Promise<SiteSettings> {
+  async update(
+    principal: Principal,
+    patch: { readonly [Key in keyof SiteSettings]?: SiteSettings[Key] | undefined }
+  ): Promise<SiteSettings> {
     if (!canChangeSite(principal)) throw forbidden(t("Only administrators can change site settings"));
     return this.context.db.transaction(async tx => {
       await tx.query(
@@ -157,10 +197,13 @@ export class SiteService {
         [JSON.stringify(patch), principal.id]
       );
       await audit(tx, principal, "site.update", "site", "site", { fields: Object.keys(patch) });
-      const { rows } = await tx.query<{ settings: Partial<SiteSettings> }>(`SELECT settings FROM pandocs.site_settings`);
+      const { rows } = await tx.query<{ settings: Partial<SiteSettings> }>(
+        `SELECT settings FROM pandocs.site_settings`
+      );
       const settings = { ...this.defaults, ...currentFields(rows[0]?.settings) };
       // No page can be rendered in a language the site does not have.
-      if (!settings.locales.some(locale => locale.lang === settings.defaultLang)) throw invalid("SITE_LANGUAGE_INVALID", t("The default language has to be one of the site's languages"));
+      if (!settings.locales.some(locale => locale.lang === settings.defaultLang))
+        throw invalid("SITE_LANGUAGE_INVALID", t("The default language has to be one of the site's languages"));
       return settings;
     });
   }

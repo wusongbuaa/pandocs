@@ -74,17 +74,36 @@ function relocatedHref(href: string, from: string, to: string, movedTo: (path: s
  * pages. `movedTo` gives the new path of pages that moved along. Only destinations change, never the visible text,
  * so comment anchors stay put; text with nothing to change comes back identical.
  */
-export function relocateDocLinks(markdown: string, from: string, to: string, movedTo: (path: string) => string = path => path, registry: BlockRegistry = defaultBlockRegistry): string {
+export function relocateDocLinks(
+  markdown: string,
+  from: string,
+  to: string,
+  movedTo: (path: string) => string = path => path,
+  registry: BlockRegistry = defaultBlockRegistry
+): string {
   if (!/\]\(|\]:|href=/u.test(markdown)) return markdown;
   const edits: { start: number; end: number; href: string }[] = [];
   const visit = (node: Nodes) => {
-    if ((node.type === "link" || node.type === "definition") && node.position?.start.offset !== undefined && node.position.end.offset !== undefined) {
+    if (
+      (node.type === "link" || node.type === "definition") &&
+      node.position?.start.offset !== undefined &&
+      node.position.end.offset !== undefined
+    ) {
       const href = relocatedHref(node.url, from, to, movedTo);
       // Looking from the end because the link's own text may read the same as its destination.
-      const at = href === null ? -1 : markdown.slice(node.position.start.offset, node.position.end.offset).lastIndexOf(node.url);
-      if (href !== null && at >= 0) edits.push({ start: node.position.start.offset + at, end: node.position.start.offset + at + node.url.length, href });
+      const at =
+        href === null ? -1 : markdown.slice(node.position.start.offset, node.position.end.offset).lastIndexOf(node.url);
+      if (href !== null && at >= 0)
+        edits.push({
+          start: node.position.start.offset + at,
+          end: node.position.start.offset + at + node.url.length,
+          href
+        });
     }
-    if ((node.type === "containerDirective" || node.type === "leafDirective") && node.position?.start.offset !== undefined) {
+    if (
+      (node.type === "containerDirective" || node.type === "leafDirective") &&
+      node.position?.start.offset !== undefined
+    ) {
       const start = node.position.start.offset;
       const opening = markdown.slice(start, node.position.end.offset).split("\n", 1)[0]!;
       for (const attribute of registry.get(node.name)?.linkAttrs ?? []) {
@@ -92,13 +111,16 @@ export function relocateDocLinks(markdown: string, from: string, to: string, mov
         const href = value ? relocatedHref(value, from, to, movedTo) : null;
         // The attributes come after the label, which may read the same.
         const at = href === null ? -1 : opening.lastIndexOf(value!);
-        if (href !== null && at >= 0) edits.push({ start: start + at, end: start + at + value!.length, href: href.replace(/"/gu, "%22") });
+        if (href !== null && at >= 0)
+          edits.push({ start: start + at, end: start + at + value!.length, href: href.replace(/"/gu, "%22") });
       }
     }
     if ("children" in node) node.children.forEach(visit);
   };
   visit(parseDocument(markdown, registry).tree);
-  return edits.sort((a, b) => b.start - a.start).reduce((text, edit) => `${text.slice(0, edit.start)}${edit.href}${text.slice(edit.end)}`, markdown);
+  return edits
+    .sort((a, b) => b.start - a.start)
+    .reduce((text, edit) => `${text.slice(0, edit.start)}${edit.href}${text.slice(edit.end)}`, markdown);
 }
 
 const ASSET_PATH = /^assets\/([a-f0-9]{64})(?:\.[a-z0-9]+)?$/iu;

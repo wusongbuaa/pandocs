@@ -12,7 +12,12 @@ interface Job<Input, Output> {
 }
 
 /** Work too long for the thread serving requests. Workers start on first use, one that dies is replaced, and one with nothing to do goes away. */
-export function createWorkerPool<Input, Output>(workerUrl: URL, size = Math.max(1, Math.min(2, cpus().length - 1)), heapMb?: number, letGoAfterMs = LET_GO_AFTER_MS) {
+export function createWorkerPool<Input, Output>(
+  workerUrl: URL,
+  size = Math.max(1, Math.min(2, cpus().length - 1)),
+  heapMb?: number,
+  letGoAfterMs = LET_GO_AFTER_MS
+) {
   const queue: Job<Input, Output>[] = [];
   const idle: Worker[] = [];
   const idleTimers = new Map<Worker, ReturnType<typeof setTimeout>>();
@@ -60,7 +65,9 @@ export function createWorkerPool<Input, Output>(workerUrl: URL, size = Math.max(
       if (!stopped) pump();
     };
     worker.on("error", lost);
-    worker.on("exit", code => { if (code !== 0 && !stopped) lost(new Error(`worker exited with ${code}`)); });
+    worker.on("exit", code => {
+      if (code !== 0 && !stopped) lost(new Error(`worker exited with ${code}`));
+    });
     return worker;
   };
 

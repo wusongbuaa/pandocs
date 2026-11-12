@@ -4,7 +4,12 @@ import { join } from "node:path";
 import { Editor } from "@tiptap/core";
 import { afterEach, describe, expect, it } from "vitest";
 import { joinBlocks, splitFrontMatter } from "@pandocs/markdown";
-import { createDialectExtensions, createDialectMarked, createMarkdownExtension, editorSourceBlocks } from "@pandocs/editor-model";
+import {
+  createDialectExtensions,
+  createDialectMarked,
+  createMarkdownExtension,
+  editorSourceBlocks
+} from "@pandocs/editor-model";
 import { createWriteBack, replaceChangedBlocks } from "../src/editor/write-back";
 
 const DIR = join(import.meta.dirname, "../../markdown/test/fixtures/corpus");
@@ -21,7 +26,11 @@ afterEach(async () => {
 
 function open(body: string) {
   const marked = createDialectMarked();
-  const editor = new Editor({ extensions: [...createDialectExtensions(), createMarkdownExtension(marked)], content: body, contentType: "markdown" } as never);
+  const editor = new Editor({
+    extensions: [...createDialectExtensions(), createMarkdownExtension(marked)],
+    content: body,
+    contentType: "markdown"
+  } as never);
   // Mounting in a browser dispatches a transaction, which is what lets the editor append its trailing paragraph.
   editor.view.dispatch(editor.state.tr);
   opened.push(editor);
@@ -44,25 +53,31 @@ function firstParagraph(editor: Editor): number {
 }
 
 describe("block-level write back in a real editor", () => {
-  it.each(pages.map(page => [page.title, page.markdown] as const))("an untouched document stays byte-identical: %s", (_title, markdown) => {
-    const { body } = splitFrontMatter(markdown);
-    const { writeBack, marked } = open(body);
-    expect(writeBack.aligned).toBe(true);
-    expect(writeBack.markdown()).toBe(joinBlocks(editorSourceBlocks(marked, body)));
-  });
+  it.each(pages.map(page => [page.title, page.markdown] as const))(
+    "an untouched document stays byte-identical: %s",
+    (_title, markdown) => {
+      const { body } = splitFrontMatter(markdown);
+      const { writeBack, marked } = open(body);
+      expect(writeBack.aligned).toBe(true);
+      expect(writeBack.markdown()).toBe(joinBlocks(editorSourceBlocks(marked, body)));
+    }
+  );
 
-  it.each(pages.map(page => [page.title, page.markdown] as const))("typing into one paragraph changes one line: %s", (_title, markdown) => {
-    const { body } = splitFrontMatter(markdown);
-    const { editor, writeBack } = open(body);
-    const at = firstParagraph(editor);
-    if (at < 0) return;
-    const before = writeBack.markdown();
-    editor.commands.insertContentAt(at, "【新增】");
-    const { added, removed } = changedLines(before, writeBack.markdown());
-    expect(added).toHaveLength(1);
-    expect(added[0]).toContain("【新增】");
-    expect(removed).toHaveLength(1);
-  });
+  it.each(pages.map(page => [page.title, page.markdown] as const))(
+    "typing into one paragraph changes one line: %s",
+    (_title, markdown) => {
+      const { body } = splitFrontMatter(markdown);
+      const { editor, writeBack } = open(body);
+      const at = firstParagraph(editor);
+      if (at < 0) return;
+      const before = writeBack.markdown();
+      editor.commands.insertContentAt(at, "【新增】");
+      const { added, removed } = changedLines(before, writeBack.markdown());
+      expect(added).toHaveLength(1);
+      expect(added[0]).toContain("【新增】");
+      expect(removed).toHaveLength(1);
+    }
+  );
 
   it("does not treat the editor's trailing paragraph as content", () => {
     const body = "正文\n\n- 列表结尾\n";
@@ -96,7 +111,9 @@ describe("coming back from the Markdown source", () => {
   };
   const paragraphs = (editor: Editor) => {
     const texts: string[] = [];
-    editor.state.doc.forEach(node => { if (node.textContent) texts.push(node.textContent); });
+    editor.state.doc.forEach(node => {
+      if (node.textContent) texts.push(node.textContent);
+    });
     return texts;
   };
 
@@ -106,7 +123,11 @@ describe("coming back from the Markdown source", () => {
     // Written out, that paragraph has lost its last space, which is what the merged Markdown says.
     replaceChangedBlocks(editor, "First paragraph, in source.\n\nSecond paragraph.\n\nThird paragraph. Typed\n");
     editor.commands.insertContentAt(endOf(editor, "Third paragraph."), "meanwhile.");
-    expect(paragraphs(editor)).toEqual(["First paragraph, in source.", "Second paragraph.", "Third paragraph. Typed meanwhile."]);
+    expect(paragraphs(editor)).toEqual([
+      "First paragraph, in source.",
+      "Second paragraph.",
+      "Third paragraph. Typed meanwhile."
+    ]);
   });
 
   it("adds, removes and changes blocks as the Markdown says", () => {

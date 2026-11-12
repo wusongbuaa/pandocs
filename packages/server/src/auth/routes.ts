@@ -4,7 +4,14 @@ import { randomUUID } from "node:crypto";
 import type { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { onSite, type Config } from "../config.js";
-import { loginErrorMessage, renderForgotPasswordPage, renderLoginPage, renderPasswordLinkGonePage, renderSetPasswordPage, type SiteLook } from "./login-page.js";
+import {
+  loginErrorMessage,
+  renderForgotPasswordPage,
+  renderLoginPage,
+  renderPasswordLinkGonePage,
+  renderSetPasswordPage,
+  type SiteLook
+} from "./login-page.js";
 import type { PasswordLinks } from "./password-links.js";
 import { DUMMY_PASSWORD_HASH, hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from "./passwords.js";
 import { openLoginState, type LoginFlow } from "./providers.js";
@@ -34,7 +41,10 @@ export function safeNext(next: string | undefined): string {
 }
 
 export interface AuthRouteDeps {
-  readonly config: Pick<Config, "publicUrl" | "basePath" | "siteUrl" | "secureCookies" | "passwordLogin" | "siteTitle" | "trustProxy"> & { readonly secret: string };
+  readonly config: Pick<
+    Config,
+    "publicUrl" | "basePath" | "siteUrl" | "secureCookies" | "passwordLogin" | "siteTitle" | "trustProxy"
+  > & { readonly secret: string };
   readonly users: UserStore;
   readonly sessions: SessionStore;
   readonly throttle: LoginThrottle;
@@ -59,10 +69,12 @@ const FORGOTTEN_ASKS_PER_EMAIL = 3;
 const FORGOTTEN_ASKS_PER_ADDRESS = 20;
 
 /** Whatever arrives is not always a form, and that should come to the same as an empty one. */
-const formOf = (c: Parameters<typeof deleteCookie>[0]) => c.req.parseBody().catch(() => ({} as Record<string, unknown>));
+const formOf = (c: Parameters<typeof deleteCookie>[0]) =>
+  c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
 
 /** The app's own sign-in dialog asks for an answer it can read, where the page needs somewhere to go. */
-const wantsData = (c: Parameters<typeof deleteCookie>[0]) => (c.req.header("accept") ?? "").includes("application/json");
+const wantsData = (c: Parameters<typeof deleteCookie>[0]) =>
+  (c.req.header("accept") ?? "").includes("application/json");
 const NO_STORE = { "Cache-Control": "no-store" };
 
 /** The same words the page shows, with a status a program can tell apart. */
@@ -75,7 +87,12 @@ const LOGIN_REFUSALS: Readonly<Record<string, { readonly status: 401 | 403 | 429
 export function registerAuthRoutes(app: Hono, deps: AuthRouteDeps): void {
   const { config, users, sessions, throttle, passwordLinks, identity, flows } = deps;
   // Below the site's path, so the cookies stay out of whatever else answers on the same host.
-  const cookieOptions = { httpOnly: true, sameSite: "Lax" as const, secure: config.secureCookies, path: config.basePath || "/" };
+  const cookieOptions = {
+    httpOnly: true,
+    sameSite: "Lax" as const,
+    secure: config.secureCookies,
+    path: config.basePath || "/"
+  };
 
   const startSession = async (c: Parameters<typeof deleteCookie>[0], user: User) => {
     const token = await sessions.create(user.id);
@@ -83,10 +100,14 @@ export function registerAuthRoutes(app: Hono, deps: AuthRouteDeps): void {
     setCookie(c, SESSION_COOKIE, token, { ...cookieOptions, maxAge: SESSION_MAX_AGE_SECONDS });
   };
 
-  const loginUrl = (next: string, error?: string) => `/login?${new URLSearchParams({ next, ...(error ? { error } : {}) })}`;
+  const loginUrl = (next: string, error?: string) =>
+    `/login?${new URLSearchParams({ next, ...(error ? { error } : {}) })}`;
 
   /** Signing someone in or out from another site's page would leave them working in an account they did not choose. */
-  const refusedFromElsewhere = (c: Parameters<typeof deleteCookie>[0]) => (fromAnotherSite(c.req.raw, config.publicUrl.origin) ? c.text(t("Requests from other sites are refused"), 403) : null);
+  const refusedFromElsewhere = (c: Parameters<typeof deleteCookie>[0]) =>
+    fromAnotherSite(c.req.raw, config.publicUrl.origin)
+      ? c.text(t("Requests from other sites are refused"), 403)
+      : null;
 
   /** The app's sign-in dialog looks like these pages because it loads the same stylesheet. */
   app.get("/sign-in.css", c => {
@@ -104,7 +125,12 @@ export function registerAuthRoutes(app: Hono, deps: AuthRouteDeps): void {
     const signedIn = Boolean(await identity.userOfCookie(c.req.raw));
     const providers = [...flows.map(({ provider }) => ({ id: provider.id, name: provider.name })), ...atTheHost];
     const setup = (await users.count()) === 0;
-    if (wantsData(c)) return c.json({ version: 1, data: { signedIn, passwordLogin: config.passwordLogin, setup, providers } }, 200, NO_STORE);
+    if (wantsData(c))
+      return c.json(
+        { version: 1, data: { signedIn, passwordLogin: config.passwordLogin, setup, providers } },
+        200,
+        NO_STORE
+      );
     if (signedIn) return c.redirect(next);
     // With nothing to choose between, the page would only hold the one link.
     if (atTheHost.length > 0 && !config.passwordLogin && flows.length === 0) return c.redirect(hostLogin(next)!);
@@ -131,7 +157,16 @@ export function registerAuthRoutes(app: Hono, deps: AuthRouteDeps): void {
       return c.json({ version: 1, error: { code, message: loginErrorMessage(error) } }, status, NO_STORE);
     };
     if (!config.passwordLogin) {
-      return wantsData(c) ? c.json({ version: 1, error: { code: "PASSWORD_LOGIN_OFF", message: t("This site does not sign in with passwords.") } }, 404, NO_STORE) : c.redirect(loginUrl(next), 303);
+      return wantsData(c)
+        ? c.json(
+            {
+              version: 1,
+              error: { code: "PASSWORD_LOGIN_OFF", message: t("This site does not sign in with passwords.") }
+            },
+            404,
+            NO_STORE
+          )
+        : c.redirect(loginUrl(next), 303);
     }
     const email = String(form.email ?? "").trim();
     const password = String(form.password ?? "");
@@ -141,7 +176,11 @@ export function registerAuthRoutes(app: Hono, deps: AuthRouteDeps): void {
     const key = `password:${account}:${address}`;
     const fromAddress = `password-address:${address}`;
     const onAccount = `password-account:${account}`;
-    const blocked = await Promise.all([throttle.blocked(key), throttle.blocked(fromAddress, MAX_FAILURES_FROM_ADDRESS), throttle.blocked(onAccount, MAX_FAILURES_ON_ACCOUNT)]);
+    const blocked = await Promise.all([
+      throttle.blocked(key),
+      throttle.blocked(fromAddress, MAX_FAILURES_FROM_ADDRESS),
+      throttle.blocked(onAccount, MAX_FAILURES_ON_ACCOUNT)
+    ]);
     if (blocked.includes(true)) return refuse("throttled");
     const found = email ? await users.findForLogin(email) : null;
     const matches = await verifyPassword(password, found?.passwordHash ?? DUMMY_PASSWORD_HASH);
@@ -167,7 +206,8 @@ export function registerAuthRoutes(app: Hono, deps: AuthRouteDeps): void {
     const displayName = String(form.displayName ?? "").trim();
     const password = String(form.password ?? "");
     if (!config.passwordLogin) return c.redirect(loginUrl(next), 303);
-    if (!validEmail(email) || !displayName || displayName.length > 120 || password.length < MIN_PASSWORD_LENGTH) return c.redirect(loginUrl(next, "invalid"), 303);
+    if (!validEmail(email) || !displayName || displayName.length > 120 || password.length < MIN_PASSWORD_LENGTH)
+      return c.redirect(loginUrl(next, "invalid"), 303);
     const user = await users.createFirstAdmin({ email, displayName, passwordHash: await hashPassword(password) });
     if (!user) return c.redirect(loginUrl(next, "setup"), 303);
     await startSession(c, user);
@@ -175,29 +215,56 @@ export function registerAuthRoutes(app: Hono, deps: AuthRouteDeps): void {
   });
 
   const noSuchPage = (c: Parameters<typeof deleteCookie>[0]) => c.text(t("No such page"), 404);
-  const authPage = (c: Parameters<typeof deleteCookie>[0], html: string, status: 200 | 410 | 422 = 200) => c.html(html, status, { [CSP_HEADER]: LOGIN_CSP, "Cache-Control": "no-store" });
+  const authPage = (c: Parameters<typeof deleteCookie>[0], html: string, status: 200 | 410 | 422 = 200) =>
+    c.html(html, status, { [CSP_HEADER]: LOGIN_CSP, "Cache-Control": "no-store" });
 
   app.get("/forgot-password", async c => {
     if (!config.passwordLogin) return noSuchPage(c);
-    return authPage(c, renderForgotPasswordPage({ title: await deps.siteTitle(), look: await deps.siteLook(), selfService: passwordLinks.selfService }));
+    return authPage(
+      c,
+      renderForgotPasswordPage({
+        title: await deps.siteTitle(),
+        look: await deps.siteLook(),
+        selfService: passwordLinks.selfService
+      })
+    );
   });
 
   app.post("/forgot-password", async c => {
     if (!passwordLinks.selfService) return noSuchPage(c);
     const form = await formOf(c);
-    const email = String(form.email ?? "").trim().toLowerCase();
+    const email = String(form.email ?? "")
+      .trim()
+      .toLowerCase();
     const address = clientAddress(c, config.trustProxy);
     // After answering, so how long this takes says nothing about whether the account exists.
     void (async () => {
       if (!validEmail(email)) return;
-      const allowed = await throttle.spend(`forgotten:${email}`, FORGOTTEN_ASKS_PER_EMAIL) && await throttle.spend(`forgotten:${address}`, FORGOTTEN_ASKS_PER_ADDRESS);
+      const allowed =
+        (await throttle.spend(`forgotten:${email}`, FORGOTTEN_ASKS_PER_EMAIL)) &&
+        (await throttle.spend(`forgotten:${address}`, FORGOTTEN_ASKS_PER_ADDRESS));
       const person = allowed ? await users.findByEmail(email) : null;
       // Someone whose way in is the company's login should not get a second one by asking: leaving the company would not end it.
-      if (person?.status === "active" && (person.hasPassword || !await users.hasIdentity(person.id))) await passwordLinks.forgotten(person);
+      if (person?.status === "active" && (person.hasPassword || !(await users.hasIdentity(person.id))))
+        await passwordLinks.forgotten(person);
     })().catch((error: unknown) => {
-      console.error(JSON.stringify({ event: "auth.forgotten_password_failed", name: error instanceof Error ? error.name : "unknown", message: error instanceof Error ? error.message : "" }));
+      console.error(
+        JSON.stringify({
+          event: "auth.forgotten_password_failed",
+          name: error instanceof Error ? error.name : "unknown",
+          message: error instanceof Error ? error.message : ""
+        })
+      );
     });
-    return authPage(c, renderForgotPasswordPage({ title: await deps.siteTitle(), look: await deps.siteLook(), selfService: true, sent: true }));
+    return authPage(
+      c,
+      renderForgotPasswordPage({
+        title: await deps.siteTitle(),
+        look: await deps.siteLook(),
+        selfService: true,
+        sent: true
+      })
+    );
   });
 
   // Chat apps open a link to preview it, so only sending the form uses it up.
@@ -218,7 +285,12 @@ export function registerAuthRoutes(app: Hono, deps: AuthRouteDeps): void {
     const person = await passwordLinks.userOf(token);
     if (!person) return authPage(c, renderPasswordLinkGonePage({ title, look }), 410);
     const password = String((await formOf(c)).password ?? "");
-    if (password.length < MIN_PASSWORD_LENGTH || password.length > 200) return authPage(c, renderSetPasswordPage({ title, look, action: `${config.basePath}${c.req.path}`, person, tooShort: true }), 422);
+    if (password.length < MIN_PASSWORD_LENGTH || password.length > 200)
+      return authPage(
+        c,
+        renderSetPasswordPage({ title, look, action: `${config.basePath}${c.req.path}`, person, tooShort: true }),
+        422
+      );
     const user = await passwordLinks.use(token, await hashPassword(password));
     if (!user) return authPage(c, renderPasswordLinkGonePage({ title, look }), 410);
     await startSession(c, user);
@@ -248,7 +320,14 @@ export function registerAuthRoutes(app: Hono, deps: AuthRouteDeps): void {
         setCookie(c, STATE_COOKIE, cookie, { ...cookieOptions, maxAge: STATE_MAX_AGE_SECONDS });
         return c.redirect(url.toString());
       } catch (error) {
-        console.error(JSON.stringify({ event: "auth.provider_start_failed", provider: id, name: error instanceof Error ? error.name : "unknown", message: error instanceof Error ? error.message : "" }));
+        console.error(
+          JSON.stringify({
+            event: "auth.provider_start_failed",
+            provider: id,
+            name: error instanceof Error ? error.name : "unknown",
+            message: error instanceof Error ? error.message : ""
+          })
+        );
         return c.redirect(loginUrl(next, "provider"));
       }
     });
@@ -265,7 +344,15 @@ export function registerAuthRoutes(app: Hono, deps: AuthRouteDeps): void {
         return c.redirect(login.next);
       } catch (error) {
         const reference = randomUUID();
-        console.error(JSON.stringify({ event: "auth.provider_callback_failed", provider: id, reference, name: error instanceof Error ? error.name : "unknown", message: error instanceof Error ? error.message : "" }));
+        console.error(
+          JSON.stringify({
+            event: "auth.provider_callback_failed",
+            provider: id,
+            reference,
+            name: error instanceof Error ? error.name : "unknown",
+            message: error instanceof Error ? error.message : ""
+          })
+        );
         return c.redirect(loginUrl(login.next, "provider"));
       }
     });

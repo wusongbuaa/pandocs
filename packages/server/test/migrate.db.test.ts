@@ -28,11 +28,20 @@ describe("starting a replica while others are serving", () => {
     const outcomes = new Map<string, number>();
     let running = true;
     const saving = async (slug: string) => {
-      const { data } = await admin.json("POST", "/api/v1/spaces/shop/documents", { title: slug, slug, markdown: "first\n" });
+      const { data } = await admin.json("POST", "/api/v1/spaces/shop/documents", {
+        title: slug,
+        slug,
+        markdown: "first\n"
+      });
       const id = data.document.id as string;
       let revision = data.revision.no as number;
       while (running) {
-        const saved = await admin.json("PUT", `/api/v1/documents/${id}/content`, { markdown: `round ${revision}\n`, expectedRevision: revision }, { "idempotency-key": randomUUID() });
+        const saved = await admin.json(
+          "PUT",
+          `/api/v1/documents/${id}/content`,
+          { markdown: `round ${revision}\n`, expectedRevision: revision },
+          { "idempotency-key": randomUUID() }
+        );
         const key = String(saved.status);
         outcomes.set(key, (outcomes.get(key) ?? 0) + 1);
         if (saved.status === 200) revision = saved.data.revision.no as number;
@@ -99,7 +108,7 @@ describe("splitting a schema into statements", () => {
     const sql = [
       "-- a comment; with a semicolon",
       "CREATE TABLE a (b text DEFAULT 'one; two', c text DEFAULT 'it''s; fine');",
-      "/* more; of them */ CREATE TABLE \"odd;name\" (d int);",
+      '/* more; of them */ CREATE TABLE "odd;name" (d int);',
       "CREATE FUNCTION e() RETURNS trigger AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;",
       "CREATE FUNCTION f() RETURNS int AS $body$ SELECT 1; $body$ LANGUAGE sql;",
       "-- nothing after this"

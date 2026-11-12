@@ -6,7 +6,10 @@ import { resolve } from "node:path";
  */
 export function vendorAliases(appRoot: string) {
   const at = (path: string) => resolve(appRoot, path);
-  const virtual = (name: string) => ({ find: new RegExp(`^virtual-${name}$`, "u"), replacement: at(`src/virtual/${name}`) });
+  const virtual = (name: string) => ({
+    find: new RegExp(`^virtual-${name}$`, "u"),
+    replacement: at(`src/virtual/${name}`)
+  });
   return [
     { find: "@rspress/core/runtime", replacement: at("vendor/rspress/runtime/index.ts") },
     { find: "@rspress/core/theme-original", replacement: at("vendor/rspress/theme/index.ts") },
@@ -17,6 +20,8 @@ export function vendorAliases(appRoot: string) {
     { find: "@rspress/shared/node-utils", replacement: at("src/virtual/node-utils.ts") },
     // What the generated components in vendor/shadcn call each other.
     { find: /^@\/(.*)$/u, replacement: at("vendor/shadcn/$1") },
-    ...["routes", "page-data", "site-data", "i18n-text", "social-links", "search-hooks", "global-components"].map(virtual)
+    ...["routes", "page-data", "site-data", "i18n-text", "social-links", "search-hooks", "global-components"].map(
+      virtual
+    )
   ];
 }

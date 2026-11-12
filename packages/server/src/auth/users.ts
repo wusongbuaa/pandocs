@@ -44,15 +44,25 @@ export function createUserStore(pool: pg.Pool) {
       const { rows } = await pool.query(`SELECT * FROM pandocs.users WHERE lower(email) = lower($1)`, [email]);
       return rows[0] ? { user: mapUser(rows[0]), passwordHash: rows[0].password_hash as string | null } : null;
     },
-    findByIdentity: (issuer: string, subject: string) => one(
-      `SELECT u.* FROM pandocs.users u JOIN pandocs.user_identities i ON i.user_id = u.id WHERE i.issuer = $1 AND i.subject = $2`,
-      [issuer, subject]
-    ),
+    findByIdentity: (issuer: string, subject: string) =>
+      one(
+        `SELECT u.* FROM pandocs.users u JOIN pandocs.user_identities i ON i.user_id = u.id WHERE i.issuer = $1 AND i.subject = $2`,
+        [issuer, subject]
+      ),
     async passwordHashOf(id: string): Promise<string | null> {
-      const { rows } = await pool.query<{ password_hash: string | null }>(`SELECT password_hash FROM pandocs.users WHERE id = $1`, [id]);
+      const { rows } = await pool.query<{ password_hash: string | null }>(
+        `SELECT password_hash FROM pandocs.users WHERE id = $1`,
+        [id]
+      );
       return rows[0]?.password_hash ?? null;
     },
-    async create(input: { email: string; displayName: string; passwordHash?: string | null | undefined; isAdmin?: boolean | undefined; groups?: readonly string[] | undefined }): Promise<User> {
+    async create(input: {
+      email: string;
+      displayName: string;
+      passwordHash?: string | null | undefined;
+      isAdmin?: boolean | undefined;
+      groups?: readonly string[] | undefined;
+    }): Promise<User> {
       const { rows } = await pool.query(
         `INSERT INTO pandocs.users (email, display_name, password_hash, is_admin, groups) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
         [input.email, input.displayName, input.passwordHash ?? null, input.isAdmin ?? false, input.groups ?? []]
@@ -60,7 +70,12 @@ export function createUserStore(pool: pg.Pool) {
       return mapUser(rows[0]);
     },
     /** Only ever succeeds for one caller: the first account is the administrator, and two people can open the setup page at once. */
-    async createFirstAdmin(input: { email: string; displayName: string; passwordHash: string | null; groups?: readonly string[] | undefined }): Promise<User | null> {
+    async createFirstAdmin(input: {
+      email: string;
+      displayName: string;
+      passwordHash: string | null;
+      groups?: readonly string[] | undefined;
+    }): Promise<User | null> {
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
@@ -88,20 +103,34 @@ export function createUserStore(pool: pg.Pool) {
       return rows.length > 0;
     },
     async linkIdentity(issuer: string, subject: string, userId: string): Promise<void> {
-      await pool.query(`INSERT INTO pandocs.user_identities (issuer, subject, user_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [issuer, subject, userId]);
+      await pool.query(
+        `INSERT INTO pandocs.user_identities (issuer, subject, user_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+        [issuer, subject, userId]
+      );
     },
     async recordLogin(id: string): Promise<void> {
       await pool.query(`UPDATE pandocs.users SET last_login_at = now() WHERE id = $1`, [id]);
     },
     /** What the identity provider says wins on every login, so leaving a group there takes effect here. */
-    async syncFromProvider(id: string, patch: { displayName?: string | undefined; groups: readonly string[]; isAdmin?: boolean | undefined }): Promise<User> {
+    async syncFromProvider(
+      id: string,
+      patch: { displayName?: string | undefined; groups: readonly string[]; isAdmin?: boolean | undefined }
+    ): Promise<User> {
       const { rows } = await pool.query(
         `UPDATE pandocs.users SET display_name = COALESCE($2, display_name), groups = $3, is_admin = COALESCE($4, is_admin), updated_at = now() WHERE id = $1 RETURNING *`,
         [id, patch.displayName ?? null, patch.groups, patch.isAdmin ?? null]
       );
       return mapUser(rows[0]);
     },
-    async update(id: string, patch: { displayName?: string | undefined; isAdmin?: boolean | undefined; status?: User["status"] | undefined; passwordHash?: string | undefined }): Promise<User | null> {
+    async update(
+      id: string,
+      patch: {
+        displayName?: string | undefined;
+        isAdmin?: boolean | undefined;
+        status?: User["status"] | undefined;
+        passwordHash?: string | undefined;
+      }
+    ): Promise<User | null> {
       return one(
         `UPDATE pandocs.users SET display_name = COALESCE($2, display_name), is_admin = COALESCE($3, is_admin), status = COALESCE($4, status), password_hash = COALESCE($5, password_hash), updated_at = now() WHERE id = $1 RETURNING *`,
         [id, patch.displayName ?? null, patch.isAdmin ?? null, patch.status ?? null, patch.passwordHash ?? null]
@@ -112,13 +141,27 @@ export function createUserStore(pool: pg.Pool) {
      * with nobody who can run it. Two people taking each other's rights at once would each see the other still there, so
      * they go one at a time.
      */
-    async updateKeepingAnAdministrator(id: string, patch: { isAdmin?: boolean | undefined; status?: User["status"] | undefined; displayName?: string | undefined; passwordHash?: string | undefined }): Promise<User | null | "last-administrator"> {
+    async updateKeepingAnAdministrator(
+      id: string,
+      patch: {
+        isAdmin?: boolean | undefined;
+        status?: User["status"] | undefined;
+        displayName?: string | undefined;
+        passwordHash?: string | undefined;
+      }
+    ): Promise<User | null | "last-administrator"> {
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
         await client.query(`SELECT pg_advisory_xact_lock(hashtext('pandocs.users.administrators'))`);
-        const { rows: target } = await client.query<{ is_admin: boolean; status: string }>(`SELECT is_admin, status FROM pandocs.users WHERE id = $1`, [id]);
-        const { rows: others } = await client.query<{ count: number }>(`SELECT count(*)::int AS count FROM pandocs.users WHERE is_admin AND status = 'active' AND id <> $1`, [id]);
+        const { rows: target } = await client.query<{ is_admin: boolean; status: string }>(
+          `SELECT is_admin, status FROM pandocs.users WHERE id = $1`,
+          [id]
+        );
+        const { rows: others } = await client.query<{ count: number }>(
+          `SELECT count(*)::int AS count FROM pandocs.users WHERE is_admin AND status = 'active' AND id <> $1`,
+          [id]
+        );
         if (target[0]?.is_admin && target[0].status === "active" && others[0]!.count === 0) {
           await client.query("ROLLBACK");
           return "last-administrator";
@@ -159,7 +202,10 @@ export function createUserStore(pool: pg.Pool) {
     async names(ids: readonly string[]): Promise<{ id: string; name: string }[]> {
       const known = ids.filter(id => /^[0-9a-f-]{36}$/iu.test(id));
       if (known.length === 0) return [];
-      const { rows } = await pool.query<{ id: string; name: string }>(`SELECT id, display_name AS name FROM pandocs.users WHERE id = ANY($1::uuid[])`, [known]);
+      const { rows } = await pool.query<{ id: string; name: string }>(
+        `SELECT id, display_name AS name FROM pandocs.users WHERE id = ANY($1::uuid[])`,
+        [known]
+      );
       return rows;
     }
   };

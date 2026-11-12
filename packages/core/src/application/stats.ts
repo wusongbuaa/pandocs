@@ -7,7 +7,8 @@ import type { SpaceService } from "./spaces.js";
 export type Audience = "person" | "agent";
 
 /** Someone at a browser, or a program: a token, the CLI or MCP, whoever it works for. */
-export const audienceOf = (principal: Principal): Audience => (principal.kind === "user" && (principal.channel === "web" || principal.channel === "embed") ? "person" : "agent");
+export const audienceOf = (principal: Principal): Audience =>
+  principal.kind === "user" && (principal.channel === "web" || principal.channel === "embed") ? "person" : "agent";
 
 /** Writing these down one at a time would make reading a page a write. A replica that dies takes a few seconds of counts with it, which nobody will miss. */
 const FLUSH_MS = 10_000;
@@ -36,7 +37,11 @@ export class StatsService {
   private searches = new Map<string, { searches: number; empty: number }>();
   private timer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(private readonly context: AppContext, private readonly documents: DocumentService, private readonly spaces: SpaceService) {}
+  constructor(
+    private readonly context: AppContext,
+    private readonly documents: DocumentService,
+    private readonly spaces: SpaceService
+  ) {}
 
   private get off(): boolean {
     return this.context.ports.statsDisabled === true;
@@ -55,7 +60,12 @@ export class StatsService {
     this.later();
   }
 
-  countSearch(input: { readonly term: string; readonly results: number; readonly audience: Audience; readonly space?: string | undefined }): void {
+  countSearch(input: {
+    readonly term: string;
+    readonly results: number;
+    readonly audience: Audience;
+    readonly space?: string | undefined;
+  }): void {
     const term = normalizeTerm(input.term);
     if (this.off || !term) return;
     const key = JSON.stringify([today(), input.space ?? "", term, input.audience]);
@@ -70,8 +80,12 @@ export class StatsService {
   async flush(): Promise<void> {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
-    const views = [...this.views].sort(([a], [b]) => a.localeCompare(b)).map(([key, count]) => [...key.split("|"), count] as const);
-    const searches = [...this.searches].sort(([a], [b]) => a.localeCompare(b)).map(([key, count]) => [JSON.parse(key) as string[], count] as const);
+    const views = [...this.views]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, count]) => [...key.split("|"), count] as const);
+    const searches = [...this.searches]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, count]) => [JSON.parse(key) as string[], count] as const);
     this.views = new Map();
     this.searches = new Map();
     try {
@@ -89,7 +103,14 @@ export class StatsService {
           `INSERT INTO pandocs.search_terms (day, space, term, audience, searches, empty)
            SELECT * FROM unnest($1::date[], $2::text[], $3::text[], $4::text[], $5::bigint[], $6::bigint[])
            ON CONFLICT (day, space, term, audience) DO UPDATE SET searches = pandocs.search_terms.searches + EXCLUDED.searches, empty = pandocs.search_terms.empty + EXCLUDED.empty`,
-          [searches.map(([key]) => key[0]), searches.map(([key]) => key[1]), searches.map(([key]) => key[2]), searches.map(([key]) => key[3]), searches.map(([, count]) => count.searches), searches.map(([, count]) => count.empty)]
+          [
+            searches.map(([key]) => key[0]),
+            searches.map(([key]) => key[1]),
+            searches.map(([key]) => key[2]),
+            searches.map(([key]) => key[3]),
+            searches.map(([, count]) => count.searches),
+            searches.map(([, count]) => count.empty)
+          ]
         );
       }
     } catch {
@@ -113,9 +134,15 @@ export class StatsService {
   }
 
   async sweep(): Promise<void> {
-    await this.context.db.query(`DELETE FROM pandocs.page_views WHERE day < CURRENT_DATE - $1::integer`, [VIEWS_KEPT_DAYS]);
-    await this.context.db.query(`DELETE FROM pandocs.search_terms WHERE day < CURRENT_DATE - $1::integer`, [WORDS_KEPT_DAYS]);
-    await this.context.db.query(`DELETE FROM pandocs.questions WHERE created_at < now() - make_interval(days => $1)`, [WORDS_KEPT_DAYS]);
+    await this.context.db.query(`DELETE FROM pandocs.page_views WHERE day < CURRENT_DATE - $1::integer`, [
+      VIEWS_KEPT_DAYS
+    ]);
+    await this.context.db.query(`DELETE FROM pandocs.search_terms WHERE day < CURRENT_DATE - $1::integer`, [
+      WORDS_KEPT_DAYS
+    ]);
+    await this.context.db.query(`DELETE FROM pandocs.questions WHERE created_at < now() - make_interval(days => $1)`, [
+      WORDS_KEPT_DAYS
+    ]);
   }
 
   /** The whole site for an administrator, or one space for those who look after it. A page someone cannot read is not in their numbers. */
@@ -127,7 +154,8 @@ export class StatsService {
     await this.flush();
     const slugs = space ? [space] : (await this.spaces.list(principal)).map(item => item.slug);
     const pages = new Map<string, TreeNode & { readonly space: string }>();
-    for (const slug of slugs) for (const node of await this.documents.tree(principal, slug)) pages.set(node.id, { ...node, space: slug });
+    for (const slug of slugs)
+      for (const node of await this.documents.tree(principal, slug)) pages.set(node.id, { ...node, space: slug });
     const ids = [...pages.keys()];
     const since = daysAgo(days);
     // A space's own words, or everyone's for the site as a whole.
@@ -149,7 +177,16 @@ export class StatsService {
       `SELECT term, audience, sum(searches) AS searches, sum(empty) AS empty FROM pandocs.search_terms WHERE day >= $1 AND ($2::text IS NULL OR space = $2) GROUP BY 1, 2`,
       [since, inScope]
     );
-    const { rows: questions } = await db.query<{ id: string; space: string; question: string; answer: string; citations: { title: string; url: string }[]; answered: boolean; helpful: boolean | null; created_at: Date }>(
+    const { rows: questions } = await db.query<{
+      id: string;
+      space: string;
+      question: string;
+      answer: string;
+      citations: { title: string; url: string }[];
+      answered: boolean;
+      helpful: boolean | null;
+      created_at: Date;
+    }>(
       `SELECT * FROM pandocs.questions WHERE created_at >= $1 AND ($2::text IS NULL OR space = $2) ORDER BY created_at DESC LIMIT $3`,
       [since, inScope, LISTED]
     );
@@ -159,14 +196,19 @@ export class StatsService {
       [since, inScope]
     );
 
-    const pageRows = new Map<string, { people: number; agents: number; helpful: number; unhelpful: number; reports: number }>();
+    const pageRows = new Map<
+      string,
+      { people: number; agents: number; helpful: number; unhelpful: number; reports: number }
+    >();
     const rowOf = (id: string) => {
       let row = pageRows.get(id);
-      if (!row) pageRows.set(id, row = { people: 0, agents: 0, helpful: 0, unhelpful: 0, reports: 0 });
+      if (!row) pageRows.set(id, (row = { people: 0, agents: 0, helpful: 0, unhelpful: 0, reports: 0 }));
       return row;
     };
-    for (const { document_id: id, audience, views: count } of views) rowOf(id)[audience === "person" ? "people" : "agents"] = Number(count);
-    for (const { document_id: id, kind, count } of votes) rowOf(id)[kind === "helpful" ? "helpful" : kind === "unhelpful" ? "unhelpful" : "reports"] = Number(count);
+    for (const { document_id: id, audience, views: count } of views)
+      rowOf(id)[audience === "person" ? "people" : "agents"] = Number(count);
+    for (const { document_id: id, kind, count } of votes)
+      rowOf(id)[kind === "helpful" ? "helpful" : kind === "unhelpful" ? "unhelpful" : "reports"] = Number(count);
     const byDay = new Map<string, { day: string; people: number; agents: number }>();
     for (const { day, audience, views: count } of daily) {
       const row = byDay.get(day) ?? { day, people: 0, agents: 0 };
@@ -204,7 +246,10 @@ export class StatsService {
       daily: [...byDay.values()],
       pages: listedPages.sort((a, b) => total(b) - total(a)).slice(0, LISTED),
       searches: [...allTerms].sort((a, b) => total(b) - total(a)).slice(0, LISTED),
-      emptySearches: allTerms.filter(row => row.empty > 0).sort((a, b) => b.empty - a.empty).slice(0, LISTED),
+      emptySearches: allTerms
+        .filter(row => row.empty > 0)
+        .sort((a, b) => b.empty - a.empty)
+        .slice(0, LISTED),
       questions: questions.map(row => ({
         id: row.id,
         space: row.space,

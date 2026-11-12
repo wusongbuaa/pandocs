@@ -31,21 +31,45 @@ const mapToken = (row: Record<string, unknown>): ApiToken => ({
 export function createTokenStore(pool: pg.Pool) {
   return {
     /** The only time the token itself exists outside its holder's hands: just its hash is kept. */
-    async create(userId: string, input: { name: string; kind: TokenKind; scopes: readonly TokenScope[]; expiresInDays?: number | undefined; expiresInSeconds?: number | undefined; origin?: "manual" | "oauth" | undefined }): Promise<{ token: string; record: ApiToken }> {
+    async create(
+      userId: string,
+      input: {
+        name: string;
+        kind: TokenKind;
+        scopes: readonly TokenScope[];
+        expiresInDays?: number | undefined;
+        expiresInSeconds?: number | undefined;
+        origin?: "manual" | "oauth" | undefined;
+      }
+    ): Promise<{ token: string; record: ApiToken }> {
       const token = `${TOKEN_PREFIX}${newToken()}`;
       const { rows } = await pool.query(
         `INSERT INTO pandocs.api_tokens (token_hash, user_id, name, kind, scopes, origin, expires_at)
          VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $7::int IS NULL THEN NULL ELSE now() + make_interval(secs => $7::int) END) RETURNING *`,
-        [hashToken(token), userId, input.name, input.kind, input.scopes, input.origin ?? "manual", input.expiresInSeconds ?? (input.expiresInDays === undefined ? null : input.expiresInDays * 86_400)]
+        [
+          hashToken(token),
+          userId,
+          input.name,
+          input.kind,
+          input.scopes,
+          input.origin ?? "manual",
+          input.expiresInSeconds ?? (input.expiresInDays === undefined ? null : input.expiresInDays * 86_400)
+        ]
       );
       return { token, record: mapToken(rows[0]) };
     },
     async list(userId: string): Promise<ApiToken[]> {
-      const { rows } = await pool.query(`SELECT * FROM pandocs.api_tokens WHERE user_id = $1 AND revoked_at IS NULL AND origin = 'manual' ORDER BY created_at DESC`, [userId]);
+      const { rows } = await pool.query(
+        `SELECT * FROM pandocs.api_tokens WHERE user_id = $1 AND revoked_at IS NULL AND origin = 'manual' ORDER BY created_at DESC`,
+        [userId]
+      );
       return rows.map(mapToken);
     },
     async revoke(userId: string, id: string): Promise<boolean> {
-      const { rowCount } = await pool.query(`UPDATE pandocs.api_tokens SET revoked_at = now() WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL`, [id, userId]);
+      const { rowCount } = await pool.query(
+        `UPDATE pandocs.api_tokens SET revoked_at = now() WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL`,
+        [id, userId]
+      );
       return Boolean(rowCount);
     },
     async authenticate(token: string): Promise<{ user: User; token: ApiToken } | null> {

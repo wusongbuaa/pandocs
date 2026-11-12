@@ -38,12 +38,20 @@ export function mapRevision(row: Record<string, unknown>): RevisionRecord {
   };
 }
 
-export function metaOf({ markdown: _markdown, visibleText: _visibleText, documentId: _documentId, ...meta }: RevisionRecord): RevisionMeta {
+export function metaOf({
+  markdown: _markdown,
+  visibleText: _visibleText,
+  documentId: _documentId,
+  ...meta
+}: RevisionRecord): RevisionMeta {
   return meta;
 }
 
 export async function loadRevision(db: Queryable, documentId: string, no: number): Promise<RevisionRecord> {
-  const { rows } = await db.query(`SELECT * FROM pandocs.revisions WHERE document_id = $1 AND no = $2`, [documentId, no]);
+  const { rows } = await db.query(`SELECT * FROM pandocs.revisions WHERE document_id = $1 AND no = $2`, [
+    documentId,
+    no
+  ]);
   if (!rows[0]) throw notFound(t("Version {0} ", no));
   return mapRevision(rows[0]);
 }

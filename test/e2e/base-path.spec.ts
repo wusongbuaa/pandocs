@@ -13,8 +13,16 @@ pandocsDescribe("a site below a path of another site's", () => {
     app = await startPandocs(postgres.getConnectionString(), {}, { base: "/docs" });
     await app.api("admin", "POST", "spaces", { slug: SPACE, name: "手册", defaultRole: "viewer" });
     await app.api("admin", "PUT", `spaces/${SPACE}/members`, { subject: `user:${PEOPLE.editor.id}`, role: "editor" });
-    await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "指南", slug: "guide", markdown: "## 第一节\n\n公式 $$E = mc^2$$ 和[上手](./start)。\n\n:::steps\n\n### 准备\n\n正文。\n\n:::\n" });
-    await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "上手", slug: "start", markdown: "上手要读的内容。\n" });
+    await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+      title: "指南",
+      slug: "guide",
+      markdown: "## 第一节\n\n公式 $$E = mc^2$$ 和[上手](./start)。\n\n:::steps\n\n### 准备\n\n正文。\n\n:::\n"
+    });
+    await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+      title: "上手",
+      slug: "start",
+      markdown: "上手要读的内容。\n"
+    });
   }, 120_000);
 
   afterAll(async () => {
@@ -34,7 +42,9 @@ pandocsDescribe("a site below a path of another site's", () => {
 
     await page.keyboard.press("ControlOrMeta+k");
     await page.locator(".rp-search-panel__input").fill("第一节");
-    await browserExpect(page.locator(".rp-suggest-item__title, .rp-suggest-item__header").filter({ hasText: "指南" }).first()).toBeVisible({ timeout: 15_000 });
+    await browserExpect(
+      page.locator(".rp-suggest-item__title, .rp-suggest-item__header").filter({ hasText: "指南" }).first()
+    ).toBeVisible({ timeout: 15_000 });
     await page.keyboard.press("Escape");
 
     await page.goto(`${app.origin}/docs/${SPACE}/guide?mode=edit`);

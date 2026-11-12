@@ -8,6 +8,18 @@ export function PersonMark({ id, size }: { readonly id: string; readonly size: n
   return <Marble name={id} variant="marble" colors={AVATAR_COLORS} size={size} />;
 }
 
-export function Avatar({ id, name, size = 24 }: { readonly id: string; readonly name: string; readonly size?: number }) {
-  return <span className="pd-avatar" title={name} aria-hidden="true"><PersonMark id={id} size={size} /></span>;
+export function Avatar({
+  id,
+  name,
+  size = 24
+}: {
+  readonly id: string;
+  readonly name: string;
+  readonly size?: number;
+}) {
+  return (
+    <span className="pd-avatar" title={name} aria-hidden="true">
+      <PersonMark id={id} size={size} />
+    </span>
+  );
 }

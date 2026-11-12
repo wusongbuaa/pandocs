@@ -14,13 +14,15 @@ const MAX_UNPACKED_BYTES = 1024 * 1024 * 1024;
 const ASSET_FILE = /^assets\/([a-f0-9]{64})(?:\.[a-z0-9]+)?$/iu;
 
 const manifestSchema = z.object({
-  documents: z.array(z.object({
-    file: z.string().min(1),
-    // Spaces, tabs and line breaks in a title read as one space, as anywhere else a title is given.
-    title: z.string().transform(value => value.replace(/\s+/gu, " ").trim()),
-    sortOrder: z.number().optional(),
-    labels: documentLabels.optional()
-  }))
+  documents: z.array(
+    z.object({
+      file: z.string().min(1),
+      // Spaces, tabs and line breaks in a title read as one space, as anywhere else a title is given.
+      title: z.string().transform(value => value.replace(/\s+/gu, " ").trim()),
+      sortOrder: z.number().optional(),
+      labels: documentLabels.optional()
+    })
+  )
 });
 
 export interface ArchiveImportReport {
@@ -41,7 +43,8 @@ function unpack(bytes: Uint8Array): Record<string, Uint8Array> {
       filter: file => {
         count += 1;
         total += file.originalSize;
-        if (count > MAX_ENTRIES || total > MAX_UNPACKED_BYTES) throw invalid("ARCHIVE_TOO_LARGE", t("The archive is too large once unpacked"));
+        if (count > MAX_ENTRIES || total > MAX_UNPACKED_BYTES)
+          throw invalid("ARCHIVE_TOO_LARGE", t("The archive is too large once unpacked"));
         return true;
       }
     });
@@ -57,21 +60,28 @@ function unpack(bytes: Uint8Array): Record<string, Uint8Array> {
  * that cannot come in is reported rather than undoing the others.
  */
 export class ArchiveImportService {
-  constructor(private readonly context: AppContext, private readonly documents: DocumentService, private readonly assets: AssetService) {}
+  constructor(
+    private readonly context: AppContext,
+    private readonly documents: DocumentService,
+    private readonly assets: AssetService
+  ) {}
 
   async import(principal: Principal, spaceSlug: string, bytes: Uint8Array): Promise<ArchiveImportReport> {
     const { db } = this.context;
     await requireSpace(db, principal, spaceSlug, "editor");
     const files = unpack(bytes);
     const manifestBytes = files["manifest.json"];
-    if (!manifestBytes) throw invalid("ARCHIVE_INVALID", t("The archive has no manifest.json, so it was not exported from here"));
-    const parsed = manifestSchema.safeParse((() => {
-      try {
-        return JSON.parse(new TextDecoder().decode(manifestBytes));
-      } catch {
-        return null;
-      }
-    })());
+    if (!manifestBytes)
+      throw invalid("ARCHIVE_INVALID", t("The archive has no manifest.json, so it was not exported from here"));
+    const parsed = manifestSchema.safeParse(
+      (() => {
+        try {
+          return JSON.parse(new TextDecoder().decode(manifestBytes));
+        } catch {
+          return null;
+        }
+      })()
+    );
     if (!parsed.success) throw invalid("ARCHIVE_INVALID", t("manifest.json has the wrong content"));
 
     const skipped: { file: string; reason: string }[] = [];
@@ -88,8 +98,16 @@ export class ArchiveImportService {
       assets += 1;
     }
 
-    const writer = await PageWriter.open(this.context, this.documents, principal, spaceSlug, t("Imported from an archive"));
-    const pages = parsed.data.documents.map(page => ({ ...page, path: page.file.replace(/\.md$/u, "") })).sort((a, b) => a.path.split("/").length - b.path.split("/").length);
+    const writer = await PageWriter.open(
+      this.context,
+      this.documents,
+      principal,
+      spaceSlug,
+      t("Imported from an archive")
+    );
+    const pages = parsed.data.documents
+      .map(page => ({ ...page, path: page.file.replace(/\.md$/u, "") }))
+      .sort((a, b) => a.path.split("/").length - b.path.split("/").length);
     let created = 0;
     let updated = 0;
     let unchanged = 0;
@@ -104,7 +122,13 @@ export class ArchiveImportService {
         continue;
       }
       try {
-        const outcome = await writer.write({ path: page.path, title: page.title, markdown: new TextDecoder().decode(content), sortOrder: page.sortOrder, labels: page.labels });
+        const outcome = await writer.write({
+          path: page.path,
+          title: page.title,
+          markdown: new TextDecoder().decode(content),
+          sortOrder: page.sortOrder,
+          labels: page.labels
+        });
         if (outcome === "created") created += 1;
         else if (outcome === "updated") updated += 1;
         else unchanged += 1;

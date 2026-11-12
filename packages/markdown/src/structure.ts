@@ -39,7 +39,12 @@ export function topLevelBlocks(document: ParsedDocument): SourceBlock[] {
 }
 
 /** The top-level blocks that a range of reading offsets falls in, for anything that has to edit around a text anchor. */
-export function blocksInTextRange(document: ParsedDocument, start: number, end: number, registry: BlockRegistry = defaultBlockRegistry): { first: string; last: string } | null {
+export function blocksInTextRange(
+  document: ParsedDocument,
+  start: number,
+  end: number,
+  registry: BlockRegistry = defaultBlockRegistry
+): { first: string; last: string } | null {
   const blocks = topLevelBlocks(document);
   const nodes = document.tree.children.filter(node => node.type !== "yaml" && node.position);
   let offset = 0;
@@ -70,13 +75,20 @@ export function plainText(node: Nodes): string {
   if (node.type === "text" || node.type === "inlineCode") return node.value;
   if (node.type === "image") return node.alt ?? "";
   if (!("children" in node)) return "";
-  return node.children.map(child => plainText(child)).join(node.type === "paragraph" || node.type === "heading" ? "" : " ");
+  return node.children
+    .map(child => plainText(child))
+    .join(node.type === "paragraph" || node.type === "heading" ? "" : " ");
 }
 
 export function createSlugger(): (text: string) => string {
   const seen = new Map<string, number>();
   return text => {
-    const base = text.trim().toLowerCase().replace(/[^\p{L}\p{M}\p{N}\s_-]/gu, "").replace(/\s+/gu, "-") || "section";
+    const base =
+      text
+        .trim()
+        .toLowerCase()
+        .replace(/[^\p{L}\p{M}\p{N}\s_-]/gu, "")
+        .replace(/\s+/gu, "-") || "section";
     const count = seen.get(base) ?? 0;
     seen.set(base, count + 1);
     return count === 0 ? base : `${base}-${count}`;
@@ -119,7 +131,13 @@ export interface DocumentAnalysis {
 export function analyzeDocument(markdown: string, registry: BlockRegistry = defaultBlockRegistry): DocumentAnalysis {
   const parsed = parseDocument(markdown, registry);
   const text = visibleText(parsed, registry);
-  return { visibleText: text, outline: outlineOf(parsed), blocks: topLevelBlocks(parsed), diagnostics: parsed.diagnostics, searchTokens: searchTokens(text) };
+  return {
+    visibleText: text,
+    outline: outlineOf(parsed),
+    blocks: topLevelBlocks(parsed),
+    diagnostics: parsed.diagnostics,
+    searchTokens: searchTokens(text)
+  };
 }
 
 export type ReadScope =
@@ -139,15 +157,22 @@ export interface ScopedRead {
 }
 
 export class ScopeError extends Error {
-  constructor(readonly code: string, message: string) {
+  constructor(
+    readonly code: string,
+    message: string
+  ) {
     super(message);
     this.name = "ScopeError";
   }
 }
 
 /** Lets agents read the smallest part they need instead of the whole document. */
-export function readScoped(document: ParsedDocument | { readonly markdown: string; readonly analysis: DocumentAnalysis }, request: ReadScope): ScopedRead {
-  const { blocks, outline } = "analysis" in document ? document.analysis : { blocks: topLevelBlocks(document), outline: outlineOf(document) };
+export function readScoped(
+  document: ParsedDocument | { readonly markdown: string; readonly analysis: DocumentAnalysis },
+  request: ReadScope
+): ScopedRead {
+  const { blocks, outline } =
+    "analysis" in document ? document.analysis : { blocks: topLevelBlocks(document), outline: outlineOf(document) };
   const scoped = (selected: readonly SourceBlock[]): ScopedRead => ({
     outline,
     blocks: selected.map(block => ({ ...block, markdown: document.markdown.slice(block.start, block.end) }))
@@ -158,18 +183,24 @@ export function readScoped(document: ParsedDocument | { readonly markdown: strin
     case "full":
       return scoped(blocks);
     case "section": {
-      const entry = outline.find(item => item.slug === request.section || item.ref === request.section || item.text === request.section);
+      const entry = outline.find(
+        item => item.slug === request.section || item.ref === request.section || item.text === request.section
+      );
       if (!entry) throw new ScopeError("SECTION_NOT_FOUND", t("Section {0} not found", request.section));
       const start = blocks.findIndex(block => block.ref === entry.ref);
       if (start < 0) throw new ScopeError("SECTION_NOT_FOUND", t("Section {0} not found", request.section));
-      const next = outline.find(item => item.ref !== entry.ref && Number(item.ref.slice(1)) > Number(entry.ref.slice(1)) && item.depth <= entry.depth);
+      const next = outline.find(
+        item =>
+          item.ref !== entry.ref && Number(item.ref.slice(1)) > Number(entry.ref.slice(1)) && item.depth <= entry.depth
+      );
       const end = next ? blocks.findIndex(block => block.ref === next.ref) : blocks.length;
       return scoped(blocks.slice(start, end));
     }
     case "range": {
       const start = blocks.findIndex(block => block.ref === request.start);
       const end = blocks.findIndex(block => block.ref === request.end);
-      if (start < 0 || end < start) throw new ScopeError("RANGE_INVALID", t("The start or end block is not valid. Read one version again."));
+      if (start < 0 || end < start)
+        throw new ScopeError("RANGE_INVALID", t("The start or end block is not valid. Read one version again."));
       return scoped(blocks.slice(start, end + 1));
     }
     case "keyword": {
@@ -179,7 +210,8 @@ export function readScoped(document: ParsedDocument | { readonly markdown: strin
       const hits = new Set<number>();
       blocks.forEach((block, index) => {
         if (document.markdown.slice(block.start, block.end).toLowerCase().includes(keyword)) {
-          for (let i = Math.max(0, index - context); i <= Math.min(blocks.length - 1, index + context); i += 1) hits.add(i);
+          for (let i = Math.max(0, index - context); i <= Math.min(blocks.length - 1, index + context); i += 1)
+            hits.add(i);
         }
       });
       return scoped(blocks.filter((_, index) => hits.has(index)));

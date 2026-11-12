@@ -1,4 +1,12 @@
-import { addMessages, isLanguage, LANGUAGE_COOKIE, pickLanguage, setLanguageScope, t, type Language } from "@pandocs/i18n";
+import {
+  addMessages,
+  isLanguage,
+  LANGUAGE_COOKIE,
+  pickLanguage,
+  setLanguageScope,
+  t,
+  type Language
+} from "@pandocs/i18n";
 // By its own path, so that the first thing a page loads does not take in the rest of the package.
 import { issueMessage } from "@pandocs/markdown/issue-message";
 import { config } from "zod";
@@ -36,7 +44,9 @@ export function resolveLanguage(): Language {
 
 /** A page a server rendered has to start out in that language, whatever this browser would have asked for. A thread doing the rendering has its own. */
 function renderedLanguage(): Language | null {
-  const rendered = (globalThis as { pandocsRenderLanguage?: unknown }).pandocsRenderLanguage ?? (typeof document === "undefined" ? null : document.documentElement.dataset.language);
+  const rendered =
+    (globalThis as { pandocsRenderLanguage?: unknown }).pandocsRenderLanguage ??
+    (typeof document === "undefined" ? null : document.documentElement.dataset.language);
   return isLanguage(rendered) ? rendered : null;
 }
 

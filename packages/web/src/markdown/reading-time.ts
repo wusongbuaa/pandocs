@@ -13,6 +13,9 @@ function textOf(node: Root | RootContent): string {
 export function readingMinutes(tree: Root): number {
   const text = textOf(tree);
   const cjk = text.match(CJK)?.length ?? 0;
-  const words = text.replace(CJK, " ").split(/\s+/u).filter(word => /[\p{L}\p{N}]/u.test(word)).length;
+  const words = text
+    .replace(CJK, " ")
+    .split(/\s+/u)
+    .filter(word => /[\p{L}\p{N}]/u.test(word)).length;
   return Math.max(1, Math.round(cjk / CJK_PER_MINUTE + words / WORDS_PER_MINUTE));
 }

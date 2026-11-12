@@ -14,7 +14,10 @@ export const afterSearch: AfterSearch = (query, result) => {
   if (!term) return;
   const results = result.reduce((sum, group) => sum + (Array.isArray(group.result) ? group.result.length : 1), 0);
   waiting = setTimeout(() => {
-    const space = insideSite(location.pathname).split("/").filter(Boolean).find(segment => app.bootstrap.spaces.some(item => item.slug === segment));
+    const space = insideSite(location.pathname)
+      .split("/")
+      .filter(Boolean)
+      .find(segment => app.bootstrap.spaces.some(item => item.slug === segment));
     api.beacon("stats/searches", { term: term.slice(0, 200), results, ...(space ? { space } : {}) });
   }, SETTLED_MS);
 };

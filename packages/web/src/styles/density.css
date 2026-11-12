@@ -4,12 +4,34 @@
  * as the theme has it. Comparing with the theme (`parity/`) leaves this file out, so that still catches anything else.
  * These selectors are the theme's own, so that what opts out of its styles opts out of these too.
  */
-.rp-sidebar-item { padding: 4px 12px; line-height: 22px; }
-.rp-doc :not(:where(.rp-not-doc, .rp-not-doc *)):where(h2) { margin-top: 40px; margin-bottom: 16px; font-size: 24px; line-height: 32px; }
-.rp-doc :not(:where(.rp-not-doc, .rp-not-doc *)):where(h2:first-of-type)::before { margin-bottom: 32px; }
-.rp-doc :not(:where(.rp-not-doc, .rp-not-doc *)):where(h3) { margin-bottom: 12px; font-size: 20px; line-height: 28px; }
+.rp-sidebar-item {
+  padding: 4px 12px;
+  line-height: 22px;
+}
+.rp-doc :not(:where(.rp-not-doc, .rp-not-doc *)):where(h2) {
+  margin-top: 40px;
+  margin-bottom: 16px;
+  font-size: 24px;
+  line-height: 32px;
+}
+.rp-doc :not(:where(.rp-not-doc, .rp-not-doc *)):where(h2:first-of-type)::before {
+  margin-bottom: 32px;
+}
+.rp-doc :not(:where(.rp-not-doc, .rp-not-doc *)):where(h3) {
+  margin-bottom: 12px;
+  font-size: 20px;
+  line-height: 28px;
+}
 /* The theme places a step's number for its own, taller headings. These keep it on the middle of their first line. */
-:is(.rp-steps, .pd-steps-edit [data-node-view-content] > div) > h2 { --rp-steps-offset-y: calc((32px - var(--rp-steps-size)) / 2); }
-:is(.rp-steps, .pd-steps-edit [data-node-view-content] > div) > h3 { --rp-steps-offset-y: calc((28px - var(--rp-steps-size)) / 2); }
-.rp-doc :not(:where(.rp-not-doc, .rp-not-doc *)):where(p):not(:where(li p)) { line-height: 26px; }
-.rp-doc :not(:where(.rp-not-doc, .rp-not-doc *)):where(ul, ol) { line-height: 26px; }
+:is(.rp-steps, .pd-steps-edit [data-node-view-content] > div) > h2 {
+  --rp-steps-offset-y: calc((32px - var(--rp-steps-size)) / 2);
+}
+:is(.rp-steps, .pd-steps-edit [data-node-view-content] > div) > h3 {
+  --rp-steps-offset-y: calc((28px - var(--rp-steps-size)) / 2);
+}
+.rp-doc :not(:where(.rp-not-doc, .rp-not-doc *)):where(p):not(:where(li p)) {
+  line-height: 26px;
+}
+.rp-doc :not(:where(.rp-not-doc, .rp-not-doc *)):where(ul, ol) {
+  line-height: 26px;
+}

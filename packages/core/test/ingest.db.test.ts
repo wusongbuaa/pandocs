@@ -19,17 +19,27 @@ describe("assets and ingest", () => {
       if (input.filename.includes("broken")) throw new PermanentIngestError("DOCUMENT_ENCRYPTED", "文件受密码保护");
       if (input.filename.includes("slow")) await new Promise<void>(done => (slowDone = done));
       if (input.filename.includes("flaky") && (flaky += 1) < 2) throw new Error("转换服务繁忙");
-      return { markdown: `# 提取结果\n\n来自 ${input.filename}，类型 ${input.contentType}\n`, detail: "现有提取器", warnings: ["表格可能有损"] };
+      return {
+        markdown: `# 提取结果\n\n来自 ${input.filename}，类型 ${input.contentType}\n`,
+        detail: "现有提取器",
+        warnings: ["表格可能有损"]
+      };
     }
   };
-  const better: Processor = { name: "better-extract", run: async input => ({ markdown: `# 更好的结果\n\n${input.filename}\n` }) };
+  const better: Processor = {
+    name: "better-extract",
+    run: async input => ({ markdown: `# 更好的结果\n\n${input.filename}\n` })
+  };
 
   beforeAll(async () => {
     await resetPandocs(fixture.getConnectionString());
     h = createHarness(fixture.getConnectionString(), { processors: [extract, better] });
     await h.call(USERS.admin, "POST", "spaces", { slug: "handbook", name: "手册", defaultRole: "viewer" });
     await h.call(USERS.admin, "PUT", "spaces/handbook/members", { subject: `user:${USERS.editor.id}`, role: "editor" });
-    await h.call(USERS.admin, "PUT", "spaces/handbook/members", { subject: `user:${USERS.commenter.id}`, role: "commenter" });
+    await h.call(USERS.admin, "PUT", "spaces/handbook/members", {
+      subject: `user:${USERS.commenter.id}`,
+      role: "commenter"
+    });
   });
   afterAll(async () => {
     expect(h.errors).toEqual([]);
@@ -46,7 +56,12 @@ describe("assets and ingest", () => {
     }
     throw new Error("导入任务没有结束");
   };
-  const upload = (principal: typeof USERS[keyof typeof USERS], bytes: Uint8Array, filename: string, target: object = {}) => {
+  const upload = (
+    principal: (typeof USERS)[keyof typeof USERS],
+    bytes: Uint8Array,
+    filename: string,
+    target: object = {}
+  ) => {
     const form = new FormData();
     form.set("file", new File([bytes as BlobPart], filename));
     form.set("target", JSON.stringify(target));
@@ -83,13 +98,19 @@ describe("assets and ingest", () => {
   describe("routing by channel and content type", () => {
     it("publishes Markdown from an editor over the API", async () => {
       const viaApi = { ...USERS.editor, channel: "api" as const };
-      const { status, data } = await h.call(viaApi, "POST", "spaces/handbook/imports", { markdown: "﻿# 接口导入\r\n\r\n内容  \r\n", target: { title: "接口导入" } });
+      const { status, data } = await h.call(viaApi, "POST", "spaces/handbook/imports", {
+        markdown: "﻿# 接口导入\r\n\r\n内容  \r\n",
+        target: { title: "接口导入" }
+      });
       expect(status).toBe(201);
       expect(data).toMatchObject({ status: "succeeded", route: "markdown-programmatic", persist: "publish" });
       expect(data.sourceText).toBeUndefined();
       const text = await (await h.call(USERS.reader, "GET", `documents/${data.documentId}/content`)).response.text();
       expect(text).toBe("# 接口导入\n\n内容\n");
-      expect((await h.call(USERS.reader, "GET", `documents/${data.documentId}/revisions`)).data[0]).toMatchObject({ channel: "api", ingestJobId: data.id });
+      expect((await h.call(USERS.reader, "GET", `documents/${data.documentId}/revisions`)).data[0]).toMatchObject({
+        channel: "api",
+        ingestJobId: data.id
+      });
     });
 
     it("turns content from someone without edit rights into a proposal or a draft", async () => {
@@ -97,8 +118,13 @@ describe("assets and ingest", () => {
       const draft = await h.call(viaCli, "POST", "spaces/handbook/imports", { markdown: "# 草稿\n\n内容\n" });
       expect(draft.data).toMatchObject({ status: "succeeded", persist: "draft", documentId: null, draftTitle: "草稿" });
 
-      const documentId = (await h.call(USERS.editor, "POST", "spaces/handbook/documents", { title: "已有文档", markdown: "旧内容\n" })).data.document.id as string;
-      const proposal = await h.call(viaCli, "POST", "spaces/handbook/imports", { markdown: "新内容\n", target: { documentId } });
+      const documentId = (
+        await h.call(USERS.editor, "POST", "spaces/handbook/documents", { title: "已有文档", markdown: "旧内容\n" })
+      ).data.document.id as string;
+      const proposal = await h.call(viaCli, "POST", "spaces/handbook/imports", {
+        markdown: "新内容\n",
+        target: { documentId }
+      });
       expect(proposal.data).toMatchObject({ status: "succeeded", persist: "proposal", documentId });
       const view = await h.call(USERS.reader, "GET", `proposals/${proposal.data.proposalId}`);
       expect(view.data.proposedMarkdown).toBe("新内容\n");
@@ -107,25 +133,53 @@ describe("assets and ingest", () => {
 
     it("keeps web uploads as drafts until someone publishes them", async () => {
       const { data } = await upload(USERS.editor, new TextEncoder().encode("# 上传\n\n正文\n"), "上传.md");
-      expect(data).toMatchObject({ route: "markdown-upload", persist: "draft", status: "succeeded", draftTitle: "上传" });
-      const published = await h.call(USERS.editor, "POST", `imports/${data.id}/publish`, { title: "上传的文档", slug: "uploaded" });
+      expect(data).toMatchObject({
+        route: "markdown-upload",
+        persist: "draft",
+        status: "succeeded",
+        draftTitle: "上传"
+      });
+      const published = await h.call(USERS.editor, "POST", `imports/${data.id}/publish`, {
+        title: "上传的文档",
+        slug: "uploaded"
+      });
       expect(published.data.documentId).toBeTruthy();
-      expect((await h.call(USERS.reader, "GET", `documents/${published.data.documentId}`)).data.document.path).toBe("uploaded");
-      expect((await h.call(USERS.editor, "POST", `imports/${data.id}/publish`, {})).error.code).toBe("INGEST_NOT_PUBLISHABLE");
-      expect((await h.call(USERS.editor, "POST", `imports/${data.id}/discard`)).error.code).toBe("INGEST_ALREADY_PUBLISHED");
+      expect((await h.call(USERS.reader, "GET", `documents/${published.data.documentId}`)).data.document.path).toBe(
+        "uploaded"
+      );
+      expect((await h.call(USERS.editor, "POST", `imports/${data.id}/publish`, {})).error.code).toBe(
+        "INGEST_NOT_PUBLISHABLE"
+      );
+      expect((await h.call(USERS.editor, "POST", `imports/${data.id}/discard`)).error.code).toBe(
+        "INGEST_ALREADY_PUBLISHED"
+      );
     });
 
     it("keeps what comes in for a space that reviews every change a draft, which only a change set can land", async () => {
       await h.call(USERS.admin, "POST", "spaces", { slug: "reviewed", name: "审阅", defaultRole: "viewer" });
-      await h.call(USERS.admin, "PUT", "spaces/reviewed/members", { subject: `user:${USERS.editor.id}`, role: "editor" });
-      const documentId = (await h.call(USERS.admin, "POST", "spaces/reviewed/documents", { title: "规程", markdown: "旧规程\n" })).data.document.id as string;
-      await h.call(USERS.admin, "PATCH", "spaces/reviewed", { mergeRules: { requiredApprovals: 1, requireChangeSets: true } });
+      await h.call(USERS.admin, "PUT", "spaces/reviewed/members", {
+        subject: `user:${USERS.editor.id}`,
+        role: "editor"
+      });
+      const documentId = (
+        await h.call(USERS.admin, "POST", "spaces/reviewed/documents", { title: "规程", markdown: "旧规程\n" })
+      ).data.document.id as string;
+      await h.call(USERS.admin, "PATCH", "spaces/reviewed", {
+        mergeRules: { requiredApprovals: 1, requireChangeSets: true }
+      });
       const viaApi = { ...USERS.editor, channel: "api" as const };
-      const onto = await h.call(viaApi, "POST", "spaces/reviewed/imports", { markdown: "新规程\n", target: { documentId } });
+      const onto = await h.call(viaApi, "POST", "spaces/reviewed/imports", {
+        markdown: "新规程\n",
+        target: { documentId }
+      });
       expect(onto.data).toMatchObject({ status: "succeeded", persist: "draft", revisionNo: null });
       expect((await h.call(USERS.reader, "GET", `documents/${documentId}`)).data.revision.no).toBe(1);
-      expect((await h.call(USERS.editor, "POST", `imports/${onto.data.id}/publish`, {})).error?.code).toBe("CHANGE_SET_REQUIRED");
-      expect((await h.call(USERS.admin, "POST", `imports/${onto.data.id}/publish`, {})).error?.code).toBe("CHANGE_SET_REQUIRED");
+      expect((await h.call(USERS.editor, "POST", `imports/${onto.data.id}/publish`, {})).error?.code).toBe(
+        "CHANGE_SET_REQUIRED"
+      );
+      expect((await h.call(USERS.admin, "POST", `imports/${onto.data.id}/publish`, {})).error?.code).toBe(
+        "CHANGE_SET_REQUIRED"
+      );
       expect((await h.call(USERS.reader, "GET", `documents/${documentId}`)).data.markdown).toBe("旧规程\n");
       const fresh = await h.call(viaApi, "POST", "spaces/reviewed/imports", { markdown: "# 新页\n\n内容\n" });
       expect(fresh.data).toMatchObject({ status: "succeeded", persist: "draft", documentId: null });
@@ -135,7 +189,10 @@ describe("assets and ingest", () => {
       const { data } = await upload(USERS.commenter, new TextEncoder().encode("正文\n"), "想法.md");
       expect((await h.call(USERS.commenter, "POST", `imports/${data.id}/publish`, {})).status).toBe(403);
       expect((await h.call(USERS.reader, "GET", `imports/${data.id}`)).status).toBe(404);
-      expect((await h.call(USERS.editor, "POST", `imports/${data.id}/publish`, { title: "采纳", markdown: "改过的正文\n" })).status).toBe(200);
+      expect(
+        (await h.call(USERS.editor, "POST", `imports/${data.id}/publish`, { title: "采纳", markdown: "改过的正文\n" }))
+          .status
+      ).toBe(200);
     });
 
     it("sends documents through the extract route in the background", async () => {
@@ -149,7 +206,11 @@ describe("assets and ingest", () => {
       // What it found, and the file itself at the top.
       expect(job.report.stats.blocks).toBe(3);
       expect(job.draftMarkdown.split("\n")[0]).toMatch(/^::file\[方案\.pdf\]\{src="assets\/[a-f0-9]{64}\.pdf"\}$/u);
-      expect((await h.call(USERS.editor, "GET", "spaces/handbook/imports")).data.some((item: { id: string }) => item.id === data.id)).toBe(true);
+      expect(
+        (await h.call(USERS.editor, "GET", "spaces/handbook/imports")).data.some(
+          (item: { id: string }) => item.id === data.id
+        )
+      ).toBe(true);
     });
 
     it("trusts the bytes over the file name", async () => {
@@ -158,7 +219,9 @@ describe("assets and ingest", () => {
       await settle(data.id);
       const zip = await upload(USERS.editor, new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0, 0]), "压缩包.zip");
       expect(zip.error.code).toBe("CONTENT_TYPE_UNSUPPORTED");
-      expect((await upload(USERS.editor, new Uint8Array([0, 1, 2, 3, 4, 0, 9]), "未知")).error.code).toBe("CONTENT_TYPE_UNSUPPORTED");
+      expect((await upload(USERS.editor, new Uint8Array([0, 1, 2, 3, 4, 0, 9]), "未知")).error.code).toBe(
+        "CONTENT_TYPE_UNSUPPORTED"
+      );
     });
 
     it("retries transient failures and stops on permanent ones", async () => {
@@ -183,14 +246,25 @@ describe("assets and ingest", () => {
         for (let i = 0; i < 200 && !slowDone; i += 1) await new Promise(resolve => setTimeout(resolve, 10));
         expect(slowDone).not.toBeNull();
         // As if most of the lease had gone by.
-        await h.pool.query(`UPDATE pandocs.ingest_jobs SET lease_until = now() + interval '1 second' WHERE id = $1`, [slow.id]);
+        await h.pool.query(`UPDATE pandocs.ingest_jobs SET lease_until = now() + interval '1 second' WHERE id = $1`, [
+          slow.id
+        ]);
         vi.advanceTimersByTime(100_000);
-        const renewed = async () => (await h.pool.query<{ left: number }>(`SELECT extract(epoch FROM lease_until - now())::int AS left FROM pandocs.ingest_jobs WHERE id = $1`, [slow.id])).rows[0]!.left;
-        for (let i = 0; i < 200 && await renewed() < 200; i += 1) await new Promise(resolve => setTimeout(resolve, 10));
+        const renewed = async () =>
+          (
+            await h.pool.query<{ left: number }>(
+              `SELECT extract(epoch FROM lease_until - now())::int AS left FROM pandocs.ingest_jobs WHERE id = $1`,
+              [slow.id]
+            )
+          ).rows[0]!.left;
+        for (let i = 0; i < 200 && (await renewed()) < 200; i += 1)
+          await new Promise(resolve => setTimeout(resolve, 10));
         expect(await renewed()).toBeGreaterThan(200);
         slowDone!();
         expect((await settle(slow.id)).status).toBe("succeeded");
-        const { rows } = await h.pool.query(`SELECT attempts, lease_owner FROM pandocs.ingest_jobs WHERE id = $1`, [slow.id]);
+        const { rows } = await h.pool.query(`SELECT attempts, lease_owner FROM pandocs.ingest_jobs WHERE id = $1`, [
+          slow.id
+        ]);
         expect(rows[0]).toEqual({ attempts: 1, lease_owner: null });
       } finally {
         slowDone = null;
@@ -204,7 +278,11 @@ describe("assets and ingest", () => {
       expect((await h.call(USERS.commenter, "POST", `imports/${broken.id}/retry`, {})).status).toBe(404);
       await h.call(USERS.editor, "POST", `imports/${broken.id}/retry`, { processors: ["better-extract", "normalize"] });
       const job = await settle(broken.id);
-      expect(job).toMatchObject({ status: "succeeded", draftTitle: "更好的结果", processors: ["better-extract", "normalize"] });
+      expect(job).toMatchObject({
+        status: "succeeded",
+        draftTitle: "更好的结果",
+        processors: ["better-extract", "normalize"]
+      });
     });
 
     it("fails clearly when a route needs a processor this deployment lacks", async () => {
@@ -219,10 +297,11 @@ describe("assets and ingest", () => {
   });
 
   it("forgets idempotency keys after a week, not sooner", async () => {
-    const insert = (key: string, age: string) => h.pool.query(
-      `INSERT INTO pandocs.idempotency_keys (principal_id, key, request_hash, status, response, created_at) VALUES ('p', $1, 'h', 200, '{}', now() - $2::interval)`,
-      [key, age]
-    );
+    const insert = (key: string, age: string) =>
+      h.pool.query(
+        `INSERT INTO pandocs.idempotency_keys (principal_id, key, request_hash, status, response, created_at) VALUES ('p', $1, 'h', 200, '{}', now() - $2::interval)`,
+        [key, age]
+      );
     await insert("expired-key", "8 days");
     await insert("recent-key", "6 days");
     await sweepIdempotencyKeys(h.services);

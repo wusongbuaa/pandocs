@@ -16,7 +16,13 @@ function VisitorComments() {
   return (
     <section className="pd-doc-comments rp-not-doc" aria-label={t("Comment on the page")}>
       <h2>{t("Comment on the page")}</h2>
-      <button type="button" className="pd-doc-comments__sign-in" onClick={() => askToSignIn({ reason: t("Sign in to comment on this page.") })}>{t("Sign in to comment")}</button>
+      <button
+        type="button"
+        className="pd-doc-comments__sign-in"
+        onClick={() => askToSignIn({ reason: t("Sign in to comment on this page.") })}
+      >
+        {t("Sign in to comment")}
+      </button>
     </section>
   );
 }
@@ -35,10 +41,21 @@ export function DocComments() {
   const { me } = app.bootstrap;
   return (
     <section className="pd-doc-comments rp-not-doc" aria-label={t("Comment on the page")}>
-      <h2>{t("Comment on the page")}{own.length > 0 ? <span>{own.length}</span> : null}</h2>
+      <h2>
+        {t("Comment on the page")}
+        {own.length > 0 ? <span>{own.length}</span> : null}
+      </h2>
       <div className="pd-doc-comments__list">
         {/* Replying happens right here, so a comment on the whole page does not need the side panel. */}
-        {own.map(thread => <ThreadCard key={thread.id} thread={thread} active={thread.id === replying} role={role} onSelect={() => setReplying(thread.id)} />)}
+        {own.map(thread => (
+          <ThreadCard
+            key={thread.id}
+            thread={thread}
+            active={thread.id === replying}
+            role={role}
+            onSelect={() => setReplying(thread.id)}
+          />
+        ))}
       </div>
       {canComment ? (
         <div className="pd-doc-comments__row">
@@ -57,8 +74,15 @@ export function SuggestionsButton() {
   if (count === 0) return null;
   return (
     <Tip label={t("Suggestions")}>
-      <button type="button" className="rp-llms-button pd-action pd-action--suggestions" aria-label={t("Suggestions {0}", count)} onClick={() => openPanel("proposals")}>
-        <FilePenLine size={16} aria-hidden="true" /><span className="pd-action__label">{t("Suggestions")}</span>{count}
+      <button
+        type="button"
+        className="rp-llms-button pd-action pd-action--suggestions"
+        aria-label={t("Suggestions {0}", count)}
+        onClick={() => openPanel("proposals")}
+      >
+        <FilePenLine size={16} aria-hidden="true" />
+        <span className="pd-action__label">{t("Suggestions")}</span>
+        {count}
       </button>
     </Tip>
   );
@@ -69,8 +93,15 @@ export function CommentsButton() {
   const count = threads.filter(thread => thread.status === "open").length;
   return (
     <Tip label={t("Comments")}>
-      <button type="button" className="rp-llms-button pd-action" aria-label={t("Comments{0}", count > 0 ? ` ${count}` : "")} onClick={() => openPanel()}>
-        <MessageSquare size={16} aria-hidden="true" /><span className="pd-action__label">{t("Comments")}</span>{count > 0 ? count : null}
+      <button
+        type="button"
+        className="rp-llms-button pd-action"
+        aria-label={t("Comments{0}", count > 0 ? ` ${count}` : "")}
+        onClick={() => openPanel()}
+      >
+        <MessageSquare size={16} aria-hidden="true" />
+        <span className="pd-action__label">{t("Comments")}</span>
+        {count > 0 ? count : null}
       </button>
     </Tip>
   );

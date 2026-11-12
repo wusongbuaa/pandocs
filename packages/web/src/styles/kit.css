@@ -70,25 +70,55 @@
 }
 
 @layer base {
-  [data-slot] { border-color: var(--border); outline-color: color-mix(in oklab, var(--ring) 50%, transparent); }
+  [data-slot] {
+    border-color: var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
   /* The theme's reset deliberately leaves buttons alone, and these expect them bare. */
-  button[data-slot], [data-slot] button { background-color: transparent; background-image: none; color: inherit; cursor: pointer; }
+  button[data-slot],
+  [data-slot] button {
+    background-color: transparent;
+    background-image: none;
+    color: inherit;
+    cursor: pointer;
+  }
 }
 
-:root { --pd-kit-loaded: visible; }
+:root {
+  --pd-kit-loaded: visible;
+}
 
 /*
  * A dialog stops the page scrolling, which takes its scrollbar away. The room for it stays, so nothing moves, but what
  * covers the page does not reach there and the page's own background shows. This is that background, covered the same.
  */
-html[data-pd-covered] { background: color-mix(in srgb, var(--rp-c-bg), #000 10%); }
+html[data-pd-covered] {
+  background: color-mix(in srgb, var(--rp-c-bg), #000 10%);
+}
 
 /* What happened while a dialog is open has to be readable, and a toast shown before it opened comes before it on the page. */
-[data-slot="toast-viewport"] { z-index: 130; }
+[data-slot="toast-viewport"] {
+  z-index: 130;
+}
 
 /* In the label's own text this would change what the field is called to anything reading it. */
-[data-slot="field"][data-required] > [data-slot="field-label"]::after { margin-left: -4px; color: var(--destructive); content: "*"; }
+[data-slot="field"][data-required] > [data-slot="field-label"]::after {
+  margin-left: -4px;
+  color: var(--destructive);
+  content: "*";
+}
 
 /* The sign-in dialog's card is the sign-in pages' own, from /sign-in.css. Where it sits on the screen is all that is the app's. */
-.pd-sign-in-dialog { position: fixed; inset: 0; z-index: var(--z-index-50); display: grid; place-items: center; overflow-y: auto; padding: 72px 16px 24px; pointer-events: none; }
-.pd-sign-in-dialog > .pd-sign-in { pointer-events: auto; }
+.pd-sign-in-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-index-50);
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: 72px 16px 24px;
+  pointer-events: none;
+}
+.pd-sign-in-dialog > .pd-sign-in {
+  pointer-events: auto;
+}

@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
 const SCRIPT = join(ROOT, "scripts/release.mjs");
-const CHANGELOG = "# Changelog\n\nAbout this file.\n\n## Unreleased\n\n### Writing\n\n- Something new.\n\n## 0.1.0 - 2026-01-02\n\n- The first one.\n";
+const CHANGELOG =
+  "# Changelog\n\nAbout this file.\n\n## Unreleased\n\n### Writing\n\n- Something new.\n\n## 0.1.0 - 2026-01-02\n\n- The first one.\n";
 
 describe("what a release checks", () => {
   const made: string[] = [];
@@ -58,11 +59,14 @@ describe("what a release checks", () => {
     expect(run(root, "notes", "0.2.0", "--rehearsal").stdout).toBe("### Writing\n\n- Something new.\n");
     expect(run(root, "notes", "0.1.0").stdout).toBe("- The first one.\n");
     expect(run(root, "notes", "0.2.0").status).toBe(1);
-    expect(run(site("0.2.0", "# Changelog\n\n## Unreleased\n"), "check", "0.2.0", "--rehearsal").stderr).toContain("nothing unreleased");
+    expect(run(site("0.2.0", "# Changelog\n\n## Unreleased\n"), "check", "0.2.0", "--rehearsal").stderr).toContain(
+      "nothing unreleased"
+    );
   });
 
   it("refuses what is not a version", () => {
-    for (const version of ["v0.2.0", "0.2", "latest", "0.2.0;rm"]) expect(run(site(version), "check", version, "--rehearsal").stderr).toContain("is not a version");
+    for (const version of ["v0.2.0", "0.2", "latest", "0.2.0;rm"])
+      expect(run(site(version), "check", version, "--rehearsal").stderr).toContain("is not a version");
   });
 
   it("sets a version everywhere, and only the version", () => {
@@ -71,14 +75,19 @@ describe("what a release checks", () => {
     expect(run(root, "check", "0.2.0-rc.1")).toMatchObject({ status: 0 });
     expect(readFileSync(join(root, "packages/client/package.json"), "utf8")).toContain('"other": "1.2.3"');
     expect(readFileSync(join(root, "deploy/helm/pandocs/Chart.yaml"), "utf8")).toContain('kubeVersion: ">=1.27.0-0"');
-    expect(readFileSync(join(root, "compose.yaml"), "utf8")).toContain("pandocs-converter:${PANDOCS_VERSION:-0.2.0-rc.1}");
+    expect(readFileSync(join(root, "compose.yaml"), "utf8")).toContain(
+      "pandocs-converter:${PANDOCS_VERSION:-0.2.0-rc.1}"
+    );
     const changelog = readFileSync(join(root, "CHANGELOG.md"), "utf8");
     expect(changelog).toContain("## Unreleased\n\n## 0.2.0-rc.1 - 2026-12-01\n\n### Writing");
     expect(run(root, "notes", "0.2.0-rc.1").stdout).toBe("### Writing\n\n- Something new.\n");
   });
 
   it("has nothing to release when nothing has happened, or twice", () => {
-    expect(run(site("0.1.0", "# Changelog\n\n## Unreleased\n\n## 0.1.0 - 2026-01-02\n\n- The first one.\n"), "set", "0.2.0").stderr).toContain("nothing unreleased");
+    expect(
+      run(site("0.1.0", "# Changelog\n\n## Unreleased\n\n## 0.1.0 - 2026-01-02\n\n- The first one.\n"), "set", "0.2.0")
+        .stderr
+    ).toContain("nothing unreleased");
     const root = site("0.1.0");
     run(root, "set", "0.2.0");
     expect(run(root, "set", "0.2.0").stderr).toContain("already has 0.2.0");

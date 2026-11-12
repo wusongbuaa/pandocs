@@ -12,7 +12,12 @@ const MAILS_AT_A_TIME = 500;
  * Tells those following a page or its space that it changed, in the same transaction as the change. Someone who has not
  * read the last one gets that one brought up to date rather than another, so a run of saves is one notice, and one mail.
  */
-export async function tellFollowers(tx: Queryable, principal: Principal, document: Pick<DocumentRecord, "id" | "spaceId">, message: string): Promise<void> {
+export async function tellFollowers(
+  tx: Queryable,
+  principal: Principal,
+  document: Pick<DocumentRecord, "id" | "spaceId">,
+  message: string
+): Promise<void> {
   const params = [document.id, document.spaceId, principal.id, principal.displayName, message.slice(0, SUMMARY_CHARS)];
   await tx.query(
     `UPDATE pandocs.notifications n SET actor_name = $4, summary = $5, created_at = now()
@@ -31,13 +36,17 @@ export async function tellFollowers(tx: Queryable, principal: Principal, documen
 
 /** Following is for people with an account: there is nowhere to tell anyone else. */
 function requirePerson(principal: Principal): void {
-  if (principal.kind !== "user" || principal.anonymous || principal.guest) throw forbidden(t("Following needs a person's account"));
+  if (principal.kind !== "user" || principal.anonymous || principal.guest)
+    throw forbidden(t("Following needs a person's account"));
 }
 
 export class SubscriptionService {
   constructor(private readonly context: AppContext) {}
 
-  async ofDocument(principal: Principal, documentId: string): Promise<{ readonly document: boolean; readonly space: boolean }> {
+  async ofDocument(
+    principal: Principal,
+    documentId: string
+  ): Promise<{ readonly document: boolean; readonly space: boolean }> {
     const { db } = this.context;
     const { document } = await requireDocument(db, principal, documentId);
     const { rows } = await db.query<{ document_id: string | null }>(
@@ -51,16 +60,32 @@ export class SubscriptionService {
     requirePerson(principal);
     const { db } = this.context;
     await requireDocument(db, principal, documentId);
-    if (following) await db.query(`INSERT INTO pandocs.subscriptions (user_id, document_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [principal.id, documentId]);
-    else await db.query(`DELETE FROM pandocs.subscriptions WHERE user_id = $1 AND document_id = $2`, [principal.id, documentId]);
+    if (following)
+      await db.query(
+        `INSERT INTO pandocs.subscriptions (user_id, document_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [principal.id, documentId]
+      );
+    else
+      await db.query(`DELETE FROM pandocs.subscriptions WHERE user_id = $1 AND document_id = $2`, [
+        principal.id,
+        documentId
+      ]);
   }
 
   async followSpace(principal: Principal, spaceSlug: string, following: boolean): Promise<void> {
     requirePerson(principal);
     const { db } = this.context;
     const { space } = await requireSpace(db, principal, spaceSlug);
-    if (following) await db.query(`INSERT INTO pandocs.subscriptions (user_id, space_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [principal.id, space.id]);
-    else await db.query(`DELETE FROM pandocs.subscriptions WHERE user_id = $1 AND space_id = $2`, [principal.id, space.id]);
+    if (following)
+      await db.query(`INSERT INTO pandocs.subscriptions (user_id, space_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [
+        principal.id,
+        space.id
+      ]);
+    else
+      await db.query(`DELETE FROM pandocs.subscriptions WHERE user_id = $1 AND space_id = $2`, [
+        principal.id,
+        space.id
+      ]);
   }
 
   async list(principal: Principal) {
@@ -79,11 +104,18 @@ export class SubscriptionService {
       const documentId = row.document_id ? String(row.document_id) : null;
       // Someone who has since lost access keeps the subscription, which says nothing until they get it back.
       const readable = documentId
-        ? row.deleted_at === null && await requireDocument(db, principal, documentId).then(() => true, () => false)
-        : await requireSpace(db, principal, String(row.space_slug)).then(() => true, () => false);
+        ? row.deleted_at === null &&
+          (await requireDocument(db, principal, documentId).then(
+            () => true,
+            () => false
+          ))
+        : await requireSpace(db, principal, String(row.space_slug)).then(
+            () => true,
+            () => false
+          );
       if (!readable) continue;
       items.push({
-        kind: documentId ? "document" as const : "space" as const,
+        kind: documentId ? ("document" as const) : ("space" as const),
         documentId,
         title: documentId ? String(row.title) : null,
         path: documentId ? String(row.path) : null,
@@ -101,7 +133,10 @@ export class SubscriptionService {
    * Returns how many notices it took on, for a caller to tell whether there may be more.
    */
   async sendDueMail(quietSeconds = MAIL_QUIET_SECONDS): Promise<number> {
-    const { db, ports: { notifier, directory } } = this.context;
+    const {
+      db,
+      ports: { notifier, directory }
+    } = this.context;
     if (!notifier || !directory?.principal) {
       await db.query(`UPDATE pandocs.notifications SET mail_due = false WHERE mail_due`);
       return 0;
@@ -122,7 +157,14 @@ export class SubscriptionService {
       for (const notice of notices) {
         // Someone can lose access, or the page can go, between the change and the mail.
         const found = await requireDocument(db, reader, notice.document_id).catch(() => null);
-        if (found) pages.push({ documentId: found.document.id, documentTitle: found.document.title, location: `${found.space.slug}/${found.document.path}`, actorName: notice.actor_name, summary: notice.summary });
+        if (found)
+          pages.push({
+            documentId: found.document.id,
+            documentTitle: found.document.title,
+            location: `${found.space.slug}/${found.document.path}`,
+            actorName: notice.actor_name,
+            summary: notice.summary
+          });
       }
       const [first, ...more] = pages;
       if (!first) continue;

@@ -10,7 +10,12 @@ const IN_LINE_BELOW_BYTES = 64 * 1024;
 export type LiveCodecJob =
   | { readonly kind: "seed"; readonly markdown: string; readonly meta: Parameters<LiveCodec["seed"]>[1] }
   | { readonly kind: "markdownOf"; readonly state: Uint8Array; readonly baseMarkdown: string }
-  | { readonly kind: "align"; readonly state: Uint8Array; readonly markdown: string; readonly meta: Parameters<LiveCodec["align"]>[2] }
+  | {
+      readonly kind: "align";
+      readonly state: Uint8Array;
+      readonly markdown: string;
+      readonly meta: Parameters<LiveCodec["align"]>[2];
+    }
   | { readonly kind: "merge"; readonly base: string; readonly ours: string; readonly theirs: string };
 
 export function runLiveCodecJob(codec: LiveCodec, job: LiveCodecJob): unknown {
@@ -21,18 +26,22 @@ export function runLiveCodecJob(codec: LiveCodec, job: LiveCodecJob): unknown {
 }
 
 /** Long pages convert on other threads, like everything else that takes time in proportion to a page's length. */
-export function createLiveCodecPort(workerUrl: URL = new URL("./live-worker.mjs", import.meta.url)): LiveCodecPort & { stop(): Promise<void> } {
+export function createLiveCodecPort(
+  workerUrl: URL = new URL("./live-worker.mjs", import.meta.url)
+): LiveCodecPort & { stop(): Promise<void> } {
   let inline: LiveCodec | null = null;
   const pool = existsSync(workerUrl) ? createWorkerPool<LiveCodecJob, unknown>(workerUrl) : null;
   const run = async <Output>(job: LiveCodecJob, size: number): Promise<Output> => {
-    if (pool && size >= IN_LINE_BELOW_BYTES) return await pool.run(job) as Output;
+    if (pool && size >= IN_LINE_BELOW_BYTES) return (await pool.run(job)) as Output;
     inline ??= createLiveCodec();
     return runLiveCodecJob(inline, job) as Output;
   };
   return {
     seed: (markdown, meta) => run({ kind: "seed", markdown, meta }, markdown.length),
-    markdownOf: (state, baseMarkdown) => run({ kind: "markdownOf", state, baseMarkdown }, Math.max(state.byteLength, baseMarkdown.length)),
-    align: (state, markdown, meta) => run({ kind: "align", state, markdown, meta }, Math.max(state.byteLength, markdown.length)),
+    markdownOf: (state, baseMarkdown) =>
+      run({ kind: "markdownOf", state, baseMarkdown }, Math.max(state.byteLength, baseMarkdown.length)),
+    align: (state, markdown, meta) =>
+      run({ kind: "align", state, markdown, meta }, Math.max(state.byteLength, markdown.length)),
     merge: (base, ours, theirs) => run({ kind: "merge", base, ours, theirs }, base.length),
     stop: async () => pool?.stop()
   };

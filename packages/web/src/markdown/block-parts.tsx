@@ -27,7 +27,10 @@ export function BlockError({ title, source }: { title: string; source: string })
   return (
     <div data-pandocs-nontext="">
       <Callout type="warning" title={title}>
-        <details><summary>{t("View source")}</summary><pre className="pd-source">{source}</pre></details>
+        <details>
+          <summary>{t("View source")}</summary>
+          <pre className="pd-source">{source}</pre>
+        </details>
       </Callout>
     </div>
   );

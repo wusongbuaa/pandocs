@@ -13,7 +13,13 @@ export function fromInputMethod(event: KeyboardEvent | React.KeyboardEvent): boo
 export function useSearchIgnoresInputMethod(): void {
   React.useEffect(() => {
     const ignore = (event: KeyboardEvent) => {
-      if (event.code === "Enter" && fromInputMethod(event) && event.target instanceof Element && event.target.closest(".rp-search-panel__modal")) event.stopImmediatePropagation();
+      if (
+        event.code === "Enter" &&
+        fromInputMethod(event) &&
+        event.target instanceof Element &&
+        event.target.closest(".rp-search-panel__modal")
+      )
+        event.stopImmediatePropagation();
     };
     window.addEventListener("keydown", ignore, true);
     return () => window.removeEventListener("keydown", ignore, true);

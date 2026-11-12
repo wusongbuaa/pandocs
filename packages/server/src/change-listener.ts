@@ -8,7 +8,11 @@ const FALLBACK_MS = 10_000;
  * Wakes this process when anything changes, on any replica. `LISTEN` needs a connection of its own: a pooler in
  * transaction mode would drop it, so `PANDOCS_DATABASE_LISTEN_URL` can point straight at the database.
  */
-export function createChangeListener(connectionString: string, onChange: () => void, options: { readonly fallbackMs?: number; readonly reconnectMs?: number } = {}) {
+export function createChangeListener(
+  connectionString: string,
+  onChange: () => void,
+  options: { readonly fallbackMs?: number; readonly reconnectMs?: number } = {}
+) {
   let client: pg.Client | null = null;
   let stopped = false;
   let reconnect: ReturnType<typeof setTimeout> | null = null;

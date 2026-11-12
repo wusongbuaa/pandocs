@@ -1,6 +1,16 @@
 import * as React from "react";
 import { X } from "lucide-react";
-import { Toast, ToastClose, ToastContent, ToastPortal, ToastProvider, ToastTitle, ToastViewport, createToastManager, useToastManager } from "@/components/ui/toast";
+import {
+  Toast,
+  ToastClose,
+  ToastContent,
+  ToastPortal,
+  ToastProvider,
+  ToastTitle,
+  ToastViewport,
+  createToastManager,
+  useToastManager
+} from "@/components/ui/toast";
 import { CircleCheck, CircleX, Info } from "lucide-react";
 import { t } from "../i18n";
 import { receiveToasts, type ToastTone } from "./toast";
@@ -21,15 +31,25 @@ function Toasts() {
     <Toast key={item.id} toast={item}>
       <ToastContent>
         <ToneIcon tone={item.type} />
-        <div className="flex min-w-0 flex-1 flex-col gap-1"><ToastTitle /></div>
-        <ToastClose aria-label={t("Close")}><X aria-hidden="true" /></ToastClose>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <ToastTitle />
+        </div>
+        <ToastClose aria-label={t("Close")}>
+          <X aria-hidden="true" />
+        </ToastClose>
       </ToastContent>
     </Toast>
   ));
 }
 
 export default function ToastHost() {
-  React.useEffect(() => receiveToasts(({ message, tone }) => { manager.add({ title: message, type: tone, timeout: TIMEOUT[tone] }); }), []);
+  React.useEffect(
+    () =>
+      receiveToasts(({ message, tone }) => {
+        manager.add({ title: message, type: tone, timeout: TIMEOUT[tone] });
+      }),
+    []
+  );
   return (
     <ToastProvider toastManager={manager}>
       <ToastPortal>

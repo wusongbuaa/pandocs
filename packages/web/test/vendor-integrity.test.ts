@@ -16,7 +16,9 @@ describe.each(["rspress", "shadcn"])("vendor/%s", name => {
   it("stays a verbatim copy, so the look and upgrades stay official", () => {
     const vendor = join(VENDOR, name);
     const hash = createHash("sha256");
-    for (const file of files(vendor).filter(path => !path.endsWith("UPSTREAM.md")).sort()) {
+    for (const file of files(vendor)
+      .filter(path => !path.endsWith("UPSTREAM.md"))
+      .sort()) {
       hash.update(relative(vendor, file)).update("\0").update(readFileSync(file));
     }
     // A change here means the copy was edited. Record why in UPSTREAM.md, or undo it; see "升级" there for new versions.

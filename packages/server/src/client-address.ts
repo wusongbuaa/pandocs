@@ -9,7 +9,10 @@ const LONGEST_ADDRESS = 64;
  */
 export function clientAddress(c: Context, proxies: number): string {
   if (proxies > 0) {
-    const forwarded = (c.req.header("x-forwarded-for") ?? "").split(",").map(item => item.trim()).filter(Boolean);
+    const forwarded = (c.req.header("x-forwarded-for") ?? "")
+      .split(",")
+      .map(item => item.trim())
+      .filter(Boolean);
     const address = forwarded.at(-Math.min(proxies, forwarded.length));
     if (address) return address.slice(0, LONGEST_ADDRESS);
   }

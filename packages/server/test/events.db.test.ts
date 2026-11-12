@@ -9,7 +9,11 @@ import { signInFirstAdmin, startServer, type Client, type TestServer } from "./s
 const postgres = usePostgresFixture();
 const SPACE = "shop";
 
-interface Frame { readonly id: string | null; readonly event: string; readonly data: any }
+interface Frame {
+  readonly id: string | null;
+  readonly event: string;
+  readonly data: any;
+}
 
 /** Reads a stream of events the way a client would, one frame at a time. */
 function reader(response: Response) {
@@ -27,8 +31,13 @@ function reader(response: Response) {
         for (let end = buffer.indexOf("\n\n"); end >= 0; end = buffer.indexOf("\n\n")) {
           const block = buffer.slice(0, end);
           buffer = buffer.slice(end + 2);
-          const line = (name: string) => block.split("\n").find(item => item.startsWith(`${name}: `))?.slice(name.length + 2) ?? null;
-          if (line("event")) frames.push({ id: line("id"), event: line("event")!, data: JSON.parse(line("data") ?? "null") });
+          const line = (name: string) =>
+            block
+              .split("\n")
+              .find(item => item.startsWith(`${name}: `))
+              ?.slice(name.length + 2) ?? null;
+          if (line("event"))
+            frames.push({ id: line("id"), event: line("event")!, data: JSON.parse(line("data") ?? "null") });
         }
       }
     } catch {
@@ -60,7 +69,12 @@ describe("live events", () => {
   let stopListener = () => undefined as void;
 
   const create = async (slug: string, extra: object = {}, target = SPACE) => {
-    const result = await admin.json("POST", `/api/v1/spaces/${target}/documents`, { title: slug, slug, markdown: `${slug}\n`, ...extra });
+    const result = await admin.json("POST", `/api/v1/spaces/${target}/documents`, {
+      title: slug,
+      slug,
+      markdown: `${slug}\n`,
+      ...extra
+    });
     expect(result.status).toBe(201);
     return result.data.document as { id: string; path: string };
   };
@@ -79,13 +93,25 @@ describe("live events", () => {
     admin = await signInFirstAdmin(server);
     await admin.json("POST", "/api/v1/spaces", { slug: SPACE, name: "书店", defaultRole: "viewer" });
     await admin.json("POST", "/api/v1/spaces", { slug: "closed", name: "内部", defaultRole: "none" });
-    adminToken = (await admin.json("POST", "/api/v1/account/tokens", { name: "管理员", scopes: ["read", "write"] })).data.token;
-    await admin.json("POST", "/api/v1/admin/users", { email: "reader@example.test", displayName: "读者", password: "reader-password-1" });
+    adminToken = (await admin.json("POST", "/api/v1/account/tokens", { name: "管理员", scopes: ["read", "write"] }))
+      .data.token;
+    await admin.json("POST", "/api/v1/admin/users", {
+      email: "reader@example.test",
+      displayName: "读者",
+      password: "reader-password-1"
+    });
     readerClient = server.client();
-    const signedIn = await readerClient.form("/login", { email: "reader@example.test", password: "reader-password-1", next: "/" });
+    const signedIn = await readerClient.form("/login", {
+      email: "reader@example.test",
+      password: "reader-password-1",
+      next: "/"
+    });
     expect(signedIn.status).toBe(303);
-    readerToken = (await readerClient.json("POST", "/api/v1/account/tokens", { name: "读者", scopes: ["read"] })).data.token;
-    const listener = createChangeListener(postgres.getConnectionString(), server.runtime.events.wake, { fallbackMs: 3_600_000 });
+    readerToken = (await readerClient.json("POST", "/api/v1/account/tokens", { name: "读者", scopes: ["read"] })).data
+      .token;
+    const listener = createChangeListener(postgres.getConnectionString(), server.runtime.events.wake, {
+      fallbackMs: 3_600_000
+    });
     stopListener = listener.stop;
     await new Promise<void>(done => {
       http = listen(server.app, { hostname: "127.0.0.1", port: 0 }, info => {
@@ -107,7 +133,13 @@ describe("live events", () => {
       const page = await create("实时");
       await soon(() => expect(events.paths()).toContain("实时"));
       const frame = events.frames.find(item => item.data.path === "实时")!;
-      expect(frame.data).toMatchObject({ kind: "document", spaceSlug: SPACE, documentId: page.id, revision: 1, deleted: false });
+      expect(frame.data).toMatchObject({
+        kind: "document",
+        spaceSlug: SPACE,
+        documentId: page.id,
+        revision: 1,
+        deleted: false
+      });
       expect(frame.id).toBe(frame.data.cursor);
       expect(frame.data).not.toHaveProperty("restricted");
     } finally {
@@ -137,7 +169,12 @@ describe("live events", () => {
   it("does not repeat what a client coming back was just told, when the hub catches up with the same rows", async () => {
     // A hub with nothing waking it, so that the wake-up can come after the replay rather than racing it.
     const hub = createEventHub({ identity: server.runtime.identity, services: server.runtime.services });
-    const open = async (query = "") => reader(await hub.handle(new Request(`${origin}/api/v1/events${query}`, { headers: { authorization: `Bearer ${adminToken}` } })));
+    const open = async (query = "") =>
+      reader(
+        await hub.handle(
+          new Request(`${origin}/api/v1/events${query}`, { headers: { authorization: `Bearer ${adminToken}` } })
+        )
+      );
     const already = await open();
     await soon(() => expect(already.frames[0]?.event).toBe("ready"));
     await create("补发一次");
@@ -163,7 +200,10 @@ describe("live events", () => {
     const page = await create("讨论");
     const events = await stream(`?document=${page.id}`);
     try {
-      await admin.json("POST", `/api/v1/documents/${page.id}/threads`, { anchor: { kind: "document" }, body: "看一下" });
+      await admin.json("POST", `/api/v1/documents/${page.id}/threads`, {
+        anchor: { kind: "document" },
+        body: "看一下"
+      });
       await soon(() => expect(events.frames.map(frame => frame.data.kind)).toContain("discussion"));
     } finally {
       await events.close();
@@ -277,11 +317,15 @@ describe("live events", () => {
   describe("a stream outliving what opened it", () => {
     const direct = (token: string, recheckMs: number) => {
       const hub = createEventHub({ identity: server.runtime.identity, services: server.runtime.services, recheckMs });
-      return { hub, request: new Request("http://pandocs.test/api/v1/events", { headers: { authorization: `Bearer ${token}` } }) };
+      return {
+        hub,
+        request: new Request("http://pandocs.test/api/v1/events", { headers: { authorization: `Bearer ${token}` } })
+      };
     };
 
     it("ends when its token is revoked", async () => {
-      const made = (await readerClient.json("POST", "/api/v1/account/tokens", { name: "要撤销", scopes: ["read"] })).data;
+      const made = (await readerClient.json("POST", "/api/v1/account/tokens", { name: "要撤销", scopes: ["read"] }))
+        .data;
       const { hub, request } = direct(made.token, 0);
       await hub.wake();
       const events = reader(await hub.handle(request));
@@ -325,7 +369,8 @@ describe("live events", () => {
 
   it("limits how many one identity can hold open, and ends them all on shutdown", async () => {
     const hub = createEventHub({ identity: server.runtime.identity, services: server.runtime.services });
-    const request = () => new Request("http://pandocs.test/api/v1/events", { headers: { authorization: `Bearer ${readerToken}` } });
+    const request = () =>
+      new Request("http://pandocs.test/api/v1/events", { headers: { authorization: `Bearer ${readerToken}` } });
     const open = await Promise.all(Array.from({ length: 32 }, async () => reader(await hub.handle(request()))));
     expect(hub.connected).toBe(32);
     const refused = await hub.handle(request());

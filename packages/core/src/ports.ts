@@ -42,7 +42,7 @@ export interface Notifier {
 }
 
 export const ASSIST_ACTIONS = ["explain", "rewrite", "translate", "summarize"] as const;
-export type AssistAction = typeof ASSIST_ACTIONS[number];
+export type AssistAction = (typeof ASSIST_ACTIONS)[number];
 /** Not for selections: the text and the discussion both come from the server, and the result is only ever a suggestion. */
 export type ModelAction = AssistAction | "apply_discussion";
 
@@ -77,9 +77,19 @@ export interface ModelConversation {
 
 export interface LlmPort {
   /** One bounded call with no tools, so hosts can meter it and keep agents elsewhere. */
-  complete(input: { readonly purpose: "thread_summary" | "document_summary"; readonly prompt: string; readonly actor: Principal }): Promise<string>;
+  complete(input: {
+    readonly purpose: "thread_summary" | "document_summary";
+    readonly prompt: string;
+    readonly actor: Principal;
+  }): Promise<string>;
   /** Same bounds as `complete`. `content` is what the reader selected, `context` the text around it, `target` the language to translate into. */
-  assist(input: { readonly action: ModelAction; readonly content: string; readonly context: string; readonly target?: string | undefined; readonly actor: Principal }): Promise<string>;
+  assist(input: {
+    readonly action: ModelAction;
+    readonly content: string;
+    readonly context: string;
+    readonly target?: string | undefined;
+    readonly actor: Principal;
+  }): Promise<string>;
   /** For asking the documents a question. Refuses straight away when `actor` is over their limit. A host without it simply offers no such thing. */
   conversation?(input: {
     readonly purpose: "ask";
@@ -142,14 +152,25 @@ export interface BulkImporter {
   readonly input: "file" | "url";
   /** Its name, for the record each page's new version leaves. */
   label(): string;
-  run(input: { readonly bytes?: Uint8Array | undefined; readonly url?: string | undefined; readonly includeChildren: boolean }, sink: ImportSink): Promise<void>;
+  run(
+    input: {
+      readonly bytes?: Uint8Array | undefined;
+      readonly url?: string | undefined;
+      readonly includeChildren: boolean;
+    },
+    sink: ImportSink
+  ): Promise<void>;
 }
 
 /** Shared state, as bytes, and what it says as Markdown. The core keeps it and compares versions; what is inside it is the editor's business. */
 export interface LiveCodecPort {
   seed(markdown: string, meta: Readonly<Record<string, string | number | null>>): Promise<Uint8Array>;
   markdownOf(state: Uint8Array, baseMarkdown: string): Promise<string>;
-  align(state: Uint8Array, markdown: string, meta: Readonly<Record<string, string | number | null>>): Promise<{ readonly state: Uint8Array; readonly change: Uint8Array }>;
+  align(
+    state: Uint8Array,
+    markdown: string,
+    meta: Readonly<Record<string, string | number | null>>
+  ): Promise<{ readonly state: Uint8Array; readonly change: Uint8Array }>;
   /** A three-way merge, which on a long page should not hold up whatever else is going on. */
   merge(base: string, ours: string, theirs: string): Promise<MergeResult>;
 }

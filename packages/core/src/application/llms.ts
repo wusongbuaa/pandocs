@@ -17,9 +17,15 @@ export interface LlmsOptions {
 /** The order a person reads them in: each page, then what is under it. */
 function readingOrder(tree: readonly TreeNode[]): TreeNode[] {
   const visible = new Set(tree.map(node => node.id));
-  const walk = (parentId: string | null): TreeNode[] => tree.filter(node => node.parentId === parentId).flatMap(node => [node, ...walk(node.id)]);
+  const walk = (parentId: string | null): TreeNode[] =>
+    tree.filter(node => node.parentId === parentId).flatMap(node => [node, ...walk(node.id)]);
   // A page whose parent this person cannot see still belongs in the list.
-  return [...walk(null), ...tree.filter(node => node.parentId !== null && !visible.has(node.parentId)).flatMap(node => [node, ...walk(node.id)])];
+  return [
+    ...walk(null),
+    ...tree
+      .filter(node => node.parentId !== null && !visible.has(node.parentId))
+      .flatMap(node => [node, ...walk(node.id)])
+  ];
 }
 
 /**
@@ -37,11 +43,18 @@ export class LlmsService {
   ) {}
 
   private async scope(principal: Principal, slug: string | undefined) {
-    const spaces = slug ? [(await requireSpace(this.context.db, principal, slug)).space] : await this.spaces.list(principal);
-    return Promise.all(spaces.map(async space => ({ ...space, tree: readingOrder(await this.documents.tree(principal, space.slug)) })));
+    const spaces = slug
+      ? [(await requireSpace(this.context.db, principal, slug)).space]
+      : await this.spaces.list(principal);
+    return Promise.all(
+      spaces.map(async space => ({ ...space, tree: readingOrder(await this.documents.tree(principal, space.slug)) }))
+    );
   }
 
-  private async heading(slug: string | undefined, spaces: readonly { readonly name: string; readonly description: string }[]) {
+  private async heading(
+    slug: string | undefined,
+    spaces: readonly { readonly name: string; readonly description: string }[]
+  ) {
     if (slug) return { title: spaces[0]!.name, description: spaces[0]!.description };
     return this.site.get();
   }
@@ -50,13 +63,21 @@ export class LlmsService {
     const { origin, lang } = options;
     const spaces = await this.scope(principal, slug);
     const { title, description } = await this.heading(slug, spaces);
-    const link = (space: string, node: TreeNode) => origin === undefined
-      ? `${slug ? "" : `${space}/`}${node.path}.md`
-      : `${origin}${lang ? `/${lang}` : ""}/${encodeURIComponent(space)}/${node.path.split("/").map(encodeURIComponent).join("/")}.md`;
+    const link = (space: string, node: TreeNode) =>
+      origin === undefined
+        ? `${slug ? "" : `${space}/`}${node.path}.md`
+        : `${origin}${lang ? `/${lang}` : ""}/${encodeURIComponent(space)}/${node.path.split("/").map(encodeURIComponent).join("/")}.md`;
     const lines = [`# ${title}`, "", ...(description ? [`> ${description}`, ""] : [])];
     for (const space of spaces) {
       // A page that only holds others has nothing to read.
-      lines.push(`## ${space.name}`, "", ...space.tree.filter(node => node.hasContent).map(node => `- [${(lang ? node.titles?.[lang] : undefined) ?? node.title}](${link(space.slug, node)})`), "");
+      lines.push(
+        `## ${space.name}`,
+        "",
+        ...space.tree
+          .filter(node => node.hasContent)
+          .map(node => `- [${(lang ? node.titles?.[lang] : undefined) ?? node.title}](${link(space.slug, node)})`),
+        ""
+      );
     }
     return `${lines.join("\n").trimEnd()}\n`;
   }
@@ -68,9 +89,12 @@ export class LlmsService {
     for (const space of spaces) {
       for (const node of space.tree) {
         // A page nobody has translated is read in its own language, the same as on the site.
-        const translated = lang && node.titles?.[lang] !== undefined ? await this.translations.get(principal, node.id, lang) : null;
+        const translated =
+          lang && node.titles?.[lang] !== undefined ? await this.translations.get(principal, node.id, lang) : null;
         const title = translated?.title ?? node.title;
-        const { body } = splitFrontMatter(translated?.markdown ?? (await loadRevision(this.context.db, node.id, node.currentRevisionNo)).markdown);
+        const { body } = splitFrontMatter(
+          translated?.markdown ?? (await loadRevision(this.context.db, node.id, node.currentRevisionNo)).markdown
+        );
         parts.push(body.trimStart().startsWith(`# ${title}\n`) ? body.trim() : `# ${title}\n\n${body.trim()}`.trim());
       }
     }

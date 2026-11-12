@@ -32,7 +32,10 @@ export type Anchor = TextAnchor | BlockAnchor | DocumentAnchor;
 export type AnchorState = "exact" | "fuzzy" | "orphaned";
 
 export class AnchorError extends Error {
-  constructor(readonly code: "ANCHOR_NOT_FOUND" | "ANCHOR_AMBIGUOUS" | "ANCHOR_INVALID", message: string) {
+  constructor(
+    readonly code: "ANCHOR_NOT_FOUND" | "ANCHOR_AMBIGUOUS" | "ANCHOR_INVALID",
+    message: string
+  ) {
     super(message);
     this.name = "AnchorError";
   }
@@ -43,7 +46,8 @@ export class AnchorError extends Error {
  * is not text: the database refuses it, and so it refused the comment, or the page it was on.
  */
 function whole(text: string, at: number, towardsStart: boolean): number {
-  const splits = at > 0 && at < text.length && /[\uDC00-\uDFFF]/u.test(text[at]!) && /[\uD800-\uDBFF]/u.test(text[at - 1]!);
+  const splits =
+    at > 0 && at < text.length && /[\uDC00-\uDFFF]/u.test(text[at]!) && /[\uD800-\uDBFF]/u.test(text[at - 1]!);
   return splits ? at + (towardsStart ? -1 : 1) : at;
 }
 
@@ -80,10 +84,14 @@ export function anchorFromQuote(squashed: string, quote: string, occurrence?: nu
   for (let at = squashed.indexOf(needle); at !== -1; at = squashed.indexOf(needle, at + 1)) hits.push(at);
   if (hits.length === 0) throw new AnchorError("ANCHOR_NOT_FOUND", t("This quote is not in the document"));
   if (occurrence === undefined && hits.length > 1) {
-    throw new AnchorError("ANCHOR_AMBIGUOUS", t("This quote appears {0} times. Use occurrence to pick one, or make it more specific.", hits.length));
+    throw new AnchorError(
+      "ANCHOR_AMBIGUOUS",
+      t("This quote appears {0} times. Use occurrence to pick one, or make it more specific.", hits.length)
+    );
   }
   const start = hits[(occurrence ?? 1) - 1];
-  if (start === undefined) throw new AnchorError("ANCHOR_NOT_FOUND", t("This quote only appears {0} {0|time|times}", hits.length));
+  if (start === undefined)
+    throw new AnchorError("ANCHOR_NOT_FOUND", t("This quote only appears {0} {0|time|times}", hits.length));
   return anchorFromRange(squashed, start, start + needle.length, quote);
 }
 
@@ -108,11 +116,15 @@ export function relocateTextAnchor(anchor: TextAnchor, squashed: string): Reloca
   let best: { start: number; end: number; total: number; quote: number; context: number } | undefined;
   for (const match of approxSearch(squashed, needle, maxErrors)) {
     const quote = 1 - match.errors / needle.length;
-    const prefix = similarity(squashed.slice(Math.max(0, match.start - anchor.prefix.length), match.start), anchor.prefix);
+    const prefix = similarity(
+      squashed.slice(Math.max(0, match.start - anchor.prefix.length), match.start),
+      anchor.prefix
+    );
     const suffix = similarity(squashed.slice(match.end, match.end + anchor.suffix.length), anchor.suffix);
     const position = 1 - Math.abs(match.start - anchor.start) / Math.max(squashed.length, 1);
     const total = (50 * quote + 20 * prefix + 20 * suffix + 2 * position) / 92;
-    if (!best || total > best.total) best = { start: match.start, end: match.end, total, quote, context: Math.max(prefix, suffix) };
+    if (!best || total > best.total)
+      best = { start: match.start, end: match.end, total, quote, context: Math.max(prefix, suffix) };
   }
   if (!best || best.quote < 0.7 || best.context < 0.5) return { state: "orphaned", anchor };
   return { state: "fuzzy", anchor: anchorFromRange(squashed, best.start, best.end, anchor.exact) };
@@ -133,10 +145,12 @@ function bestExact(squashed: string, needle: string, anchor: TextAnchor): number
     const { prefix, suffix } = contextAt(hits[0]!);
     return Math.max(prefix, suffix) >= 0.5 ? hits[0] : undefined;
   }
-  const scored = hits.map(at => {
-    const { prefix, suffix } = contextAt(at);
-    return { at, score: prefix + suffix - Math.abs(at - anchor.start) / Math.max(squashed.length, 1) };
-  }).sort((a, b) => b.score - a.score);
+  const scored = hits
+    .map(at => {
+      const { prefix, suffix } = contextAt(at);
+      return { at, score: prefix + suffix - Math.abs(at - anchor.start) / Math.max(squashed.length, 1) };
+    })
+    .sort((a, b) => b.score - a.score);
   // Repeated phrases with no context to tell them apart: refuse to guess.
   return scored[0]!.score - scored[1]!.score > 0.05 ? scored[0]!.at : undefined;
 }
@@ -170,7 +184,10 @@ export function anchorFromBlock(block: AnchorableBlock): BlockAnchor {
   return { kind: "block", ref: block.ref, type: block.type, hash: hashText(block.markdown), preview: block.preview };
 }
 
-export function relocateBlockAnchor(anchor: BlockAnchor, blocks: readonly AnchorableBlock[]): { state: AnchorState; anchor: BlockAnchor } {
+export function relocateBlockAnchor(
+  anchor: BlockAnchor,
+  blocks: readonly AnchorableBlock[]
+): { state: AnchorState; anchor: BlockAnchor } {
   const same = blocks.filter(block => hashText(block.markdown) === anchor.hash);
   const exact = same.find(block => block.ref === anchor.ref) ?? (same.length === 1 ? same[0] : undefined);
   if (exact) return { state: "exact", anchor: { ...anchor, ref: exact.ref } };

@@ -22,7 +22,9 @@ const write = (path, text) => writeFileSync(join(root, path), text);
 
 const packageFiles = () => [
   "package.json",
-  ...readdirSync(join(root, "packages")).map(name => `packages/${name}/package.json`).filter(path => existsSync(join(root, path)))
+  ...readdirSync(join(root, "packages"))
+    .map(name => `packages/${name}/package.json`)
+    .filter(path => existsSync(join(root, path)))
 ];
 
 /** Each place holds the version once, the first match of its pattern, which is all these need to be told apart. */
@@ -35,7 +37,8 @@ const places = () => [
   { path: "compose.yaml", pattern: /\/pandocs-converter:\$\{PANDOCS_VERSION:-([^}]+)\}/u }
 ];
 
-const found = () => places().map(({ path, pattern }) => ({ path, version: pattern.exec(read(path))?.[1] ?? "(not found)" }));
+const found = () =>
+  places().map(({ path, pattern }) => ({ path, version: pattern.exec(read(path))?.[1] ?? "(not found)" }));
 
 /** The lines under a heading, up to the next one at that level. */
 function sectionUnder(text, heading) {
@@ -43,7 +46,10 @@ function sectionUnder(text, heading) {
   const start = lines.findIndex(line => line === heading || line.startsWith(`${heading} - `));
   if (start < 0) return null;
   const end = lines.findIndex((line, at) => at > start && line.startsWith("## "));
-  return lines.slice(start + 1, end < 0 ? undefined : end).join("\n").trim();
+  return lines
+    .slice(start + 1, end < 0 ? undefined : end)
+    .join("\n")
+    .trim();
 }
 
 const notesFor = (version, rehearsal) => {
@@ -55,7 +61,8 @@ function problemsWith(version, rehearsal) {
   const problems = [];
   if (!VALID.test(version)) problems.push(`${version} is not a version such as 0.2.0 or 0.2.0-rc.1`);
   for (const place of found()) if (place.version !== version) problems.push(`${place.path} says ${place.version}`);
-  if (!notesFor(version, rehearsal)) problems.push(`${CHANGELOG} says nothing about ${version}${rehearsal ? " and has nothing unreleased" : ""}`);
+  if (!notesFor(version, rehearsal))
+    problems.push(`${CHANGELOG} says nothing about ${version}${rehearsal ? " and has nothing unreleased" : ""}`);
   for (const file of ["LICENSE", "NOTICE"]) if (!existsSync(join(root, file))) problems.push(`${file} is missing`);
   return problems;
 }
@@ -64,12 +71,16 @@ function set(version, date) {
   if (!VALID.test(version)) throw new Error(`${version} is not a version such as 0.2.0 or 0.2.0-rc.1`);
   const changelog = read(CHANGELOG);
   if (sectionUnder(changelog, `## ${version}`) !== null) throw new Error(`${CHANGELOG} already has ${version}`);
-  if (!sectionUnder(changelog, UNRELEASED)) throw new Error(`${CHANGELOG} has nothing unreleased to give this heading to`);
+  if (!sectionUnder(changelog, UNRELEASED))
+    throw new Error(`${CHANGELOG} has nothing unreleased to give this heading to`);
   for (const { path, pattern } of places()) {
     const text = read(path);
     const match = pattern.exec(text);
     if (!match) throw new Error(`${path} has no version where it was expected`);
-    write(path, text.replace(pattern, whole => whole.replace(match[1], version)));
+    write(
+      path,
+      text.replace(pattern, whole => whole.replace(match[1], version))
+    );
   }
   write(CHANGELOG, changelog.replace(UNRELEASED, `${UNRELEASED}\n\n## ${version} - ${date}`));
 }
@@ -102,7 +113,9 @@ function main([command, version, ...rest]) {
       return 0;
     }
     default:
-      console.error("Usage: release.mjs versions | set <version> [--date YYYY-MM-DD] | check <version> [--rehearsal] | notes <version> [--rehearsal]");
+      console.error(
+        "Usage: release.mjs versions | set <version> [--date YYYY-MM-DD] | check <version> [--rehearsal] | notes <version> [--rehearsal]"
+      );
       return 2;
   }
 }

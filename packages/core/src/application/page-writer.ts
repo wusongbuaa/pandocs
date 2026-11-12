@@ -33,9 +33,23 @@ export class PageWriter {
     private readonly known: Set<string>
   ) {}
 
-  static async open(context: AppContext, documents: DocumentService, principal: Principal, space: string, message: string): Promise<PageWriter> {
+  static async open(
+    context: AppContext,
+    documents: DocumentService,
+    principal: Principal,
+    space: string,
+    message: string
+  ): Promise<PageWriter> {
     const tree = await documents.tree(principal, space);
-    return new PageWriter(context, documents, principal, space, message, new Map(tree.map(node => [node.path, node])), new Set(tree.map(node => node.path)));
+    return new PageWriter(
+      context,
+      documents,
+      principal,
+      space,
+      message,
+      new Map(tree.map(node => [node.path, node])),
+      new Set(tree.map(node => node.path))
+    );
   }
 
   async write(page: PageToWrite): Promise<WriteOutcome> {
@@ -44,14 +58,21 @@ export class PageWriter {
     if (current) {
       const { markdown } = await loadRevision(this.context.db, current.id, current.currentRevisionNo);
       const retitled = title !== current.title;
-      if (page.labels && page.labels.join() !== current.labels.join()) await this.documents.setLabels(this.principal, current.id, page.labels);
+      if (page.labels && page.labels.join() !== current.labels.join())
+        await this.documents.setLabels(this.principal, current.id, page.labels);
       if (markdown === page.markdown && !retitled) return "unchanged";
-      await this.documents.saveContent(this.principal, current.id, { markdown: page.markdown, expectedRevision: current.currentRevisionNo, message: this.message, ...(retitled ? { title } : {}) });
+      await this.documents.saveContent(this.principal, current.id, {
+        markdown: page.markdown,
+        expectedRevision: current.currentRevisionNo,
+        message: this.message,
+        ...(retitled ? { title } : {})
+      });
       return "updated";
     }
     const segments = page.path.split("/");
     const parentPath = segments.slice(0, -1).join("/");
-    if (parentPath && !this.known.has(parentPath)) throw invalid("IMPORT_NO_PARENT", t("Its parent page was not imported"));
+    if (parentPath && !this.known.has(parentPath))
+      throw invalid("IMPORT_NO_PARENT", t("Its parent page was not imported"));
     const made = await this.documents.create(this.principal, {
       space: this.space,
       title,

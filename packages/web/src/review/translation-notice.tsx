@@ -13,7 +13,17 @@ import { t } from "../i18n";
 
 const CHUNK = 2500;
 /** Blocks that are data or media rather than sentences stay exactly as they are. */
-const UNTRANSLATED = new Set(["code", "math", "mermaid", "chart", "tree", "video", "subpages", "thematicBreak", "image"]);
+const UNTRANSLATED = new Set([
+  "code",
+  "math",
+  "mermaid",
+  "chart",
+  "tree",
+  "video",
+  "subpages",
+  "thematicBreak",
+  "image"
+]);
 
 export interface TranslationStep {
   /** A run of blocks to send to the model, or text to keep as written. */
@@ -62,22 +72,43 @@ function useTranslate(page: PandocsPage) {
       let done = 0;
       setProgress({ done, total: calls });
       const generate = async (body: object) => {
-        const { text } = await api.send<{ text: string }>("POST", `documents/${page.entry.id}/translations/${lang}/generate`, { body });
+        const { text } = await api.send<{ text: string }>(
+          "POST",
+          `documents/${page.entry.id}/translations/${lang}/generate`,
+          { body }
+        );
         done += 1;
         setProgress({ done, total: calls });
         return text;
       };
       const title = await generate({ title: true });
       const parts: string[] = [];
-      for (const step of steps) parts.push(step.keep ?? await generate({ from: step.from, to: step.to }));
+      for (const step of steps) parts.push(step.keep ?? (await generate({ from: step.from, to: step.to })));
       const { frontMatter } = splitFrontMatter(markdown);
-      await api.send("PUT", `documents/${page.entry.id}/translations/${lang}`, { body: { title: title.trim(), markdown: `${frontMatter ? `${frontMatter.trimEnd()}\n\n` : ""}${parts.join("\n\n")}\n`, sourceRevision: source.revision.no, machine: true } });
-      toast(tooLong > 0 ? t("Translated. {0} {0|passage was|passages were} too long and kept the original text.", tooLong) : t("Translated"), "success");
+      await api.send("PUT", `documents/${page.entry.id}/translations/${lang}`, {
+        body: {
+          title: title.trim(),
+          markdown: `${frontMatter ? `${frontMatter.trimEnd()}\n\n` : ""}${parts.join("\n\n")}\n`,
+          sourceRevision: source.revision.no,
+          machine: true
+        }
+      });
+      toast(
+        tooLong > 0
+          ? t("Translated. {0} {0|passage was|passages were} too long and kept the original text.", tooLong)
+          : t("Translated"),
+        "success"
+      );
       // Titles in the sidebar come from when the app loaded.
       location.reload();
     } catch (error) {
       setProgress(null);
-      toast(error instanceof ApiError ? t("Translation did not finish, and nothing was saved: {0}", error.message) : failureMessage(error), "error");
+      toast(
+        error instanceof ApiError
+          ? t("Translation did not finish, and nothing was saved: {0}", error.message)
+          : failureMessage(error),
+        "error"
+      );
     }
   };
   return { progress, translate };
@@ -88,7 +119,15 @@ function NoticeBody({ page }: { page: PandocsPage }) {
   const { pathname } = useLocation();
   const { progress, translate } = useTranslate(page);
   const remove = async () => {
-    if (!await confirm({ title: t("Delete this {0} version?", translation.label), description: t("This language then shows the original text. This cannot be undone."), action: t("Delete"), danger: true })) return;
+    if (
+      !(await confirm({
+        title: t("Delete this {0} version?", translation.label),
+        description: t("This language then shows the original text. This cannot be undone."),
+        action: t("Delete"),
+        danger: true
+      }))
+    )
+      return;
     try {
       await api.send("DELETE", `documents/${page.entry.id}/translations/${translation.lang}`);
       // Titles in the sidebar come from when the app loaded.
@@ -102,17 +141,33 @@ function NoticeBody({ page }: { page: PandocsPage }) {
     ? t("This page has no {0} version yet, so the original text is below.", translation.label)
     : translation.stale
       ? t("The original changed after this was translated, so this {0} version may be out of date.", translation.label)
-      : translation.machine ? t("AI translated this version, so it may not be accurate.") : null;
+      : translation.machine
+        ? t("AI translated this version, so it may not be accurate.")
+        : null;
   if (!message && !translation.canEdit) return null;
   return (
     <aside className="pd-translation rp-not-doc" aria-label={t("Translation status")}>
       <Languages size={16} aria-hidden="true" />
-      <span>{progress ? t("Translating {0}/{1}…", progress.done, progress.total) : message ?? t("This is the {0} version.", translation.label)}</span>
+      <span>
+        {progress
+          ? t("Translating {0}/{1}…", progress.done, progress.total)
+          : (message ?? t("This is the {0} version.", translation.label))}
+      </span>
       {translation.canEdit && !progress ? (
         <span className="pd-translation__actions">
-          {app.bootstrap.ai?.configured ? <button type="button" className="pd-btn" onClick={() => void translate()}>{translation.exists ? t("Translate again with AI") : t("AI translation")}</button> : null}
-          <a className="pd-btn" href={editHref}>{translation.exists ? t("Edit translation") : t("Translate by hand")}</a>
-          {translation.exists ? <button type="button" className="pd-btn" onClick={() => void remove()}>{t("Delete translation")}</button> : null}
+          {app.bootstrap.ai?.configured ? (
+            <button type="button" className="pd-btn" onClick={() => void translate()}>
+              {translation.exists ? t("Translate again with AI") : t("AI translation")}
+            </button>
+          ) : null}
+          <a className="pd-btn" href={editHref}>
+            {translation.exists ? t("Edit translation") : t("Translate by hand")}
+          </a>
+          {translation.exists ? (
+            <button type="button" className="pd-btn" onClick={() => void remove()}>
+              {t("Delete translation")}
+            </button>
+          ) : null}
         </span>
       ) : null}
     </aside>

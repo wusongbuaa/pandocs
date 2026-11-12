@@ -22,17 +22,33 @@ describe("managing the document tree", () => {
     space = `tree-${counter}`;
     await h.call(USERS.admin, "POST", "spaces", { slug: space, name: `目录 ${counter}`, defaultRole: "viewer" });
     await h.call(USERS.admin, "PUT", `spaces/${space}/members`, { subject: `user:${USERS.editor.id}`, role: "editor" });
-    await h.call(USERS.admin, "PUT", `spaces/${space}/members`, { subject: `user:${USERS.commenter.id}`, role: "commenter" });
+    await h.call(USERS.admin, "PUT", `spaces/${space}/members`, {
+      subject: `user:${USERS.commenter.id}`,
+      role: "commenter"
+    });
   });
 
   const create = async (title: string, parentPath?: string, slug = title) => {
-    const created = await h.call(USERS.editor, "POST", `spaces/${space}/documents`, { title, slug, markdown: `# ${title}\n\n内容\n`, ...(parentPath ? { parentPath } : {}) });
+    const created = await h.call(USERS.editor, "POST", `spaces/${space}/documents`, {
+      title,
+      slug,
+      markdown: `# ${title}\n\n内容\n`,
+      ...(parentPath ? { parentPath } : {})
+    });
     expect(created.status).toBe(201);
     return created.data.document.id as string;
   };
-  const tree = async () => (await h.call(USERS.editor, "GET", `spaces/${space}/tree`)).data as { id: string; path: string; title: string; parentId: string | null; sortOrder: number }[];
+  const tree = async () =>
+    (await h.call(USERS.editor, "GET", `spaces/${space}/tree`)).data as {
+      id: string;
+      path: string;
+      title: string;
+      parentId: string | null;
+      sortOrder: number;
+    }[];
   const paths = async () => (await tree()).map(node => node.path).sort();
-  const order = async (parentId: string | null = null) => (await tree()).filter(node => node.parentId === parentId).map(node => node.title);
+  const order = async (parentId: string | null = null) =>
+    (await tree()).filter(node => node.parentId === parentId).map(node => node.title);
 
   describe("moving", () => {
     it("takes everything below the page along and keeps the old addresses working", async () => {
@@ -49,7 +65,11 @@ describe("managing the document tree", () => {
 
       const old = await h.call(USERS.reader, "GET", `spaces/${space}/resolve?path=${encodeURIComponent("甲/乙/丙")}`);
       expect(old.data).toMatchObject({ path: "丁/乙/丙", redirected: true });
-      const current = await h.call(USERS.reader, "GET", `spaces/${space}/resolve?path=${encodeURIComponent("丁/乙/丙")}`);
+      const current = await h.call(
+        USERS.reader,
+        "GET",
+        `spaces/${space}/resolve?path=${encodeURIComponent("丁/乙/丙")}`
+      );
       expect(current.data).toMatchObject({ path: "丁/乙/丙", redirected: false });
     });
 
@@ -62,54 +82,118 @@ describe("managing the document tree", () => {
       const nested = await create("子首页", "目录", "nested-index");
       const html = await create("网页", undefined, "page-html-old");
       // As they could be written before: straight into the table, past the checks made since.
-      const rename = (id: string, slug: string, path: string) => h.pool.query(`UPDATE pandocs.documents SET slug = $2, path = $3 WHERE id = $1`, [id, slug, path]);
+      const rename = (id: string, slug: string, path: string) =>
+        h.pool.query(`UPDATE pandocs.documents SET slug = $2, path = $3 WHERE id = $1`, [id, slug, path]);
       await rename(parent, "50%off", "50%off");
-      await h.pool.query(`UPDATE pandocs.documents SET path = '50%off/child' WHERE path = 'half/child' AND space_id = (SELECT id FROM pandocs.spaces WHERE slug = $1)`, [space]);
+      await h.pool.query(
+        `UPDATE pandocs.documents SET path = '50%off/child' WHERE path = 'half/child' AND space_id = (SELECT id FROM pandocs.spaces WHERE slug = $1)`,
+        [space]
+      );
       await rename(upper, "Index", "Index");
       await rename(nested, "index", "目录/index");
       await rename(html, "notes.html", "notes.html");
       await applyPandocsSchema(fixture.getConnectionString());
-      expect(await paths()).toEqual(["50-off", "50-off-2", "50-off-2/child", "Index-page", "notes-html", "目录", "目录/index-page"].sort());
-      for (const [old, now] of [["50%off", "50-off-2"], ["50%off/child", "50-off-2/child"], ["Index", "Index-page"], ["目录/index", "目录/index-page"], ["notes.html", "notes-html"]]) {
-        expect((await h.call(USERS.reader, "GET", `spaces/${space}/resolve?path=${encodeURIComponent(old!)}`)).data, old).toMatchObject({ path: now, redirected: true });
+      expect(await paths()).toEqual(
+        ["50-off", "50-off-2", "50-off-2/child", "Index-page", "notes-html", "目录", "目录/index-page"].sort()
+      );
+      for (const [old, now] of [
+        ["50%off", "50-off-2"],
+        ["50%off/child", "50-off-2/child"],
+        ["Index", "Index-page"],
+        ["目录/index", "目录/index-page"],
+        ["notes.html", "notes-html"]
+      ]) {
+        expect(
+          (await h.call(USERS.reader, "GET", `spaces/${space}/resolve?path=${encodeURIComponent(old!)}`)).data,
+          old
+        ).toMatchObject({ path: now, redirected: true });
       }
       // Run again, as every start does, it finds nothing more to move.
       await applyPandocsSchema(fixture.getConnectionString());
-      expect(await paths()).toEqual(["50-off", "50-off-2", "50-off-2/child", "Index-page", "notes-html", "目录", "目录/index-page"].sort());
+      expect(await paths()).toEqual(
+        ["50-off", "50-off-2", "50-off-2/child", "Index-page", "notes-html", "目录", "目录/index-page"].sort()
+      );
     });
 
     it("changes the address without moving, and a new page may take the old one", async () => {
       const id = await create("页面", undefined, "old");
       expect((await h.call(USERS.editor, "POST", `documents/${id}/move`, { slug: "new" })).data.path).toBe("new");
-      expect((await h.call(USERS.reader, "GET", `spaces/${space}/resolve?path=old`)).data).toMatchObject({ id, redirected: true });
+      expect((await h.call(USERS.reader, "GET", `spaces/${space}/resolve?path=old`)).data).toMatchObject({
+        id,
+        redirected: true
+      });
 
       const replacement = await create("新占用", undefined, "old");
-      expect((await h.call(USERS.reader, "GET", `spaces/${space}/resolve?path=old`)).data).toMatchObject({ id: replacement, redirected: false });
+      expect((await h.call(USERS.reader, "GET", `spaces/${space}/resolve?path=old`)).data).toMatchObject({
+        id: replacement,
+        redirected: false
+      });
       // Moving back over a live page is refused rather than taking its address.
-      expect((await h.call(USERS.editor, "POST", `documents/${id}/move`, { slug: "old" })).error.code).toBe("DOCUMENT_PATH_TAKEN");
+      expect((await h.call(USERS.editor, "POST", `documents/${id}/move`, { slug: "old" })).error.code).toBe(
+        "DOCUMENT_PATH_TAKEN"
+      );
     });
 
     it("refuses to put a page under itself or where its children would collide", async () => {
       const parent = await create("甲");
       await create("乙", "甲");
       const child = (await tree()).find(node => node.path === "甲/乙")!;
-      expect((await h.call(USERS.editor, "POST", `documents/${parent}/move`, { parentId: child.id })).error.code).toBe("MOVE_INTO_SELF");
-      expect((await h.call(USERS.editor, "POST", `documents/${parent}/move`, { parentId: parent })).error.code).toBe("MOVE_INTO_SELF");
+      expect((await h.call(USERS.editor, "POST", `documents/${parent}/move`, { parentId: child.id })).error.code).toBe(
+        "MOVE_INTO_SELF"
+      );
+      expect((await h.call(USERS.editor, "POST", `documents/${parent}/move`, { parentId: parent })).error.code).toBe(
+        "MOVE_INTO_SELF"
+      );
 
       await create("丙");
       await create("乙", "丙");
       const other = (await tree()).find(node => node.path === "丙")!;
-      expect((await h.call(USERS.editor, "POST", `documents/${child.id}/move`, { parentId: other.id })).error.code).toBe("DOCUMENT_PATH_TAKEN");
-      expect((await h.call(USERS.editor, "POST", `documents/${child.id}/move`, { slug: "a/b" })).error.code).toBe("SLUG_INVALID");
+      expect(
+        (await h.call(USERS.editor, "POST", `documents/${child.id}/move`, { parentId: other.id })).error.code
+      ).toBe("DOCUMENT_PATH_TAKEN");
+      expect((await h.call(USERS.editor, "POST", `documents/${child.id}/move`, { slug: "a/b" })).error.code).toBe(
+        "SLUG_INVALID"
+      );
     });
 
     it("keeps the page's own relative links working, with a version only where they changed", async () => {
       await create("甲");
-      await h.call(USERS.editor, "POST", `spaces/${space}/documents`, { title: "兄弟", slug: "兄弟", parentPath: "甲", markdown: "内容\n" });
-      const page = (await h.call(USERS.editor, "POST", `spaces/${space}/documents`, { title: "页面", slug: "页面", parentPath: "甲", markdown: "[兄弟](./兄弟.md) 和 [子](./页面/子.md)\n" })).data.document.id as string;
-      const child = (await h.call(USERS.editor, "POST", `spaces/${space}/documents`, { title: "子", slug: "子", parentPath: "甲/页面", markdown: "[回到上级](../页面.md) 和 [兄弟](../兄弟.md)\n" })).data.document.id as string;
-      const plain = (await h.call(USERS.editor, "POST", `spaces/${space}/documents`, { title: "没有链接", slug: "没有链接", parentPath: "甲/页面", markdown: "正文\n" })).data.document.id as string;
-      const thread = (await h.call(USERS.commenter, "POST", `documents/${page}/threads`, { anchor: { kind: "quote", quote: "兄弟" }, body: "看这里" })).data.id as string;
+      await h.call(USERS.editor, "POST", `spaces/${space}/documents`, {
+        title: "兄弟",
+        slug: "兄弟",
+        parentPath: "甲",
+        markdown: "内容\n"
+      });
+      const page = (
+        await h.call(USERS.editor, "POST", `spaces/${space}/documents`, {
+          title: "页面",
+          slug: "页面",
+          parentPath: "甲",
+          markdown: "[兄弟](./兄弟.md) 和 [子](./页面/子.md)\n"
+        })
+      ).data.document.id as string;
+      const child = (
+        await h.call(USERS.editor, "POST", `spaces/${space}/documents`, {
+          title: "子",
+          slug: "子",
+          parentPath: "甲/页面",
+          markdown: "[回到上级](../页面.md) 和 [兄弟](../兄弟.md)\n"
+        })
+      ).data.document.id as string;
+      const plain = (
+        await h.call(USERS.editor, "POST", `spaces/${space}/documents`, {
+          title: "没有链接",
+          slug: "没有链接",
+          parentPath: "甲/页面",
+          markdown: "正文\n"
+        })
+      ).data.document.id as string;
+      const thread = (
+        await h.call(USERS.commenter, "POST", `documents/${page}/threads`, {
+          anchor: { kind: "quote", quote: "兄弟" },
+          body: "看这里"
+        })
+      ).data.id as string;
       const target = await create("乙");
 
       expect((await h.call(USERS.editor, "POST", `documents/${page}/move`, { parentId: target })).status).toBe(200);
@@ -117,7 +201,11 @@ describe("managing the document tree", () => {
       const read = async (id: string) => (await h.call(USERS.reader, "GET", `documents/${id}`)).data;
       const moved = await read(page);
       expect(moved.markdown).toBe("[兄弟](../甲/兄弟.md) 和 [子](./页面/子.md)\n");
-      expect(moved.revision).toMatchObject({ no: 2, message: "Updated relative links after a page moved", actorName: USERS.editor.displayName });
+      expect(moved.revision).toMatchObject({
+        no: 2,
+        message: "Updated relative links after a page moved",
+        actorName: USERS.editor.displayName
+      });
       const movedChild = await read(child);
       expect(movedChild.markdown).toBe("[回到上级](../页面.md) 和 [兄弟](../../甲/兄弟.md)\n");
       expect((await read(plain)).revision.no).toBe(1);
@@ -127,17 +215,41 @@ describe("managing the document tree", () => {
 
     it("does not make a version just for reordering or renaming the address in place", async () => {
       await create("甲");
-      const page = (await h.call(USERS.editor, "POST", `spaces/${space}/documents`, { title: "页面", slug: "页面", parentPath: "甲", markdown: "[别的](./别的.md)\n" })).data.document.id as string;
+      const page = (
+        await h.call(USERS.editor, "POST", `spaces/${space}/documents`, {
+          title: "页面",
+          slug: "页面",
+          parentPath: "甲",
+          markdown: "[别的](./别的.md)\n"
+        })
+      ).data.document.id as string;
       await h.call(USERS.editor, "POST", `documents/${page}/move`, { slug: "新地址" });
       await h.call(USERS.editor, "POST", `documents/${page}/move`, { beforeId: null });
       expect((await h.call(USERS.reader, "GET", `documents/${page}`)).data.revision.no).toBe(1);
     });
 
     it("rewrites translations of a moved page too, without making a version", async () => {
-      await h.call(USERS.admin, "PATCH", "site", { defaultLang: "zh", locales: [{ lang: "zh", label: "简体中文" }, { lang: "en", label: "English" }] });
+      await h.call(USERS.admin, "PATCH", "site", {
+        defaultLang: "zh",
+        locales: [
+          { lang: "zh", label: "简体中文" },
+          { lang: "en", label: "English" }
+        ]
+      });
       await create("甲");
-      const page = (await h.call(USERS.editor, "POST", `spaces/${space}/documents`, { title: "页面", slug: "页面", parentPath: "甲", markdown: "[兄弟](./兄弟.md)\n" })).data.document.id as string;
-      await h.call(USERS.editor, "PUT", `documents/${page}/translations/en`, { title: "Page", markdown: "[Sibling](./兄弟.md)\n", sourceRevision: 1 });
+      const page = (
+        await h.call(USERS.editor, "POST", `spaces/${space}/documents`, {
+          title: "页面",
+          slug: "页面",
+          parentPath: "甲",
+          markdown: "[兄弟](./兄弟.md)\n"
+        })
+      ).data.document.id as string;
+      await h.call(USERS.editor, "PUT", `documents/${page}/translations/en`, {
+        title: "Page",
+        markdown: "[Sibling](./兄弟.md)\n",
+        sourceRevision: 1
+      });
       const target = await create("乙");
       await h.call(USERS.editor, "POST", `documents/${page}/move`, { parentId: target });
       const translation = (await h.call(USERS.reader, "GET", `documents/${page}/translations/en`)).data;
@@ -148,15 +260,38 @@ describe("managing the document tree", () => {
     });
 
     it("leaves a translation that had already fallen behind marked as behind", async () => {
-      await h.call(USERS.admin, "PATCH", "site", { defaultLang: "zh", locales: [{ lang: "zh", label: "简体中文" }, { lang: "en", label: "English" }] });
+      await h.call(USERS.admin, "PATCH", "site", {
+        defaultLang: "zh",
+        locales: [
+          { lang: "zh", label: "简体中文" },
+          { lang: "en", label: "English" }
+        ]
+      });
       await create("甲");
-      const page = (await h.call(USERS.editor, "POST", `spaces/${space}/documents`, { title: "页面", slug: "页面", parentPath: "甲", markdown: "[兄弟](./兄弟.md)\n" })).data.document.id as string;
-      await h.call(USERS.editor, "PUT", `documents/${page}/translations/en`, { title: "Page", markdown: "[Sibling](./兄弟.md)\n", sourceRevision: 1 });
-      await h.write(USERS.editor, "PUT", `documents/${page}/content`, { markdown: "[兄弟](./兄弟.md) 新内容\n", expectedRevision: 1 });
+      const page = (
+        await h.call(USERS.editor, "POST", `spaces/${space}/documents`, {
+          title: "页面",
+          slug: "页面",
+          parentPath: "甲",
+          markdown: "[兄弟](./兄弟.md)\n"
+        })
+      ).data.document.id as string;
+      await h.call(USERS.editor, "PUT", `documents/${page}/translations/en`, {
+        title: "Page",
+        markdown: "[Sibling](./兄弟.md)\n",
+        sourceRevision: 1
+      });
+      await h.write(USERS.editor, "PUT", `documents/${page}/content`, {
+        markdown: "[兄弟](./兄弟.md) 新内容\n",
+        expectedRevision: 1
+      });
       const target = await create("乙");
       await h.call(USERS.editor, "POST", `documents/${page}/move`, { parentId: target });
       expect((await h.call(USERS.reader, "GET", `documents/${page}`)).data.revision.no).toBe(3);
-      expect((await h.call(USERS.reader, "GET", `documents/${page}/translations/en`)).data).toMatchObject({ sourceRevision: 1, stale: true });
+      expect((await h.call(USERS.reader, "GET", `documents/${page}/translations/en`)).data).toMatchObject({
+        sourceRevision: 1,
+        stale: true
+      });
       await h.call(USERS.admin, "PATCH", "site", { locales: [{ lang: "zh", label: "简体中文" }] });
     });
 
@@ -165,10 +300,19 @@ describe("managing the document tree", () => {
         const parent = await create(`删除父页${round}`);
         const [, made] = await Promise.all([
           h.call(USERS.admin, "DELETE", `documents/${parent}?recursive=true`),
-          h.call(USERS.editor, "POST", `spaces/${space}/documents`, { title: "新子页", slug: "child", parentPath: `删除父页${round}`, markdown: "内容\n" })
+          h.call(USERS.editor, "POST", `spaces/${space}/documents`, {
+            title: "新子页",
+            slug: "child",
+            parentPath: `删除父页${round}`,
+            markdown: "内容\n"
+          })
         ]);
         // Either it was refused, or it went to the trash with the page above it.
-        if (made.status === 201) expect((await h.call(USERS.editor, "GET", `documents/${made.data.document.id}`)).status, `round ${round}`).toBe(404);
+        if (made.status === 201)
+          expect(
+            (await h.call(USERS.editor, "GET", `documents/${made.data.document.id}`)).status,
+            `round ${round}`
+          ).toBe(404);
         else expect(made.status, `round ${round}`).toBe(404);
       }
       const archive = await create("归档");
@@ -176,10 +320,19 @@ describe("managing the document tree", () => {
         const moving = await create(`移动父页${round}`);
         const [moved, made] = await Promise.all([
           h.call(USERS.admin, "POST", `documents/${moving}/move`, { parentId: archive }),
-          h.call(USERS.editor, "POST", `spaces/${space}/documents`, { title: "新子页", slug: "child", parentPath: `移动父页${round}`, markdown: "内容\n" })
+          h.call(USERS.editor, "POST", `spaces/${space}/documents`, {
+            title: "新子页",
+            slug: "child",
+            parentPath: `移动父页${round}`,
+            markdown: "内容\n"
+          })
         ]);
         expect(moved.status).toBe(200);
-        if (made.status === 201) expect((await h.call(USERS.editor, "GET", `documents/${made.data.document.id}`)).data.document.path, `round ${round}`).toBe(`归档/移动父页${round}/child`);
+        if (made.status === 201)
+          expect(
+            (await h.call(USERS.editor, "GET", `documents/${made.data.document.id}`)).data.document.path,
+            `round ${round}`
+          ).toBe(`归档/移动父页${round}/child`);
         else expect(made.status, `round ${round}`).toBe(404);
       }
     });
@@ -193,7 +346,8 @@ describe("managing the document tree", () => {
           h.call(USERS.editor, "POST", `documents/${late}/move`, { parentId: early })
         ]);
         for (const answer of answers) expect([200, 409, 422], JSON.stringify(answer.error)).toContain(answer.status);
-        for (const answer of answers.filter(item => item.status === 409)) expect(answer.error.code).toBe("CONCURRENT_CHANGE");
+        for (const answer of answers.filter(item => item.status === 409))
+          expect(answer.error.code).toBe("CONCURRENT_CHANGE");
         // Never a page under itself.
         const nodes = await tree();
         const [a, b] = [nodes.find(node => node.id === early)!, nodes.find(node => node.id === late)!];
@@ -210,7 +364,9 @@ describe("managing the document tree", () => {
       expect(await order()).toEqual(["三", "一", "二"]);
       await h.call(USERS.editor, "POST", `documents/${c}/move`, { beforeId: null });
       expect(await order()).toEqual(["一", "二", "三"]);
-      expect((await h.call(USERS.editor, "POST", `documents/${a}/move`, { beforeId: a })).error.code).toBe("MOVE_TARGET_INVALID");
+      expect((await h.call(USERS.editor, "POST", `documents/${a}/move`, { beforeId: a })).error.code).toBe(
+        "MOVE_TARGET_INVALID"
+      );
       await h.call(USERS.editor, "POST", `documents/${b}/move`, { parentId: a });
       expect(await order()).toEqual(["一", "三"]);
       expect(await order(a)).toEqual(["二"]);
@@ -219,7 +375,14 @@ describe("managing the document tree", () => {
     it("needs edit rights on the page and on where it goes", async () => {
       const id = await create("页面");
       expect((await h.call(USERS.commenter, "POST", `documents/${id}/move`, { slug: "x" })).status).toBe(403);
-      const locked = (await h.call(USERS.admin, "POST", `spaces/${space}/documents`, { title: "受限", slug: "locked", markdown: "x\n", restricted: true })).data.document.id as string;
+      const locked = (
+        await h.call(USERS.admin, "POST", `spaces/${space}/documents`, {
+          title: "受限",
+          slug: "locked",
+          markdown: "x\n",
+          restricted: true
+        })
+      ).data.document.id as string;
       expect((await h.call(USERS.editor, "POST", `documents/${id}/move`, { parentId: locked })).status).toBe(404);
     });
   });
@@ -236,7 +399,13 @@ describe("managing the document tree", () => {
 
       const trash = await h.call(USERS.editor, "GET", `spaces/${space}/trash`);
       expect(trash.data).toHaveLength(1);
-      expect(trash.data[0]).toMatchObject({ id: parent, title: "甲", path: "甲", descendants: 2, deletedName: USERS.editor.displayName });
+      expect(trash.data[0]).toMatchObject({
+        id: parent,
+        title: "甲",
+        path: "甲",
+        descendants: 2,
+        deletedName: USERS.editor.displayName
+      });
 
       expect((await h.call(USERS.editor, "POST", `documents/${parent}/restore`)).status).toBe(200);
       expect(await paths()).toEqual(["甲", "甲/乙", "甲/乙/丙"]);
@@ -248,22 +417,37 @@ describe("managing the document tree", () => {
       const child = await create("乙", "甲");
       await h.call(USERS.editor, "DELETE", `documents/${child}`);
       await h.call(USERS.editor, "DELETE", `documents/${parent}`);
-      expect((await h.call(USERS.editor, "POST", `documents/${child}/restore`)).data).toMatchObject({ path: "乙", parentId: null });
+      expect((await h.call(USERS.editor, "POST", `documents/${child}/restore`)).data).toMatchObject({
+        path: "乙",
+        parentId: null
+      });
 
       const again = await create("丙");
       await h.call(USERS.editor, "DELETE", `documents/${again}`);
       await create("丙");
-      expect((await h.call(USERS.editor, "POST", `documents/${again}/restore`)).data).toMatchObject({ path: "丙-2", slug: "丙-2" });
+      expect((await h.call(USERS.editor, "POST", `documents/${again}/restore`)).data).toMatchObject({
+        path: "丙-2",
+        slug: "丙-2"
+      });
     });
 
     it("keeps links and old addresses working when a page comes back somewhere else", async () => {
       const parent = await create("甲");
-      const page = (await h.call(USERS.editor, "POST", `spaces/${space}/documents`, { title: "页面", slug: "页面", parentPath: "甲", markdown: "[兄弟](./兄弟.md)\n" })).data.document.id as string;
+      const page = (
+        await h.call(USERS.editor, "POST", `spaces/${space}/documents`, {
+          title: "页面",
+          slug: "页面",
+          parentPath: "甲",
+          markdown: "[兄弟](./兄弟.md)\n"
+        })
+      ).data.document.id as string;
       await h.call(USERS.editor, "DELETE", `documents/${page}`);
       await h.call(USERS.editor, "DELETE", `documents/${parent}`);
       expect((await h.call(USERS.editor, "POST", `documents/${page}/restore`)).data.path).toBe("页面");
       expect((await h.call(USERS.reader, "GET", `documents/${page}`)).data.markdown).toBe("[兄弟](./甲/兄弟.md)\n");
-      expect((await h.call(USERS.reader, "GET", `spaces/${space}/resolve?path=${encodeURIComponent("甲/页面")}`)).data).toMatchObject({ id: page, path: "页面", redirected: true });
+      expect(
+        (await h.call(USERS.reader, "GET", `spaces/${space}/resolve?path=${encodeURIComponent("甲/页面")}`)).data
+      ).toMatchObject({ id: page, path: "页面", redirected: true });
     });
 
     it("empties the trash for an admin, and removes old pages only when a retention period is set", async () => {
@@ -282,7 +466,9 @@ describe("managing the document tree", () => {
       expect(await h.services.tree.sweepTrash(null)).toBe(0);
       expect((await h.call(USERS.admin, "GET", `spaces/${space}/trash`)).data).toHaveLength(2);
       expect(await h.services.tree.sweepTrash(30)).toBe(1);
-      expect((await h.call(USERS.admin, "GET", `spaces/${space}/trash`)).data.map((entry: { id: string }) => entry.id)).toEqual([recent]);
+      expect(
+        (await h.call(USERS.admin, "GET", `spaces/${space}/trash`)).data.map((entry: { id: string }) => entry.id)
+      ).toEqual([recent]);
       expect((await h.call(USERS.admin, "PATCH", "site", { trashRetentionDays: 30 })).data.trashRetentionDays).toBe(30);
       await h.call(USERS.admin, "PATCH", "site", { trashRetentionDays: null });
     });
@@ -300,7 +486,13 @@ describe("managing the document tree", () => {
 
     it("will not take a restricted page the person cannot edit along with its parent", async () => {
       const parent = await create("甲");
-      await h.call(USERS.admin, "POST", `spaces/${space}/documents`, { title: "受限", slug: "locked", parentPath: "甲", markdown: "x\n", restricted: true });
+      await h.call(USERS.admin, "POST", `spaces/${space}/documents`, {
+        title: "受限",
+        slug: "locked",
+        parentPath: "甲",
+        markdown: "x\n",
+        restricted: true
+      });
       expect((await h.call(USERS.editor, "DELETE", `documents/${parent}?recursive=true`)).status).toBe(403);
       expect((await h.call(USERS.admin, "DELETE", `documents/${parent}?recursive=true`)).status).toBe(200);
     });
@@ -313,15 +505,21 @@ describe("managing the document tree", () => {
       expect((await h.call(USERS.admin, "DELETE", `spaces/${space}`)).status).toBe(200);
       expect((await h.call(USERS.admin, "GET", `spaces/${space}`)).status).toBe(404);
       expect((await h.call(USERS.admin, "GET", `documents/${id}`)).status).toBe(404);
-      expect((await h.call(USERS.admin, "GET", "spaces")).data.map((item: { slug: string }) => item.slug)).not.toContain(space);
+      expect(
+        (await h.call(USERS.admin, "GET", "spaces")).data.map((item: { slug: string }) => item.slug)
+      ).not.toContain(space);
 
       expect((await h.call(USERS.editor, "GET", "deleted-spaces")).status).toBe(403);
-      const deleted = (await h.call(USERS.admin, "GET", "deleted-spaces")).data.find((item: { slug: string }) => item.slug === space);
+      const deleted = (await h.call(USERS.admin, "GET", "deleted-spaces")).data.find(
+        (item: { slug: string }) => item.slug === space
+      );
       expect(deleted).toMatchObject({ name: expect.stringContaining("目录"), deletedName: USERS.admin.displayName });
 
       // Its address is free while it is deleted, so restoring has to notice if it was taken.
       await h.call(USERS.admin, "POST", "spaces", { slug: space, name: "占用", defaultRole: "viewer" });
-      expect((await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`)).error.code).toBe("SPACE_SLUG_TAKEN");
+      expect((await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`)).error.code).toBe(
+        "SPACE_SLUG_TAKEN"
+      );
       await h.call(USERS.admin, "DELETE", `spaces/${space}`);
       expect((await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`)).status).toBe(200);
       expect((await h.call(USERS.admin, "GET", `documents/${id}`)).status).toBe(200);
@@ -330,25 +528,47 @@ describe("managing the document tree", () => {
     it("restores a deleted space at another address when a space made since has its own", async () => {
       const id = await create("甲");
       await h.call(USERS.admin, "DELETE", `spaces/${space}`);
-      const deleted = (await h.call(USERS.admin, "GET", "deleted-spaces")).data.find((item: { slug: string }) => item.slug === space);
+      const deleted = (await h.call(USERS.admin, "GET", "deleted-spaces")).data.find(
+        (item: { slug: string }) => item.slug === space
+      );
       await h.call(USERS.admin, "POST", "spaces", { slug: space, name: "占用", defaultRole: "viewer" });
-      expect((await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`)).error.code).toBe("SPACE_SLUG_TAKEN");
-      expect((await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`, { slug: space })).error.code).toBe("SPACE_SLUG_TAKEN");
-      expect((await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`, { slug: "Not An Address" })).status).toBe(422);
-      const restored = await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`, { slug: `${space}-back` });
+      expect((await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`)).error.code).toBe(
+        "SPACE_SLUG_TAKEN"
+      );
+      expect(
+        (await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`, { slug: space })).error.code
+      ).toBe("SPACE_SLUG_TAKEN");
+      expect(
+        (await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`, { slug: "Not An Address" })).status
+      ).toBe(422);
+      const restored = await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`, {
+        slug: `${space}-back`
+      });
       expect(restored.data).toMatchObject({ id: deleted.id, slug: `${space}-back` });
       expect((await h.call(USERS.admin, "GET", `documents/${id}`)).data.document.path).toBe("甲");
       expect((await h.call(USERS.admin, "GET", `spaces/${space}`)).data.name).toBe("占用");
     });
 
     it("shows names next to members when the directory knows them", async () => {
-      const named = createHarness(fixture.getConnectionString(), { directory: { search: async () => [], names: async ids => ids.filter(id => id === USERS.editor.id).map(id => ({ id, name: "林澈" })) } });
-      const members = (await named.call(USERS.admin, "GET", `spaces/${space}/members`)).data as { subject: string; name?: string }[];
+      const named = createHarness(fixture.getConnectionString(), {
+        directory: {
+          search: async () => [],
+          names: async ids => ids.filter(id => id === USERS.editor.id).map(id => ({ id, name: "林澈" }))
+        }
+      });
+      const members = (await named.call(USERS.admin, "GET", `spaces/${space}/members`)).data as {
+        subject: string;
+        name?: string;
+      }[];
       expect(members.find(member => member.subject === `user:${USERS.editor.id}`)?.name).toBe("林澈");
       expect(members.find(member => member.subject === `user:${USERS.commenter.id}`)?.name).toBeUndefined();
-      const record = (await named.call(USERS.admin, "GET", `spaces/${space}/audit?category=member`)).data as { detail: { subject: string; subjectName?: string } }[];
+      const record = (await named.call(USERS.admin, "GET", `spaces/${space}/audit?category=member`)).data as {
+        detail: { subject: string; subjectName?: string };
+      }[];
       expect(record.find(event => event.detail.subject === `user:${USERS.editor.id}`)?.detail.subjectName).toBe("林澈");
-      expect(record.find(event => event.detail.subject === `user:${USERS.commenter.id}`)?.detail.subjectName).toBeUndefined();
+      expect(
+        record.find(event => event.detail.subject === `user:${USERS.commenter.id}`)?.detail.subjectName
+      ).toBeUndefined();
       await named.close();
     });
   });
@@ -356,39 +576,79 @@ describe("managing the document tree", () => {
   describe("the record of what happened", () => {
     it("names who did what to which page, per space and by category", async () => {
       const id = await create("甲");
-      await h.call(USERS.commenter, "POST", `documents/${id}/threads`, { anchor: { kind: "document" }, body: "一条评论" });
+      await h.call(USERS.commenter, "POST", `documents/${id}/threads`, {
+        anchor: { kind: "document" },
+        body: "一条评论"
+      });
       await h.call(USERS.editor, "POST", `documents/${id}/move`, { slug: "乙" });
 
       expect((await h.call(USERS.editor, "GET", `spaces/${space}/audit`)).status).toBe(403);
-      const all = (await h.call(USERS.admin, "GET", `spaces/${space}/audit`)).data as { id: string; action: string; actorName: string; documentTitle: string | null; documentPath: string | null }[];
-      expect(all[0]).toMatchObject({ action: "document.move", actorName: USERS.editor.displayName, documentTitle: "甲", documentPath: "乙" });
-      expect(all.find(event => event.action === "thread.create")).toMatchObject({ actorName: USERS.commenter.displayName, documentTitle: "甲" });
+      const all = (await h.call(USERS.admin, "GET", `spaces/${space}/audit`)).data as {
+        id: string;
+        action: string;
+        actorName: string;
+        documentTitle: string | null;
+        documentPath: string | null;
+      }[];
+      expect(all[0]).toMatchObject({
+        action: "document.move",
+        actorName: USERS.editor.displayName,
+        documentTitle: "甲",
+        documentPath: "乙"
+      });
+      expect(all.find(event => event.action === "thread.create")).toMatchObject({
+        actorName: USERS.commenter.displayName,
+        documentTitle: "甲"
+      });
       expect(all.at(-1)).toMatchObject({ action: "space.create" });
 
-      const discussion = (await h.call(USERS.admin, "GET", `spaces/${space}/audit?category=discussion`)).data as { action: string }[];
+      const discussion = (await h.call(USERS.admin, "GET", `spaces/${space}/audit?category=discussion`)).data as {
+        action: string;
+      }[];
       expect(discussion.map(event => event.action)).toEqual(["thread.create"]);
-      const members = (await h.call(USERS.admin, "GET", `spaces/${space}/audit?category=member`)).data as { action: string }[];
+      const members = (await h.call(USERS.admin, "GET", `spaces/${space}/audit?category=member`)).data as {
+        action: string;
+      }[];
       expect(members.map(event => event.action)).toEqual(["space.member.set", "space.member.set"]);
       expect((await h.call(USERS.admin, "GET", `spaces/${space}/audit?category=nope`)).status).toBe(422);
 
-      const page = (await h.call(USERS.admin, "GET", `spaces/${space}/audit?limit=1&before=${all[0]!.id}`)).data as { id: string }[];
+      const page = (await h.call(USERS.admin, "GET", `spaces/${space}/audit?limit=1&before=${all[0]!.id}`)).data as {
+        id: string;
+      }[];
       expect(page).toEqual([expect.objectContaining({ id: all[1]!.id })]);
     });
 
     it("has a whole-site view for administrators only", async () => {
       expect((await h.call(USERS.editor, "GET", "audit")).status).toBe(403);
       await h.call(USERS.admin, "PATCH", "site", { title: "站点" });
-      expect((await h.call(USERS.admin, "GET", "audit?category=space")).data[0]).toMatchObject({ action: "site.update" });
+      expect((await h.call(USERS.admin, "GET", "audit?category=space")).data[0]).toMatchObject({
+        action: "site.update"
+      });
     });
   });
 
   describe("export", () => {
     it("gives the Markdown as written, the images it uses, and what Markdown cannot hold", async () => {
-      const image = new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"));
+      const image = new Uint8Array(
+        Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+          "base64"
+        )
+      );
       const asset = await h.call(USERS.editor, "POST", `spaces/${space}/assets?filename=a.png`, image);
       await create("甲");
-      await h.call(USERS.editor, "POST", `spaces/${space}/documents`, { title: "乙", slug: "乙", parentPath: "甲", markdown: `![图](${asset.data.path})\n` });
-      await h.call(USERS.admin, "POST", `spaces/${space}/documents`, { title: "受限", slug: "locked", markdown: "秘密\n", restricted: true });
+      await h.call(USERS.editor, "POST", `spaces/${space}/documents`, {
+        title: "乙",
+        slug: "乙",
+        parentPath: "甲",
+        markdown: `![图](${asset.data.path})\n`
+      });
+      await h.call(USERS.admin, "POST", `spaces/${space}/documents`, {
+        title: "受限",
+        slug: "locked",
+        markdown: "秘密\n",
+        restricted: true
+      });
 
       const { response } = await h.call(USERS.reader, "GET", `spaces/${space}/export`);
       expect(response.status).toBe(200);
@@ -397,10 +657,12 @@ describe("managing the document tree", () => {
       expect(Object.keys(files).sort()).toEqual(["manifest.json", asset.data.path, "甲.md", "甲/乙.md"].sort());
       expect(new TextDecoder().decode(files["甲/乙.md"])).toBe(`![图](${asset.data.path})\n`);
       expect(files[asset.data.path]).toEqual(image);
-      const manifest = JSON.parse(new TextDecoder().decode(files["manifest.json"])) as { documents: { file: string; title: string; parent: string | null }[]; missingAssets: string[] };
+      const manifest = JSON.parse(new TextDecoder().decode(files["manifest.json"])) as {
+        documents: { file: string; title: string; parent: string | null }[];
+        missingAssets: string[];
+      };
       expect(manifest.documents.find(item => item.file === "甲/乙.md")).toMatchObject({ title: "乙", parent: "甲" });
       expect(manifest.missingAssets).toEqual([]);
     });
   });
 });
-

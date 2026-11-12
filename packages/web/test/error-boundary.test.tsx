@@ -15,7 +15,9 @@ describe("a part of a page that cannot be drawn", () => {
     render(
       <main>
         <p>The text being read</p>
-        <ErrorBoundary area="A panel" fallback={<p>The panel could not be shown</p>}><Broken /></ErrorBoundary>
+        <ErrorBoundary area="A panel" fallback={<p>The panel could not be shown</p>}>
+          <Broken />
+        </ErrorBoundary>
       </main>
     );
     expect(screen.getByText("The text being read")).toBeTruthy();

@@ -9,6 +9,10 @@ export function blocksOf(doc: JSONContent, serialize: (doc: JSONContent) => stri
 }
 
 /** Untouched blocks keep their original bytes, so a one-line edit stays a one-line diff. If the source and the editor disagree on what the blocks are, the whole document is rewritten. */
-export function writeBackBlocks(source: readonly string[], baseline: readonly string[], current: readonly string[]): string {
+export function writeBackBlocks(
+  source: readonly string[],
+  baseline: readonly string[],
+  current: readonly string[]
+): string {
   return joinBlocks(source.length === baseline.length ? spliceBlocks(source, baseline, current) : current);
 }

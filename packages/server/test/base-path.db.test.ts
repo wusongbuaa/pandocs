@@ -32,24 +32,50 @@ describe("a site below a path of another site's", () => {
     const root = await visitor.request("/");
     expect(root.status).toBe(302);
     expect(root.headers.get("location")).toBe("/docs/");
-    for (const path of ["/.well-known/oauth-authorization-server/docs", "/docs/.well-known/oauth-authorization-server"]) {
+    for (const path of [
+      "/.well-known/oauth-authorization-server/docs",
+      "/docs/.well-known/oauth-authorization-server"
+    ]) {
       expect((await (await visitor.request(path)).json()).issuer).toBe(SITE);
     }
-    expect((await (await visitor.request("/.well-known/oauth-protected-resource/docs/mcp")).json())).toMatchObject({ resource: `${SITE}/mcp`, authorization_servers: [SITE] });
-    const mcp = await visitor.request("/docs/mcp", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-    expect(mcp.headers.get("www-authenticate")).toBe(`Bearer resource_metadata="${SITE}/.well-known/oauth-protected-resource/mcp"`);
+    expect(await (await visitor.request("/.well-known/oauth-protected-resource/docs/mcp")).json()).toMatchObject({
+      resource: `${SITE}/mcp`,
+      authorization_servers: [SITE]
+    });
+    const mcp = await visitor.request("/docs/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}"
+    });
+    expect(mcp.headers.get("www-authenticate")).toBe(
+      `Bearer resource_metadata="${SITE}/.well-known/oauth-protected-resource/mcp"`
+    );
   });
 
   it("sends people to sign in and back below its path", async () => {
     await admin.json("POST", "/docs/api/v1/spaces", { slug: "handbook", name: "手册", defaultRole: "viewer" });
-    await admin.json("POST", "/docs/api/v1/spaces/handbook/documents", { title: "Guide", slug: "guide", markdown: "Words.\n" });
+    await admin.json("POST", "/docs/api/v1/spaces/handbook/documents", {
+      title: "Guide",
+      slug: "guide",
+      markdown: "Words.\n"
+    });
     const visitor = server.client();
     const page = await visitor.request("/docs/handbook/guide");
     expect(page.status).toBe(302);
     expect(page.headers.get("location")).toBe(`/docs/login?${new URLSearchParams({ next: "/handbook/guide" })}`);
     const login = await (await visitor.request("/docs/login?next=%2Fhandbook%2Fguide")).text();
-    for (const address of ['action="/docs/login"', 'href="/docs/forgot-password"', 'href="/docs/favicon.ico"', 'src="/docs/logo.svg"']) expect(login).toContain(address);
-    const signedIn = await visitor.form("/docs/login", { email: ADMIN.email, password: ADMIN.password, next: "/handbook/guide" });
+    for (const address of [
+      'action="/docs/login"',
+      'href="/docs/forgot-password"',
+      'href="/docs/favicon.ico"',
+      'src="/docs/logo.svg"'
+    ])
+      expect(login).toContain(address);
+    const signedIn = await visitor.form("/docs/login", {
+      email: ADMIN.email,
+      password: ADMIN.password,
+      next: "/handbook/guide"
+    });
     expect(signedIn.headers.get("location")).toBe("/docs/handbook/guide");
     expect(signedIn.headers.get("set-cookie")).toContain("Path=/docs;");
     expect((await visitor.json("GET", "/docs/api/v1/bootstrap")).data.site.logoutUrl).toBe("/docs/logout");
@@ -58,7 +84,10 @@ describe("a site below a path of another site's", () => {
   });
 
   it("names its own addresses with its path wherever they leave the browser", async () => {
-    const invited = await admin.json("POST", "/docs/api/v1/admin/users", { email: "new@example.test", displayName: "新人" });
+    const invited = await admin.json("POST", "/docs/api/v1/admin/users", {
+      email: "new@example.test",
+      displayName: "新人"
+    });
     const link = invited.data.passwordLink.url as string;
     expect(link.startsWith(`${SITE}/set-password/`)).toBe(true);
     const choose = await (await server.client().request(new URL(link).pathname)).text();
@@ -89,7 +118,15 @@ describe("where the site's files are named from", () => {
 
   it("is the site's path, at any depth of page", () => {
     const below = placeBelow(built, "/docs");
-    for (const address of ['content="/docs/assets/katex-1.css"', 'href="/docs/favicon.ico"', 'src="/docs/theme-init.js"', 'src="/docs/assets/index-1.js"', 'href="/docs/assets/app-1.css"', 'href="https://cdn.example.test/x.css"', '<meta name="pandocs-base" content="/docs" />']) {
+    for (const address of [
+      'content="/docs/assets/katex-1.css"',
+      'href="/docs/favicon.ico"',
+      'src="/docs/theme-init.js"',
+      'src="/docs/assets/index-1.js"',
+      'href="/docs/assets/app-1.css"',
+      'href="https://cdn.example.test/x.css"',
+      '<meta name="pandocs-base" content="/docs" />'
+    ]) {
       expect(below).toContain(address);
     }
     const atRoot = placeBelow(built, "");
@@ -104,13 +141,21 @@ describe("where the site's files are named from", () => {
     expect(insidePath("/docsy/guide", "/docs")).toBeNull();
     expect(insidePath("/handbook", "/docs")).toBeNull();
     expect(insidePath("/readyz", "/docs")).toBe("/readyz");
-    expect(insidePath("/.well-known/oauth-protected-resource/docs/mcp", "/docs")).toBe("/.well-known/oauth-protected-resource/mcp");
+    expect(insidePath("/.well-known/oauth-protected-resource/docs/mcp", "/docs")).toBe(
+      "/.well-known/oauth-protected-resource/mcp"
+    );
   });
 
   it("comes from PANDOCS_URL, which can only have plain segments", () => {
     const env = { DATABASE_URL: "postgres://x/y" };
-    expect(readConfig({ ...env, PANDOCS_URL: "https://example.test/docs/" })).toMatchObject({ basePath: "/docs", siteUrl: "https://example.test/docs" });
-    expect(readConfig({ ...env, PANDOCS_URL: "https://example.test" })).toMatchObject({ basePath: "", siteUrl: "https://example.test" });
+    expect(readConfig({ ...env, PANDOCS_URL: "https://example.test/docs/" })).toMatchObject({
+      basePath: "/docs",
+      siteUrl: "https://example.test/docs"
+    });
+    expect(readConfig({ ...env, PANDOCS_URL: "https://example.test" })).toMatchObject({
+      basePath: "",
+      siteUrl: "https://example.test"
+    });
     expect(() => readConfig({ ...env, PANDOCS_URL: "https://example.test/docs?x=1" })).toThrow(/no query/u);
     expect(() => readConfig({ ...env, PANDOCS_URL: "https://example.test/my docs" })).toThrow(/plain segments/u);
   });

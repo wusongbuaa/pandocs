@@ -2,7 +2,8 @@
  * Maps the reader's DOM onto the server's coordinates: offsets count non-whitespace characters of the
  * visible text. Decoration such as buttons and captions carries `data-pandocs-nontext` and is skipped.
  */
-const EXCLUDED = "[data-pandocs-nontext], button, svg, style, script, .rp-header-anchor, .rp-codeblock__title, .rp-llms-container, .rp-prompt__header, .katex, .katex-error";
+const EXCLUDED =
+  "[data-pandocs-nontext], button, svg, style, script, .rp-header-anchor, .rp-codeblock__title, .rp-llms-container, .rp-prompt__header, .katex, .katex-error";
 const WHITESPACE = /\s/u;
 
 export interface TextSegment {
@@ -48,7 +49,8 @@ export function offsetAt(map: TextMap, root: Element, container: Node, offset: n
   boundary.collapse(true);
   let count = 0;
   for (const segment of map.segments) {
-    if (segment.node === container) return segment.start + nonWhitespaceLength((segment.node.nodeValue ?? "").slice(0, offset));
+    if (segment.node === container)
+      return segment.start + nonWhitespaceLength((segment.node.nodeValue ?? "").slice(0, offset));
     if (boundary.comparePoint(segment.node, 0) >= 0) break;
     count = segment.end;
   }
@@ -59,7 +61,10 @@ export function rangeFor(map: TextMap, root: Element, start: number, end: number
   if (end <= start) return null;
   const locate = (target: number, edge: "start" | "end"): { node: Text; offset: number } | null => {
     for (const segment of map.segments) {
-      const inside = edge === "start" ? target >= segment.start && target < segment.end : target > segment.start && target <= segment.end;
+      const inside =
+        edge === "start"
+          ? target >= segment.start && target < segment.end
+          : target > segment.start && target <= segment.end;
       if (!inside) continue;
       const text = segment.node.nodeValue ?? "";
       let seen = segment.start;
@@ -98,5 +103,10 @@ export function captureSelection(root: Element, selection: Selection | null): Ca
   if (end <= start) return null;
   const exact = selection.toString().trim();
   if (!exact) return null;
-  return { start, end, exact, rect: typeof range.getBoundingClientRect === "function" ? range.getBoundingClientRect() : null };
+  return {
+    start,
+    end,
+    exact,
+    rect: typeof range.getBoundingClientRect === "function" ? range.getBoundingClientRect() : null
+  };
 }

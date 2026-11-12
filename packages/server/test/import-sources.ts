@@ -4,8 +4,15 @@ import { strToU8, zipSync, type Zippable } from "fflate";
  * Exports written by hand, in the layout the tools are known to produce: not taken from real ones. Real exports are the one
  * thing these cannot stand in for, which is said wherever importing is described.
  */
-export const PNG = new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"));
-export const OTHER_PNG = new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64"));
+export const PNG = new Uint8Array(
+  Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64"
+  )
+);
+export const OTHER_PNG = new Uint8Array(
+  Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64")
+);
 const PDF = strToU8("%PDF-1.4\n%%EOF\n");
 
 const HANDBOOK = "0123456789abcdef0123456789abcde0";
@@ -61,23 +68,34 @@ Read the [Terms.pdf](Handbook/Terms.pdf) before you start.
     "Private & Shared/Handbook/Policy.pdf": PDF,
     "Private & Shared/Handbook/Terms.pdf": PDF,
     "Private & Shared/Handbook/Unused.png": OTHER_PNG,
-    [`Private & Shared/Handbook/Returns ${RETURNS}.md`]: text(`# Returns\n\nSeven days. Back to the [Handbook](../Handbook%20${HANDBOOK}.md).\n\nSee [Refund](Returns/Refund%20${REFUND}.md#how).\n`),
+    [`Private & Shared/Handbook/Returns ${RETURNS}.md`]: text(
+      `# Returns\n\nSeven days. Back to the [Handbook](../Handbook%20${HANDBOOK}.md).\n\nSee [Refund](Returns/Refund%20${REFUND}.md#how).\n`
+    ),
     [`Private & Shared/Handbook/Returns/Refund ${REFUND}.md`]: text("# Refund\n\nThree days.\n"),
     // Two pages of one name: the folder of the second says which it is.
     [`Private & Shared/Handbook/Returns/Refund ${REFUND_TWIN}.md`]: text("# Refund\n\nThe other one.\n"),
-    [`Private & Shared/Handbook/Returns/Refund ${REFUND_TWIN.slice(0, 4)}-${REFUND_TWIN.slice(-4)}/Detail ${ROW}.md`]: text("# Detail\n\nBelow the second refund.\n"),
+    [`Private & Shared/Handbook/Returns/Refund ${REFUND_TWIN.slice(0, 4)}-${REFUND_TWIN.slice(-4)}/Detail ${ROW}.md`]:
+      text("# Detail\n\nBelow the second refund.\n"),
     [`Private & Shared/Orders ${ORDERS}.csv`]: text("Name,Status\nA,Open\n"),
     [`Private & Shared/Orders ${ORDERS}_all.csv`]: text("Name,Status,Owner\nA,Open,Ana\nB|C,Done,Ben\n"),
-    [`Private & Shared/Orders ${ORDERS}/First order ${"7123456789abcdef0123456789abcde7"}.md`]: text("# First order\n\nStatus: Open\n"),
+    [`Private & Shared/Orders ${ORDERS}/First order ${"7123456789abcdef0123456789abcde7"}.md`]: text(
+      "# First order\n\nStatus: Open\n"
+    ),
     [`Private & Shared/退货说明 ${NOTE_CN}.md`]: text("# 退货说明\n\n七天。\n"),
-    "Private & Shared/Just a folder/Loose page 8123456789abcdef0123456789abcde8.md": text("Has no heading of its own.\n"),
+    "Private & Shared/Just a folder/Loose page 8123456789abcdef0123456789abcde8.md":
+      text("Has no heading of its own.\n"),
     ".DS_Store": text("x"),
     "__MACOSX/._x": text("x")
   };
   return zipSync(files, { mtime: new Date("2026-01-01T00:00:00Z") });
 }
 
-const pageHtml = (title: string, crumbs: readonly (readonly [string, string])[], main: string, attachments = "") => `<!DOCTYPE html>
+const pageHtml = (
+  title: string,
+  crumbs: readonly (readonly [string, string])[],
+  main: string,
+  attachments = ""
+) => `<!DOCTYPE html>
 <html><head><title>Docs : ${title}</title><link rel="stylesheet" href="styles/site.css"></head>
 <body class="theme-default aui-theme-default"><div id="page"><div id="main" class="aui-page-panel">
 <div id="main-header"><div id="breadcrumb-section"><ol id="breadcrumbs">
@@ -113,7 +131,8 @@ export function confluenceExport(more: { readonly html?: string; readonly files?
 <img src="images/icons/bullet_blue.gif" height="8" width="8" alt=""/> <a href="attachments/1/11.pdf">Handbook.pdf</a> (application/pdf)<br/>
 <img src="images/icons/bullet_blue.gif" height="8" width="8" alt=""/> <a href="attachments/1/12.pdf">Extra.pdf</a> (application/pdf)<br/></div></div>`;
   const files: Zippable = {
-    "DOCS/index.html": text(`<!DOCTYPE html><html><head><title>Docs : Docs Home</title></head><body><div id="main-content" class="pageSection">
+    "DOCS/index.html":
+      text(`<!DOCTYPE html><html><head><title>Docs : Docs Home</title></head><body><div id="main-content" class="pageSection">
 <h2>Space Details:</h2><table class="confluenceTable"><tr><th>Key</th><td>DOCS</td></tr></table>
 <h2>Available Pages:</h2>
 <ul><li><img src="images/icons/contenttypes/home_page_16.png"> <a href="Docs-Home_1.html">Docs Home</a>
@@ -121,11 +140,35 @@ export function confluenceExport(more: { readonly html?: string; readonly files?
 </div></body></html>`),
     "DOCS/Docs-Home_1.html": text(pageHtml("Docs Home", [], home, listed)),
     "DOCS/Setup_2.html": text(pageHtml("Setup", [["Docs-Home_1.html", "Docs Home"]], "<p>Install it.</p>")),
-    "DOCS/Linux_3.html": text(pageHtml("Linux", [["Docs-Home_1.html", "Docs Home"], ["Setup_2.html", "Setup"]], `<p>Then see <a href="Guide_4.html">the guide</a>.</p>`)),
-    "DOCS/Guide_4.html": text(pageHtml("Guide", [["Docs-Home_1.html", "Docs Home"]], `<h2 id="Guide-Basics">Basics</h2><p>Back to <a href="Docs-Home_1.html">home</a>.</p>`)),
+    "DOCS/Linux_3.html": text(
+      pageHtml(
+        "Linux",
+        [
+          ["Docs-Home_1.html", "Docs Home"],
+          ["Setup_2.html", "Setup"]
+        ],
+        `<p>Then see <a href="Guide_4.html">the guide</a>.</p>`
+      )
+    ),
+    "DOCS/Guide_4.html": text(
+      pageHtml(
+        "Guide",
+        [["Docs-Home_1.html", "Docs Home"]],
+        `<h2 id="Guide-Basics">Basics</h2><p>Back to <a href="Docs-Home_1.html">home</a>.</p>`
+      )
+    ),
     "DOCS/6.html": text(pageHtml("中文页面", [["Docs-Home_1.html", "Docs Home"]], "<p>内容。</p>")),
     // Not in the index: placed by its breadcrumbs.
-    "DOCS/Windows_5.html": text(pageHtml("Windows", [["Docs-Home_1.html", "Docs Home"], ["Setup_2.html", "Setup"]], "<p>Use the setup program.</p>")),
+    "DOCS/Windows_5.html": text(
+      pageHtml(
+        "Windows",
+        [
+          ["Docs-Home_1.html", "Docs Home"],
+          ["Setup_2.html", "Setup"]
+        ],
+        "<p>Use the setup program.</p>"
+      )
+    ),
     "DOCS/attachments/1/10.png": PNG,
     "DOCS/attachments/1/11.pdf": PDF,
     "DOCS/attachments/1/12.pdf": PDF,

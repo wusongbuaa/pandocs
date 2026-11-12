@@ -21,26 +21,48 @@ describe("the language of an answer", () => {
   let admin: Client;
 
   beforeAll(async () => {
-    server = await startServer(postgres.getConnectionString(), {}, { processors: [createExtractProcessor(extractToMarkdown)] });
+    server = await startServer(
+      postgres.getConnectionString(),
+      {},
+      { processors: [createExtractProcessor(extractToMarkdown)] }
+    );
     admin = await signInFirstAdmin(server);
     await admin.json("POST", "/api/v1/spaces", { slug: "shop", name: "Shop", defaultRole: "viewer" });
   });
   afterAll(() => server.close());
 
   it("is English unless a request asks for something else", async () => {
-    expect((await admin.json("GET", "/api/v1/spaces/nowhere")).error.message).toBe("Space not found, or you have no access to it");
-    expect((await admin.json("GET", "/api/v1/spaces/nowhere", undefined, IN_CHINESE)).error.message).toBe("空间不存在或没有访问权限");
-    expect((await admin.json("GET", "/api/v1/spaces/nowhere", undefined, { "accept-language": "fr" })).error.message).toBe("Space not found, or you have no access to it");
+    expect((await admin.json("GET", "/api/v1/spaces/nowhere")).error.message).toBe(
+      "Space not found, or you have no access to it"
+    );
+    expect((await admin.json("GET", "/api/v1/spaces/nowhere", undefined, IN_CHINESE)).error.message).toBe(
+      "空间不存在或没有访问权限"
+    );
+    expect(
+      (await admin.json("GET", "/api/v1/spaces/nowhere", undefined, { "accept-language": "fr" })).error.message
+    ).toBe("Space not found, or you have no access to it");
   });
 
   it("does not carry over from one request to the next", async () => {
-    const asked = await Promise.all(Array.from({ length: 20 }, (_, index) =>
-      admin.json("GET", "/api/v1/spaces/nowhere", undefined, index % 2 ? IN_CHINESE : {})));
-    asked.forEach((answer, index) => expect(answer.error.message).toBe(index % 2 ? "空间不存在或没有访问权限" : "Space not found, or you have no access to it"));
+    const asked = await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        admin.json("GET", "/api/v1/spaces/nowhere", undefined, index % 2 ? IN_CHINESE : {})
+      )
+    );
+    asked.forEach((answer, index) =>
+      expect(answer.error.message).toBe(
+        index % 2 ? "空间不存在或没有访问权限" : "Space not found, or you have no access to it"
+      )
+    );
   });
 
   it("covers what was asked for through a message built from parts", async () => {
-    const { error } = await admin.json("POST", "/api/v1/spaces", { slug: "shop", name: "Again", defaultRole: "viewer" }, IN_CHINESE);
+    const { error } = await admin.json(
+      "POST",
+      "/api/v1/spaces",
+      { slug: "shop", name: "Again", defaultRole: "viewer" },
+      IN_CHINESE
+    );
     expect(error.message).toBe("空间 shop 已存在");
   });
 
@@ -55,7 +77,12 @@ describe("the language of an answer", () => {
       { path: [], message: "Unknown field: bogus" }
     ]);
     const chinese = await admin.json("PATCH", "/api/v1/site", wrong, IN_CHINESE);
-    expect(chinese.error.details.map(({ message }: { message: string }) => message)).toEqual(["必填", "只能是以下之一：zh、en、ja、ko、ru、ta", "不能小于 1", "不支持的字段：bogus"]);
+    expect(chinese.error.details.map(({ message }: { message: string }) => message)).toEqual([
+      "必填",
+      "只能是以下之一：zh、en、ja、ko、ru、ta",
+      "不能小于 1",
+      "不支持的字段：bogus"
+    ]);
   });
 
   it("covers the login page", async () => {
@@ -70,20 +97,42 @@ describe("the language of an answer", () => {
   });
 
   it("reports problems with a page to each reader in their own language, even though the analysis is kept", async () => {
-    const { data } = await admin.json("POST", "/api/v1/spaces/shop/documents", { title: "Odd", slug: "odd", markdown: ":::no-such-block\n\nx\n\n:::\n\n:::note{tone=\"loud\"}\n\ny\n\n:::\n" });
+    const { data } = await admin.json("POST", "/api/v1/spaces/shop/documents", {
+      title: "Odd",
+      slug: "odd",
+      markdown: ':::no-such-block\n\nx\n\n:::\n\n:::note{tone="loud"}\n\ny\n\n:::\n'
+    });
     const id = data.document.id as string;
-    const said = async (headers?: Record<string, string>) => ((await admin.json("GET", `/api/v1/documents/${id}`, undefined, headers)).data.diagnostics as { message: string }[]).map(({ message }) => message);
-    expect(await said()).toEqual([expect.stringContaining("Unknown block"), expect.stringContaining("Must be one of: note, tip")]);
-    expect(await said(IN_CHINESE)).toEqual([expect.stringContaining("不认识的块"), expect.stringContaining("只能是以下之一：note、tip")]);
-    expect(await said()).toEqual([expect.stringContaining("Unknown block"), expect.stringContaining("Must be one of: note, tip")]);
+    const said = async (headers?: Record<string, string>) =>
+      (
+        (await admin.json("GET", `/api/v1/documents/${id}`, undefined, headers)).data.diagnostics as {
+          message: string;
+        }[]
+      ).map(({ message }) => message);
+    expect(await said()).toEqual([
+      expect.stringContaining("Unknown block"),
+      expect.stringContaining("Must be one of: note, tip")
+    ]);
+    expect(await said(IN_CHINESE)).toEqual([
+      expect.stringContaining("不认识的块"),
+      expect.stringContaining("只能是以下之一：note、tip")
+    ]);
+    expect(await said()).toEqual([
+      expect.stringContaining("Unknown block"),
+      expect.stringContaining("Must be one of: note, tip")
+    ]);
   });
 
   it("reports a background job's results in the language of whoever started it", async () => {
     const form = new FormData();
     form.set("file", new File([blankPdf() as BlobPart], "scan.pdf", { type: "application/octet-stream" }));
     form.set("target", "{}");
-    const started = await admin.request("/api/v1/spaces/shop/imports", { method: "POST", body: form, headers: IN_CHINESE });
-    const { data: job } = await started.json() as { data: { id: string } };
+    const started = await admin.request("/api/v1/spaces/shop/imports", {
+      method: "POST",
+      body: form,
+      headers: IN_CHINESE
+    });
+    const { data: job } = (await started.json()) as { data: { id: string } };
     // Nothing about this tick is in that person's request.
     let done = null;
     for (let attempt = 0; attempt < 200 && !done; attempt += 1) {
@@ -108,7 +157,9 @@ describe("a conversion on its own thread", () => {
         bundle: true,
         platform: "node",
         format: "esm",
-        banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" },
+        banner: {
+          js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);"
+        },
         logLevel: "silent"
       });
       const extract = extractInWorker(pathToFileURL(outfile));
@@ -131,7 +182,14 @@ describe("mail", () => {
       users: { findById: async () => ({ email: "ana@example.test", status: "active" }) } as never,
       send: async message => sent.push(message as never)
     });
-    const event = { kind: "mention", recipientId: "u", actorName: "Ben", documentTitle: "Guide", summary: "Look", location: "shop/guide" } as never;
+    const event = {
+      kind: "mention",
+      recipientId: "u",
+      actorName: "Ben",
+      documentTitle: "Guide",
+      summary: "Look",
+      location: "shop/guide"
+    } as never;
     await notifier.notify(event);
     await inLanguage("zh", () => notifier.notify(event));
     expect(sent[0]!.subject).toBe('Ben mentioned you in "Guide"');
@@ -148,11 +206,22 @@ describe("mail", () => {
       users: { findById: async () => ({ email: "ana@example.test", status: "active" }) } as never,
       send: async message => sent.push(message as never)
     });
-    const event = { recipientId: "u", actorName: "Ben", documentId: "d", documentTitle: "<Guide>", summary: "", location: "shop/guide" };
+    const event = {
+      recipientId: "u",
+      actorName: "Ben",
+      documentId: "d",
+      documentTitle: "<Guide>",
+      summary: "",
+      location: "shop/guide"
+    };
     await notifier.notify({ ...event, kind: "reply" });
     await notifier.notify({ ...event, kind: "proposal_decided" });
     await notifier.notify({ ...event, kind: "page_updated" });
-    await notifier.notify({ ...event, kind: "page_updated", alsoUpdated: [{ documentTitle: "<b>Other</b>", location: "shop/other" }] });
+    await notifier.notify({
+      ...event,
+      kind: "page_updated",
+      alsoUpdated: [{ documentTitle: "<b>Other</b>", location: "shop/other" }]
+    });
     expect(sent.map(message => message.subject)).toEqual([
       'Ben replied in "<Guide>"',
       'Ben decided on a suggestion for "<Guide>"',

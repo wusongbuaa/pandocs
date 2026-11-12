@@ -26,19 +26,23 @@ export default function MindmapChart({ root, movable = false, onPickHeading }: M
     const element = svg.current!;
     // Markmap fits with this measure, which a scaled ancestor such as a slide inflates.
     element.getBoundingClientRect = () => new DOMRect(0, 0, element.clientWidth, element.clientHeight);
-    const markmap = Markmap.create(element, {
-      autoFit: true,
-      duration: 200,
-      zoom: movable,
-      pan: movable,
-      maxInitialScale: 1.5,
-      maxWidth: 320,
-      paddingX: 10,
-      spacingHorizontal: 72,
-      spacingVertical: 10,
-      lineWidth: () => 1.5,
-      color: node => (node.state.depth <= 2 ? "var(--rp-c-brand)" : "var(--rp-c-text-3)")
-    }, toMarkmapData(root));
+    const markmap = Markmap.create(
+      element,
+      {
+        autoFit: true,
+        duration: 200,
+        zoom: movable,
+        pan: movable,
+        maxInitialScale: 1.5,
+        maxWidth: 320,
+        paddingX: 10,
+        spacingHorizontal: 72,
+        spacingVertical: 10,
+        lineWidth: () => 1.5,
+        color: node => (node.state.depth <= 2 ? "var(--rp-c-brand)" : "var(--rp-c-text-3)")
+      },
+      toMarkmapData(root)
+    );
     // A map on a slide that is not showing yet has no size to fit into.
     const resized = new ResizeObserver(() => {
       if (element.clientWidth > 0) void markmap.fit();
@@ -50,9 +54,18 @@ export default function MindmapChart({ root, movable = false, onPickHeading }: M
     };
   }, [movable, root]);
   const pick = (event: React.MouseEvent) => {
-    const group = (event.target as Element).closest(".markmap-foreign")?.closest(".markmap-node") as (Element & { __data__?: { payload?: { headingId?: string } } }) | null | undefined;
+    const group = (event.target as Element).closest(".markmap-foreign")?.closest(".markmap-node") as
+      | (Element & { __data__?: { payload?: { headingId?: string } } })
+      | null
+      | undefined;
     const headingId = group?.__data__?.payload?.headingId;
     if (headingId) onPickHeading?.(headingId);
   };
-  return <svg ref={svg} className={onPickHeading ? "pd-mindmap__chart pd-mindmap__chart--links" : "pd-mindmap__chart"} onClick={pick} />;
+  return (
+    <svg
+      ref={svg}
+      className={onPickHeading ? "pd-mindmap__chart pd-mindmap__chart--links" : "pd-mindmap__chart"}
+      onClick={pick}
+    />
+  );
 }

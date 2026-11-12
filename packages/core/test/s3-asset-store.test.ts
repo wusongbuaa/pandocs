@@ -43,13 +43,24 @@ describe("storing files through the S3 API", () => {
     });
 
     it("sends no checksums, which some S3-compatible services refuse", async () => {
-      const store = createS3AssetStore({ bucket: "files", region: "us-east-1", prefix: "pandocs/", endpoint, forcePathStyle: true });
+      const store = createS3AssetStore({
+        bucket: "files",
+        region: "us-east-1",
+        prefix: "pandocs/",
+        endpoint,
+        forcePathStyle: true
+      });
       await store.put("spaces/a/b", new Uint8Array([1, 2, 3]), "image/png");
       const put = requests.at(-1)!;
       expect(put.method).toBe("PUT");
       expect(put.url.split("?")[0]).toBe("/files/pandocs/spaces/a/b");
       const sent = Object.keys(put.headers);
-      expect(sent.filter(name => name.startsWith("x-amz-checksum") || name === "x-amz-sdk-checksum-algorithm" || name === "x-amz-trailer")).toEqual([]);
+      expect(
+        sent.filter(
+          name =>
+            name.startsWith("x-amz-checksum") || name === "x-amz-sdk-checksum-algorithm" || name === "x-amz-trailer"
+        )
+      ).toEqual([]);
       expect(put.headers["content-encoding"]).toBeUndefined();
 
       const read = await store.get("spaces/a/b");
@@ -59,13 +70,25 @@ describe("storing files through the S3 API", () => {
     });
 
     it("answers nothing for what is not there", async () => {
-      const store = createS3AssetStore({ bucket: "files", region: "us-east-1", prefix: "pandocs", endpoint, forcePathStyle: true });
+      const store = createS3AssetStore({
+        bucket: "files",
+        region: "us-east-1",
+        prefix: "pandocs",
+        endpoint,
+        forcePathStyle: true
+      });
       expect(await store.get("spaces/a/missing")).toBeNull();
       store.destroy();
     });
 
     it("keeps one prefix however it was written", async () => {
-      const store = createS3AssetStore({ bucket: "files", region: "us-east-1", prefix: "pandocs///", endpoint, forcePathStyle: true });
+      const store = createS3AssetStore({
+        bucket: "files",
+        region: "us-east-1",
+        prefix: "pandocs///",
+        endpoint,
+        forcePathStyle: true
+      });
       await store.put("k", new Uint8Array([1]), "image/png");
       expect(requests.at(-1)!.url.split("?")[0]).toBe("/files/pandocs/k");
       store.destroy();
@@ -76,7 +99,13 @@ describe("storing files through the S3 API", () => {
   describe.skipIf(!process.env.PANDOCS_TEST_S3_ENDPOINT)("against a real service", () => {
     const endpoint = process.env.PANDOCS_TEST_S3_ENDPOINT!;
     const bucket = `pandocs-test-${Date.now()}`;
-    const options = { bucket, region: process.env.PANDOCS_TEST_S3_REGION ?? "us-east-1", prefix: "pandocs/", endpoint, forcePathStyle: true };
+    const options = {
+      bucket,
+      region: process.env.PANDOCS_TEST_S3_REGION ?? "us-east-1",
+      prefix: "pandocs/",
+      endpoint,
+      forcePathStyle: true
+    };
 
     beforeAll(async () => {
       const client = new S3Client({ region: options.region, endpoint, forcePathStyle: true });

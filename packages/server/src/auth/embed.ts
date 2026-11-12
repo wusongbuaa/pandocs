@@ -70,7 +70,11 @@ export function createEmbedApps(pool: pg.Pool, signingSecret: string) {
       return rows[0] ? mapApp(rows[0]) : null;
     },
     /** The secret exists only in this answer. */
-    async create(input: { slug: string; name: string; allowedOrigins: readonly string[] }): Promise<{ app: EmbedApp; secret: string } | null> {
+    async create(input: {
+      slug: string;
+      name: string;
+      allowedOrigins: readonly string[];
+    }): Promise<{ app: EmbedApp; secret: string } | null> {
       const secret = `${EMBED_SECRET_PREFIX}${randomBytes(32).toString("base64url")}`;
       const { rows } = await pool.query(
         `INSERT INTO pandocs.embed_apps (slug, name, secret_hash, allowed_origins) VALUES ($1, $2, $3, $4) ON CONFLICT (slug) DO NOTHING RETURNING *`,
@@ -78,7 +82,14 @@ export function createEmbedApps(pool: pg.Pool, signingSecret: string) {
       );
       return rows[0] ? { app: mapApp(rows[0]), secret } : null;
     },
-    async update(slug: string, patch: { name?: string | undefined; allowedOrigins?: readonly string[] | undefined; status?: EmbedStatus | undefined }): Promise<EmbedApp | null> {
+    async update(
+      slug: string,
+      patch: {
+        name?: string | undefined;
+        allowedOrigins?: readonly string[] | undefined;
+        status?: EmbedStatus | undefined;
+      }
+    ): Promise<EmbedApp | null> {
       const { rows } = await pool.query(
         `UPDATE pandocs.embed_apps SET name = COALESCE($2, name), allowed_origins = COALESCE($3, allowed_origins), status = COALESCE($4, status) WHERE slug = $1 RETURNING *`,
         [slug, patch.name ?? null, patch.allowedOrigins ?? null, patch.status ?? null]
@@ -87,7 +98,10 @@ export function createEmbedApps(pool: pg.Pool, signingSecret: string) {
     },
     async rotateSecret(slug: string): Promise<string | null> {
       const secret = `${EMBED_SECRET_PREFIX}${randomBytes(32).toString("base64url")}`;
-      const { rowCount } = await pool.query(`UPDATE pandocs.embed_apps SET secret_hash = $2 WHERE slug = $1`, [slug, hashSecret(secret)]);
+      const { rowCount } = await pool.query(`UPDATE pandocs.embed_apps SET secret_hash = $2 WHERE slug = $1`, [
+        slug,
+        hashSecret(secret)
+      ]);
       return rowCount ? secret : null;
     },
     async remove(slug: string): Promise<boolean> {
@@ -95,7 +109,10 @@ export function createEmbedApps(pool: pg.Pool, signingSecret: string) {
       return Boolean(rowCount);
     },
     async bySecret(secret: string): Promise<EmbedApp | null> {
-      const { rows } = await pool.query(`SELECT * FROM pandocs.embed_apps WHERE secret_hash = $1 AND status = 'active'`, [hashSecret(secret)]);
+      const { rows } = await pool.query(
+        `SELECT * FROM pandocs.embed_apps WHERE secret_hash = $1 AND status = 'active'`,
+        [hashSecret(secret)]
+      );
       if (!rows[0]) return null;
       const app = mapApp(rows[0]);
       if (!app.lastUsedAt || Date.now() - app.lastUsedAt.getTime() > TOUCH_AFTER_MS) {
@@ -103,9 +120,23 @@ export function createEmbedApps(pool: pg.Pool, signingSecret: string) {
       }
       return app;
     },
-    issue(app: EmbedApp, user: { id: string; displayName: string; groups?: readonly string[] | undefined }, ttlSeconds = DEFAULT_TTL_SECONDS): { token: string; expiresAt: Date } {
+    issue(
+      app: EmbedApp,
+      user: { id: string; displayName: string; groups?: readonly string[] | undefined },
+      ttlSeconds = DEFAULT_TTL_SECONDS
+    ): { token: string; expiresAt: Date } {
       const exp = Math.floor(Date.now() / 1000) + Math.min(ttlSeconds, MAX_TTL_SECONDS);
-      return { token: sign({ kind: "session", app: app.slug, sub: user.id, name: user.displayName, groups: user.groups ?? [], exp }), expiresAt: new Date(exp * 1000) };
+      return {
+        token: sign({
+          kind: "session",
+          app: app.slug,
+          sub: user.id,
+          name: user.displayName,
+          groups: user.groups ?? [],
+          exp
+        }),
+        expiresAt: new Date(exp * 1000)
+      };
     },
     /** The same claims and lifetime, in the form that may appear in an address. */
     ticketFor(claims: GuestClaims): string {

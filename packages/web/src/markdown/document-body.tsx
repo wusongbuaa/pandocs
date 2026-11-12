@@ -23,29 +23,55 @@ export function useAppPage(): AppPage | undefined {
 
 export function useReaderContextOf(page: PandocsPage, onCommentBlock?: (ref: string) => void) {
   const lang = usePage().page.lang;
-  return React.useMemo(() => ({
-    space: page.space,
-    currentPath: page.entry.path,
-    routePrefix: localePrefix(lang, app.bootstrap.site.defaultLang),
-    children: app.bootstrap.spaces.find(space => space.slug === page.space.slug)?.tree.filter(entry => entry.parentId === page.entry.id) ?? [],
-    ...(onCommentBlock ? { onCommentBlock } : {})
-  }), [lang, onCommentBlock, page]);
+  return React.useMemo(
+    () => ({
+      space: page.space,
+      currentPath: page.entry.path,
+      routePrefix: localePrefix(lang, app.bootstrap.site.defaultLang),
+      children:
+        app.bootstrap.spaces
+          .find(space => space.slug === page.space.slug)
+          ?.tree.filter(entry => entry.parentId === page.entry.id) ?? [],
+      ...(onCommentBlock ? { onCommentBlock } : {})
+    }),
+    [lang, onCommentBlock, page]
+  );
 }
 
 export function useDocumentContent(hast: RenderedMarkdown["hast"], overrides?: Readonly<Record<string, unknown>>) {
   const provided = useMDXComponents();
   return React.useMemo(
-    () => toJsxRuntime(hast, { Fragment, jsx, jsxs, components: { ...provided, ...dialectComponents, ...overrides } as never, ignoreInvalidStyle: true, passKeys: true }),
+    () =>
+      toJsxRuntime(hast, {
+        Fragment,
+        jsx,
+        jsxs,
+        components: { ...provided, ...dialectComponents, ...overrides } as never,
+        ignoreInvalidStyle: true,
+        passKeys: true
+      }),
     [hast, overrides, provided]
   );
 }
 
 export function RenderedBody({ page }: { page: PandocsPage }) {
-  const onCommentBlock = React.useMemo(() => (import.meta.env.MODE !== "parity" && atLeast(page.view.role, "commenter") ? (ref: string) => commentOnBlock(page, ref) : undefined), [page]);
+  const onCommentBlock = React.useMemo(
+    () =>
+      import.meta.env.MODE !== "parity" && atLeast(page.view.role, "commenter")
+        ? (ref: string) => commentOnBlock(page, ref)
+        : undefined,
+    [page]
+  );
   const context = useReaderContextOf(page, onCommentBlock);
   const content = useDocumentContent(page.rendered.hast);
   // `contents` keeps the theme's layout unchanged; the element only marks where a document's own text starts.
-  return <ReaderContextProvider value={context}><div data-pandocs-body="" style={{ display: "contents" }}>{content}</div></ReaderContextProvider>;
+  return (
+    <ReaderContextProvider value={context}>
+      <div data-pandocs-body="" style={{ display: "contents" }}>
+        {content}
+      </div>
+    </ReaderContextProvider>
+  );
 }
 
 /** A page someone made and has not written yet. */
@@ -55,7 +81,9 @@ function BlankPage({ page }: { page: PandocsPage }) {
   return (
     <div className="pd-blank-page rp-not-doc">
       <p>{t("This page is empty.")}</p>
-      <Link href={`${pathname}?mode=edit`} className="pd-btn pd-btn--primary">{t("Start writing")}</Link>
+      <Link href={`${pathname}?mode=edit`} className="pd-btn pd-btn--primary">
+        {t("Start writing")}
+      </Link>
     </div>
   );
 }
@@ -68,10 +96,21 @@ const SlidesView = React.lazy(() => import("../present/slides-view"));
 const MindmapView = React.lazy(() => import("../present/mindmap-view"));
 
 /** Tools rather than reading: they load what they work on once they run, so the server leaves a place for them. */
-function ClientView({ children, fallback = <p className="pd-muted">{t("Opening…")}</p>, area = "A view" }: { readonly children: React.ReactNode; readonly fallback?: React.ReactNode; readonly area?: string }) {
+function ClientView({
+  children,
+  fallback = <p className="pd-muted">{t("Opening…")}</p>,
+  area = "A view"
+}: {
+  readonly children: React.ReactNode;
+  readonly fallback?: React.ReactNode;
+  readonly area?: string;
+}) {
   return (
     <NoSSR fallback={fallback}>
-      <ErrorBoundary area={area} fallback={<p className="pd-muted">{t("This could not be shown. Reload the page to try again.")}</p>}>
+      <ErrorBoundary
+        area={area}
+        fallback={<p className="pd-muted">{t("This could not be shown. Reload the page to try again.")}</p>}
+      >
         <React.Suspense fallback={fallback}>{children}</React.Suspense>
       </ErrorBoundary>
     </NoSSR>
@@ -91,19 +130,53 @@ function SourceInstead({ page }: { page: PandocsPage }) {
 function DocumentView({ page }: { page: PandocsPage }) {
   const [params] = useSearchParams();
   const editorShown = useEditorShown();
-  const editing = params.get("mode") === "edit" && (atLeast(page.view.role, "commenter") || Boolean(page.translation?.canEdit));
-  if (!editing && params.get("view") === "history") return <ClientView><HistoryView key={page.entry.id} page={page} /></ClientView>;
-  if (!editing && params.get("view") === "source") return <ClientView><SourceView page={page} /></ClientView>;
-  if (!editing && params.get("view") === "slides") return <ClientView><SlidesView key={page.entry.id} page={page} /></ClientView>;
-  if (!editing && params.get("view") === "mindmap") return <ClientView><MindmapView key={page.entry.id} page={page} /></ClientView>;
-  const reading = !page.translation?.exists && !page.view.markdown?.trim()
-    ? <BlankPage page={page} />
-    : <ErrorBoundary key={`${page.entry.id}:${page.view.revision.no}`} area="The page's text" fallback={<SourceInstead page={page} />}><RenderedBody page={page} /></ErrorBoundary>;
+  const editing =
+    params.get("mode") === "edit" && (atLeast(page.view.role, "commenter") || Boolean(page.translation?.canEdit));
+  if (!editing && params.get("view") === "history")
+    return (
+      <ClientView>
+        <HistoryView key={page.entry.id} page={page} />
+      </ClientView>
+    );
+  if (!editing && params.get("view") === "source")
+    return (
+      <ClientView>
+        <SourceView page={page} />
+      </ClientView>
+    );
+  if (!editing && params.get("view") === "slides")
+    return (
+      <ClientView>
+        <SlidesView key={page.entry.id} page={page} />
+      </ClientView>
+    );
+  if (!editing && params.get("view") === "mindmap")
+    return (
+      <ClientView>
+        <MindmapView key={page.entry.id} page={page} />
+      </ClientView>
+    );
+  const reading =
+    !page.translation?.exists && !page.view.markdown?.trim() ? (
+      <BlankPage page={page} />
+    ) : (
+      <ErrorBoundary
+        key={`${page.entry.id}:${page.view.revision.no}`}
+        area="The page's text"
+        fallback={<SourceInstead page={page} />}
+      >
+        <RenderedBody page={page} />
+      </ErrorBoundary>
+    );
   // The same two places either way, so what is being read stays mounted while the editor opens beside it.
   return (
     <>
       {editing && editorShown ? null : reading}
-      {editing ? <ClientView fallback={null} area="The editor"><EditorPage key={`${page.entry.id}:${page.translation?.lang ?? ""}`} page={page} /></ClientView> : null}
+      {editing ? (
+        <ClientView fallback={null} area="The editor">
+          <EditorPage key={`${page.entry.id}:${page.translation?.lang ?? ""}`} page={page} />
+        </ClientView>
+      ) : null}
     </>
   );
 }
@@ -115,7 +188,11 @@ export function DocumentBody() {
     case "document":
       return <DocumentView page={page} />;
     case "manage":
-      return <ClientView><ManagePage spec={page.spec} /></ClientView>;
+      return (
+        <ClientView>
+          <ManagePage spec={page.spec} />
+        </ClientView>
+      );
     default:
       return null;
   }

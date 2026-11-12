@@ -10,10 +10,14 @@ const server = createServer((request, response) => {
   response.end(JSON.stringify({ version: 1, data: [{ slug: "handbook", name: "Handbook" }] }));
 });
 await new Promise<void>(done => server.listen(0, "127.0.0.1", done));
-const client = createPandocsClient({ server: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, token: "pd_try" });
+const client = createPandocsClient({
+  server: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+  token: "pd_try"
+});
 const spaces = await client.spaces();
 server.close();
-if (spaces[0]?.slug !== "handbook" || !seen[0]?.includes("Bearer pd_try")) throw new Error(`the client did not work: ${JSON.stringify({ spaces, seen })}`);
+if (spaces[0]?.slug !== "handbook" || !seen[0]?.includes("Bearer pd_try"))
+  throw new Error(`the client did not work: ${JSON.stringify({ spaces, seen })}`);
 console.log("@pandocs/client works");
 // Importing it on a server, as a page rendered there does, must not fail for want of a browser.
 await import("@pandocs/embed");

@@ -13,7 +13,10 @@ describe("an answer that arrives a piece at a time", () => {
         controller.close();
       }
     });
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } }))
+    );
     const seen: unknown[] = [];
     await api.stream("ask", {}, event => seen.push(event), new AbortController().signal);
     expect(seen).toEqual([{ text: "one" }, { text: "two" }]);

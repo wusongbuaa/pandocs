@@ -2,7 +2,10 @@ import type pg from "pg";
 import { fromDatabase } from "../domain/errors.js";
 
 export interface Queryable {
-  query<Row extends pg.QueryResultRow = pg.QueryResultRow>(text: string, values?: unknown[]): Promise<{ rows: Row[]; rowCount: number | null }>;
+  query<Row extends pg.QueryResultRow = pg.QueryResultRow>(
+    text: string,
+    values?: unknown[]
+  ): Promise<{ rows: Row[]; rowCount: number | null }>;
 }
 
 export interface PandocsDb extends Queryable {

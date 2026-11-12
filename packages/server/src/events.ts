@@ -25,11 +25,16 @@ interface Subscriber {
   close(): void;
 }
 
-const frame = ({ restricted: _restricted, ...row }: ChangeRow) => `id: ${row.cursor}\nevent: change\ndata: ${JSON.stringify(row)}\n\n`;
+const frame = ({ restricted: _restricted, ...row }: ChangeRow) =>
+  `id: ${row.cursor}\nevent: change\ndata: ${JSON.stringify(row)}\n\n`;
 const RESET_FRAME = "event: reset\ndata: {}\n\n";
 
 /** One read of the log per wake-up, however many people are connected: thousands of open pages must not mean thousands of queries. */
-export function createEventHub(deps: { readonly identity: Identity; readonly services: PandocsServices; readonly recheckMs?: number }) {
+export function createEventHub(deps: {
+  readonly identity: Identity;
+  readonly services: PandocsServices;
+  readonly recheckMs?: number;
+}) {
   const { identity, services } = deps;
   const recheckMs = deps.recheckMs ?? RECHECK_MS;
   const subscribers = new Set<Subscriber>();
@@ -50,7 +55,8 @@ export function createEventHub(deps: { readonly identity: Identity; readonly ser
       subscriber.checkedAt = Date.now();
     }
     const wanted = subscriber.document ? rows.filter(row => row.documentId === subscriber.document) : rows;
-    for (const row of await services.changes.visibleTo(subscriber.principal, wanted, subscriber.access)) subscriber.send(row);
+    for (const row of await services.changes.visibleTo(subscriber.principal, wanted, subscriber.access))
+      subscriber.send(row);
   };
 
   const pump = async () => {
@@ -61,10 +67,16 @@ export function createEventHub(deps: { readonly identity: Identity; readonly ser
     running = true;
     try {
       cursor ??= await services.changes.watermark();
-      for (let rows = await services.changes.settledSince(cursor); rows.length > 0; rows = await services.changes.settledSince(cursor)) {
+      for (
+        let rows = await services.changes.settledSince(cursor);
+        rows.length > 0;
+        rows = await services.changes.settledSince(cursor)
+      ) {
         cursor = rows.at(-1)!.cursor;
         // A client that gets dropped here reconnects with where it was, and misses nothing.
-        await Promise.all([...subscribers].map(subscriber => deliver(subscriber, rows).catch(() => subscriber.close())));
+        await Promise.all(
+          [...subscribers].map(subscriber => deliver(subscriber, rows).catch(() => subscriber.close()))
+        );
       }
     } finally {
       running = false;
@@ -75,7 +87,10 @@ export function createEventHub(deps: { readonly identity: Identity; readonly ser
     }
   };
 
-  const logFailure = (error: unknown) => console.error(JSON.stringify({ event: "events.pump_failed", message: error instanceof Error ? error.message : "" }));
+  const logFailure = (error: unknown) =>
+    console.error(
+      JSON.stringify({ event: "events.pump_failed", message: error instanceof Error ? error.message : "" })
+    );
 
   return {
     wake() {
@@ -98,8 +113,12 @@ export function createEventHub(deps: { readonly identity: Identity; readonly ser
       const space = url.searchParams.get("space") ?? undefined;
       const document = url.searchParams.get("document") ?? undefined;
       const since = request.headers.get("last-event-id") ?? url.searchParams.get("since");
-      if (since !== null && !validCursor(since)) return errorResponse(422, "PARAM_INVALID", t("since should be an event id"));
-      if ([...subscribers].filter(subscriber => subscriber.principal.id === auth.principal.id).length >= MAX_STREAMS_PER_PRINCIPAL) {
+      if (since !== null && !validCursor(since))
+        return errorResponse(422, "PARAM_INVALID", t("since should be an event id"));
+      if (
+        [...subscribers].filter(subscriber => subscriber.principal.id === auth.principal.id).length >=
+        MAX_STREAMS_PER_PRINCIPAL
+      ) {
         return errorResponse(429, "TOO_MANY_STREAMS", t("Too many event streams are open"));
       }
       const access = await services.changes.access(auth.principal, space);
@@ -113,7 +132,7 @@ export function createEventHub(deps: { readonly identity: Identity; readonly ser
       }
       // Before joining, or rows from now until the first wake-up would fall between the two.
       cursor ??= await services.changes.watermark();
-      const start = since ?? await services.changes.watermark();
+      const start = since ?? (await services.changes.watermark());
       const credentials = new Request(request.url, { headers: request.headers });
       let subscriber: Subscriber | null = null;
       let heartbeat: ReturnType<typeof setInterval> | null = null;
@@ -156,7 +175,16 @@ export function createEventHub(deps: { readonly identity: Identity; readonly ser
               write(frame(row));
             }
           };
-          subscriber = { credentials, space, document, principal: auth.principal, access, checkedAt: Date.now(), send, close };
+          subscriber = {
+            credentials,
+            space,
+            document,
+            principal: auth.principal,
+            access,
+            checkedAt: Date.now(),
+            send,
+            close
+          };
           subscribers.add(subscriber);
           heartbeat = setInterval(() => write(": keep-alive\n\n"), HEARTBEAT_MS);
           heartbeat.unref();
@@ -190,7 +218,13 @@ export function createEventHub(deps: { readonly identity: Identity; readonly ser
           if (heartbeat) clearInterval(heartbeat);
         }
       });
-      return new Response(stream, { headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" } });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-store",
+          "X-Accel-Buffering": "no"
+        }
+      });
     }
   };
 }

@@ -28,14 +28,36 @@ export interface IngestRoute {
 
 /** Channel × content type decides what happens to inbound content. New parsers only add entries here. */
 export const defaultIngestRoutes: readonly IngestRoute[] = [
-  { name: "markdown-programmatic", match: { channels: ["api", "cli", "mcp", "agent", "migration"], contentTypes: [MARKDOWN, PLAIN] }, processors: ["normalize"], persist: "auto", mode: "sync" },
-  { name: "markdown-upload", match: { contentTypes: [MARKDOWN, PLAIN] }, processors: ["normalize"], persist: "draft", mode: "sync" },
-  { name: "document-extract", match: { contentTypes: DOCUMENT_TYPES }, processors: ["extract", "normalize"], persist: "draft", mode: "async" }
+  {
+    name: "markdown-programmatic",
+    match: { channels: ["api", "cli", "mcp", "agent", "migration"], contentTypes: [MARKDOWN, PLAIN] },
+    processors: ["normalize"],
+    persist: "auto",
+    mode: "sync"
+  },
+  {
+    name: "markdown-upload",
+    match: { contentTypes: [MARKDOWN, PLAIN] },
+    processors: ["normalize"],
+    persist: "draft",
+    mode: "sync"
+  },
+  {
+    name: "document-extract",
+    match: { contentTypes: DOCUMENT_TYPES },
+    processors: ["extract", "normalize"],
+    persist: "draft",
+    mode: "async"
+  }
 ];
 
 export function resolveRoute(routes: readonly IngestRoute[], channel: string, contentType: string): IngestRoute {
-  const route = routes.find(item => item.match.contentTypes.includes(contentType) && (!item.match.channels || item.match.channels.includes(channel)));
-  if (!route) throw invalid("CONTENT_TYPE_UNSUPPORTED", t("Importing {1} from {0} is not supported", channel, contentType));
+  const route = routes.find(
+    item =>
+      item.match.contentTypes.includes(contentType) && (!item.match.channels || item.match.channels.includes(channel))
+  );
+  if (!route)
+    throw invalid("CONTENT_TYPE_UNSUPPORTED", t("Importing {1} from {0} is not supported", channel, contentType));
   return route;
 }
 
@@ -61,7 +83,11 @@ const BY_EXTENSION: Readonly<Record<string, string>> = {
  * The bytes outrank the extension, and the extension outranks the caller's claim. A `.md` that is
  * really a PDF goes down the PDF route, not into the Markdown parser.
  */
-export function detectContentType(input: { bytes?: Uint8Array | undefined; filename?: string | undefined; declared?: string | undefined }): string {
+export function detectContentType(input: {
+  bytes?: Uint8Array | undefined;
+  filename?: string | undefined;
+  declared?: string | undefined;
+}): string {
   const declared = input.declared?.split(";")[0]?.trim().toLowerCase();
   const extension = input.filename?.toLowerCase().split(".").pop();
   const byExtension = extension ? BY_EXTENSION[extension] : undefined;
@@ -75,7 +101,8 @@ export function detectContentType(input: { bytes?: Uint8Array | undefined; filen
     }
     const head = new TextDecoder("utf-8", { fatal: false }).decode(bytes.subarray(0, 512)).trimStart().toLowerCase();
     if (head.startsWith("<!doctype html") || head.startsWith("<html")) return "text/html";
-    if (bytes.subarray(0, 4096).includes(0) && !byExtension) throw invalid("CONTENT_TYPE_UNSUPPORTED", t("An unrecognized binary file"));
+    if (bytes.subarray(0, 4096).includes(0) && !byExtension)
+      throw invalid("CONTENT_TYPE_UNSUPPORTED", t("An unrecognized binary file"));
   }
   return byExtension ?? declared ?? PLAIN;
 }

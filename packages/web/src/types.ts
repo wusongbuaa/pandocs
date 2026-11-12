@@ -3,7 +3,16 @@ import { t } from "./i18n";
 
 export type Role = "none" | "viewer" | "commenter" | "editor" | "admin";
 
-const channelLabels = (): Readonly<Record<string, string>> => ({ web: t("Web"), api: "API", cli: "CLI", mcp: "MCP", agent: t("Agent"), migration: t("Migration"), embed: t("Another system"), git: "Git" });
+const channelLabels = (): Readonly<Record<string, string>> => ({
+  web: t("Web"),
+  api: "API",
+  cli: "CLI",
+  mcp: "MCP",
+  agent: t("Agent"),
+  migration: t("Migration"),
+  embed: t("Another system"),
+  git: "Git"
+});
 
 /** Where a change came from, for showing; a channel this version does not know keeps its own name. */
 export const channelLabel = (channel: string): string => channelLabels()[channel] ?? channel;
@@ -138,7 +147,12 @@ export interface ChangeSetPage {
 export interface ChangeSetDetail extends Omit<ChangeSetSummary, "pages"> {
   readonly pages: readonly ChangeSetPage[];
   readonly hiddenPages: number;
-  readonly reviews: readonly { readonly reviewerName: string; readonly verdict: string; readonly note: string; readonly stale: boolean }[];
+  readonly reviews: readonly {
+    readonly reviewerName: string;
+    readonly verdict: string;
+    readonly note: string;
+    readonly stale: boolean;
+  }[];
   readonly blockers: readonly { readonly code: string; readonly message: string; readonly path?: string }[];
   readonly canReview: boolean;
   readonly canChange: boolean;
@@ -202,7 +216,15 @@ export interface RevisionMeta {
 }
 
 export interface DocumentView {
-  readonly document: { readonly id: string; readonly path: string; readonly title: string; readonly restricted: boolean; readonly parentId: string | null; readonly currentRevisionNo: number; readonly updatedAt: string };
+  readonly document: {
+    readonly id: string;
+    readonly path: string;
+    readonly title: string;
+    readonly restricted: boolean;
+    readonly parentId: string | null;
+    readonly currentRevisionNo: number;
+    readonly updatedAt: string;
+  };
   readonly spaceSlug: string;
   readonly role: Role;
   readonly revision: RevisionMeta;

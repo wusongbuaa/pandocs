@@ -6,8 +6,10 @@ import { toMarkmapData } from "../src/present/mindmap-chart";
 import { treeFromMarkdown, treeFromOutline } from "../src/present/mindmap-tree";
 import { splitSlides } from "../src/present/split-slides";
 
-const slidesOf = async (markdown: string, title = "页面标题") => splitSlides((await renderMarkdown(markdown, { title })).hast);
-const tagsOf = (slide: { children: unknown[] }) => (slide.children as { tagName?: string }[]).map(node => node.tagName).filter(Boolean);
+const slidesOf = async (markdown: string, title = "页面标题") =>
+  splitSlides((await renderMarkdown(markdown, { title })).hast);
+const tagsOf = (slide: { children: unknown[] }) =>
+  (slide.children as { tagName?: string }[]).map(node => node.tagName).filter(Boolean);
 
 describe("a page as slides", () => {
   it("makes one slide for each section and each divider, with what comes first under the title", async () => {
@@ -24,7 +26,9 @@ describe("a page as slides", () => {
 
   it("breaks a long section at its next headings", async () => {
     const paragraphs = Array.from({ length: 5 }, (_, at) => `段落 ${at}`).join("\n\n");
-    const { slides } = await slidesOf(`## 很长的一节\n\n### 甲\n\n${paragraphs}\n\n### 乙\n\n${paragraphs}\n\n## 短的一节\n\n内容\n`);
+    const { slides } = await slidesOf(
+      `## 很长的一节\n\n### 甲\n\n${paragraphs}\n\n### 乙\n\n${paragraphs}\n\n## 短的一节\n\n内容\n`
+    );
     expect(slides.map(slide => tagsOf(slide)[0])).toEqual(["h2", "h3", "h3", "h2"]);
   });
 
@@ -64,27 +68,42 @@ describe("a page as a mind map", () => {
       { id: "b", text: "乙", depth: 2 },
       { id: "b1", text: "跳级的", depth: 4 }
     ]);
-    expect(root).toEqual({ text: "标题", children: [
-      { text: "甲", headingId: "a", children: [{ text: "甲一", headingId: "a1", children: [] }] },
-      { text: "乙", headingId: "b", children: [{ text: "跳级的", headingId: "b1", children: [] }] }
-    ] });
+    expect(root).toEqual({
+      text: "标题",
+      children: [
+        { text: "甲", headingId: "a", children: [{ text: "甲一", headingId: "a1", children: [] }] },
+        { text: "乙", headingId: "b", children: [{ text: "跳级的", headingId: "b1", children: [] }] }
+      ]
+    });
   });
 
   it("reads a block's headings and lists, with a lone heading as the centre", () => {
-    expect(treeFromMarkdown("# 中心\n\n- 分支\n  - **要点**\n- 另一支\n\n一段话\n")).toEqual({ text: "中心", children: [
-      { text: "分支", children: [{ text: "**要点**", children: [] }] },
-      { text: "另一支", children: [] },
-      { text: "一段话", children: [] }
-    ] });
+    expect(treeFromMarkdown("# 中心\n\n- 分支\n  - **要点**\n- 另一支\n\n一段话\n")).toEqual({
+      text: "中心",
+      children: [
+        { text: "分支", children: [{ text: "**要点**", children: [] }] },
+        { text: "另一支", children: [] },
+        { text: "一段话", children: [] }
+      ]
+    });
   });
 
   it("uses the title as the centre when there is more than one thing at the top", () => {
-    expect(treeFromMarkdown("- 甲\n- 乙\n", "标题")).toEqual({ text: "标题", children: [{ text: "甲", children: [] }, { text: "乙", children: [] }] });
+    expect(treeFromMarkdown("- 甲\n- 乙\n", "标题")).toEqual({
+      text: "标题",
+      children: [
+        { text: "甲", children: [] },
+        { text: "乙", children: [] }
+      ]
+    });
     expect(treeFromMarkdown("- 甲\n- 乙\n").text).toBe("");
   });
 
   it("hands the map escaped text, because it puts what it gets into the page as HTML", () => {
-    const data = toMarkmapData({ text: '<img src=x onerror="window.__xss=1"/> **重点**', children: [{ text: "<script>x</script>", headingId: "a", children: [] }] });
+    const data = toMarkmapData({
+      text: '<img src=x onerror="window.__xss=1"/> **重点**',
+      children: [{ text: "<script>x</script>", headingId: "a", children: [] }]
+    });
     expect(data.content).toBe('&lt;img src=x onerror="window.__xss=1"/&gt; <strong>重点</strong>');
     expect(data.children[0]!.content).toBe("&lt;script&gt;x&lt;/script&gt;");
     expect(data.children[0]!.payload).toEqual({ headingId: "a" });

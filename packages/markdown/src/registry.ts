@@ -48,11 +48,13 @@ export const ALERT_BLOCKS: Readonly<Record<string, CalloutTone>> = {
   CAUTION: "caution"
 };
 
-const calloutAttrs = z.object({
-  emoji: z.string().max(16).optional(),
-  title: z.string().max(200).optional(),
-  tone: z.enum(CALLOUT_TONES).optional()
-}).strict();
+const calloutAttrs = z
+  .object({
+    emoji: z.string().max(16).optional(),
+    title: z.string().max(200).optional(),
+    tone: z.enum(CALLOUT_TONES).optional()
+  })
+  .strict();
 
 const toneBlocks: readonly BlockDefinition[] = CALLOUT_TONES.map(name => ({
   name,
@@ -62,22 +64,33 @@ const toneBlocks: readonly BlockDefinition[] = CALLOUT_TONES.map(name => ({
   attrs: calloutAttrs
 }));
 
-const chartBody = z.object({
-  type: z.enum(["bar", "line", "area", "pie"]),
-  xKey: z.string().min(1),
-  yKeys: z.array(z.string().min(1)).min(1).optional(),
-  data: z.array(z.record(z.string(), z.union([z.string(), z.number()]))).min(1).max(1000)
-}).strict();
+const chartBody = z
+  .object({
+    type: z.enum(["bar", "line", "area", "pie"]),
+    xKey: z.string().min(1),
+    yKeys: z.array(z.string().min(1)).min(1).optional(),
+    data: z
+      .array(z.record(z.string(), z.union([z.string(), z.number()])))
+      .min(1)
+      .max(1000)
+  })
+  .strict();
 export type ChartBody = z.infer<typeof chartBody>;
 
 export const MAX_HOTSPOTS = 50;
 
-const hotspotsBody = z.array(z.object({
-  x: z.number().min(0).max(100),
-  y: z.number().min(0).max(100),
-  title: z.string().max(200),
-  text: z.string().max(2000).optional()
-}).strict()).max(MAX_HOTSPOTS);
+const hotspotsBody = z
+  .array(
+    z
+      .object({
+        x: z.number().min(0).max(100),
+        y: z.number().min(0).max(100),
+        title: z.string().max(200),
+        text: z.string().max(2000).optional()
+      })
+      .strict()
+  )
+  .max(MAX_HOTSPOTS);
 export type HotspotsBody = z.infer<typeof hotspotsBody>;
 
 export const builtinBlocks: readonly BlockDefinition[] = [
@@ -108,9 +121,14 @@ export const builtinBlocks: readonly BlockDefinition[] = [
     kind: "container",
     summary: "One column, inside columns",
     example: `:::column{width="0.5"}\n\nContent\n\n:::`,
-    attrs: z.object({
-      width: z.string().regex(/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/u, { error: () => t("width must be a decimal between 0 and 1") }).optional()
-    }).strict()
+    attrs: z
+      .object({
+        width: z
+          .string()
+          .regex(/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/u, { error: () => t("width must be a decimal between 0 and 1") })
+          .optional()
+      })
+      .strict()
   },
   {
     name: "steps",
@@ -153,36 +171,43 @@ export const builtinBlocks: readonly BlockDefinition[] = [
     name: "compare",
     kind: "leaf",
     summary: "Before and after, dragging a divider to compare two images",
-    example: "::compare[The redesign]{before=\"assets/old.png\" after=\"assets/new.png\" beforeLabel=\"Before\" afterLabel=\"After\"}",
-    attrs: z.object({
-      before: z.string().min(1),
-      after: z.string().min(1),
-      beforeLabel: z.string().max(40).optional(),
-      afterLabel: z.string().max(40).optional()
-    }).strict()
+    example:
+      '::compare[The redesign]{before="assets/old.png" after="assets/new.png" beforeLabel="Before" afterLabel="After"}',
+    attrs: z
+      .object({
+        before: z.string().min(1),
+        after: z.string().min(1),
+        beforeLabel: z.string().max(40).optional(),
+        afterLabel: z.string().max(40).optional()
+      })
+      .strict()
   },
   {
     name: "video",
     kind: "leaf",
     summary: "Video",
-    example: "::video[Product demo]{src=\"assets/demo.mp4\"}",
+    example: '::video[Product demo]{src="assets/demo.mp4"}',
     attrs: z.object({ src: z.string().min(1), poster: z.string().optional() }).strict()
   },
   {
     name: "file",
     kind: "leaf",
     summary: "The original file, placed first on a page converted from it",
-    example: "::file[Quarterly report.pdf]{src=\"assets/report.pdf\"}",
+    example: '::file[Quarterly report.pdf]{src="assets/report.pdf"}',
     attrs: z.object({ src: z.string().min(1) }).strict()
   },
   {
     name: "openapi",
     kind: "leaf",
     summary: "An API reference, from an OpenAPI document stored here",
-    example: "::openapi{src=\"assets/api.yaml\"}",
-    attrs: z.object({
-      src: z.string().regex(/^(?:assets\/|\/)/u, { error: () => t("An OpenAPI document has to be uploaded here, or be an address on this site") })
-    }).strict()
+    example: '::openapi{src="assets/api.yaml"}',
+    attrs: z
+      .object({
+        src: z.string().regex(/^(?:assets\/|\/)/u, {
+          error: () => t("An OpenAPI document has to be uploaded here, or be an address on this site")
+        })
+      })
+      .strict()
   },
   {
     name: "subpages",
@@ -195,21 +220,23 @@ export const builtinBlocks: readonly BlockDefinition[] = [
     name: "tag",
     kind: "inline",
     summary: "Inline tag",
-    example: ":tag[Done]{tone=\"tip\"}",
+    example: ':tag[Done]{tone="tip"}',
     attrs: z.object({ tone: z.enum(CALLOUT_TONES).optional() }).strict()
   },
   {
     name: "prompt",
     kind: "fence",
     summary: "A prompt to copy with one click, shown and copied exactly as written",
-    example: "```prompt title=\"Find the error\" description=\"Paste this to your Agent\"\nRead the error log, find the cause, then tell me how to fix it.\n```",
+    example:
+      '```prompt title="Find the error" description="Paste this to your Agent"\nRead the error log, find the cause, then tell me how to fix it.\n```',
     attrs: z.object({ title: z.string().max(200).optional(), description: z.string().max(400).optional() }).strict()
   },
   {
     name: "hotspots",
     kind: "fence",
     summary: "Notes on a screenshot, with x and y as percentages of its width and height",
-    example: "```hotspots src=\"assets/screen.png\" alt=\"The console\"\n[{\"x\":20,\"y\":30,\"title\":\"Entry\",\"text\":\"Start here\"}]\n```",
+    example:
+      '```hotspots src="assets/screen.png" alt="The console"\n[{"x":20,"y":30,"title":"Entry","text":"Start here"}]\n```',
     attrs: z.object({ src: z.string().min(1), alt: z.string().optional() }).strict(),
     visibleText: false,
     parseBody: body => hotspotsBody.parse(JSON.parse(body))
@@ -242,7 +269,7 @@ export const builtinBlocks: readonly BlockDefinition[] = [
     name: "chart",
     kind: "fence",
     summary: "A chart described in JSON",
-    example: "```chart title=\"Sales\"\n{\"type\":\"bar\",\"xKey\":\"Month\",\"data\":[{\"Month\":\"January\",\"Sales\":10}]}\n```",
+    example: '```chart title="Sales"\n{"type":"bar","xKey":"Month","data":[{"Month":"January","Sales":10}]}\n```',
     attrs: z.object({ title: z.string().optional() }).strict(),
     visibleText: false,
     parseBody: body => chartBody.parse(JSON.parse(body))

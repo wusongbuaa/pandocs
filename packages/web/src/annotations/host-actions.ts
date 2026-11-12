@@ -21,5 +21,9 @@ export function runHostAction(action: SiteAction, values: ActionValues): void {
     copy(fill(action.copy, values, value => value).trim());
     toast(t("Copied. Paste it into the page that opened."));
   }
-  window.open(fill(action.href, { ...values, text: values.text.slice(0, MAX_TEXT_IN_ADDRESS) }, encodeURIComponent), "_blank", "noopener,noreferrer");
+  window.open(
+    fill(action.href, { ...values, text: values.text.slice(0, MAX_TEXT_IN_ADDRESS) }, encodeURIComponent),
+    "_blank",
+    "noopener,noreferrer"
+  );
 }

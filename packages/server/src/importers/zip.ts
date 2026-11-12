@@ -21,7 +21,8 @@ export class ZipArchive {
         filter: file => {
           if (!file.name.endsWith("/")) this.sizes.set(file.name, file.originalSize);
           total += file.originalSize;
-          if (this.sizes.size > MAX_ENTRIES || total > MAX_UNPACKED_BYTES) throw new PermanentIngestError("ARCHIVE_TOO_LARGE", t("The archive is too large once unpacked"));
+          if (this.sizes.size > MAX_ENTRIES || total > MAX_UNPACKED_BYTES)
+            throw new PermanentIngestError("ARCHIVE_TOO_LARGE", t("The archive is too large once unpacked"));
           return false;
         }
       });
@@ -45,7 +46,8 @@ export class ZipArchive {
 
   /** Unpacking happens all at once, in this process, so what a file claims to be is checked before it is. */
   read(name: string, most = MAX_FILE_BYTES): Uint8Array {
-    if (this.size(name) > most) throw new PermanentIngestError("ARCHIVE_TOO_LARGE", t("The archive is too large once unpacked"));
+    if (this.size(name) > most)
+      throw new PermanentIngestError("ARCHIVE_TOO_LARGE", t("The archive is too large once unpacked"));
     const found = unzipSync(this.bytes, { filter: file => file.name === name })[name];
     if (!found) throw new PermanentIngestError("ARCHIVE_INVALID", t("This is not a valid archive"));
     return found;
@@ -63,8 +65,22 @@ export class ZipArchive {
 
 /** Addresses that are readable and stay the same each time: from a plain-letter title, or else from the id the source gives it. */
 export function slugFor(title: string, id: string, taken: Set<string>): string {
-  const fromTitle = /^[\x20-\x7e]+$/u.test(title) ? title.trim().toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "").slice(0, 60).replace(/-+$/u, "") : "";
-  const base = fromTitle && !/^(?:assets?|index)$/u.test(fromTitle) ? fromTitle : id.toLowerCase().replace(/[^a-z0-9]+/gu, "").slice(0, 12) || "page";
+  const fromTitle = /^[\x20-\x7e]+$/u.test(title)
+    ? title
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/gu, "-")
+        .replace(/^-+|-+$/gu, "")
+        .slice(0, 60)
+        .replace(/-+$/u, "")
+    : "";
+  const base =
+    fromTitle && !/^(?:assets?|index)$/u.test(fromTitle)
+      ? fromTitle
+      : id
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/gu, "")
+          .slice(0, 12) || "page";
   let slug = base;
   for (let attempt = 2; taken.has(slug); attempt += 1) slug = `${base}-${attempt}`;
   taken.add(slug);
@@ -73,5 +89,6 @@ export function slugFor(title: string, id: string, taken: Set<string>): string {
 
 export const IMAGE_FILE = /\.(?:png|jpe?g|gif|webp|svg|bmp|avif)$/iu;
 /** Text a page has as an attachment or embedded file. `[` and `]` end it, and quotes end the address. */
-export const fileBlock = (name: string, path: string) => `::file[${name.replace(/[[\]\r\n]/gu, " ")}]{src="${path.replaceAll("\"", "%22")}"}`;
+export const fileBlock = (name: string, path: string) =>
+  `::file[${name.replace(/[[\]\r\n]/gu, " ")}]{src="${path.replaceAll('"', "%22")}"}`;
 export const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);

@@ -42,7 +42,9 @@ function Votes({ documentId, revision }: { documentId: string; revision: number 
   const vote = async (chosen: "helpful" | "unhelpful") => {
     setBusy(true);
     try {
-      const { id } = await api.send<{ id: string }>("POST", `documents/${documentId}/feedback`, { body: { kind: chosen } });
+      const { id } = await api.send<{ id: string }>("POST", `documents/${documentId}/feedback`, {
+        body: { kind: chosen }
+      });
       remember(documentId, revision);
       setKind(chosen);
       setFeedback(id);
@@ -68,15 +70,32 @@ function Votes({ documentId, revision }: { documentId: string; revision: number 
     }
   };
 
-  if (state === "thanked") return <p className="pd-page-feedback rp-not-doc" role="status">{t("Thanks for telling us.")}</p>;
+  if (state === "thanked")
+    return (
+      <p className="pd-page-feedback rp-not-doc" role="status">
+        {t("Thanks for telling us.")}
+      </p>
+    );
   if (state === "explaining") {
     return (
       <form className="pd-page-feedback pd-page-feedback--explaining rp-not-doc" onSubmit={explain}>
-        <label htmlFor="pd-page-feedback-words">{kind === "helpful" ? t("Thanks. Anything else to say?") : t("Thanks. What was missing or wrong?")}</label>
-        <textarea id="pd-page-feedback-words" rows={3} maxLength={2000} value={words} onChange={event => setWords(event.target.value)} />
+        <label htmlFor="pd-page-feedback-words">
+          {kind === "helpful" ? t("Thanks. Anything else to say?") : t("Thanks. What was missing or wrong?")}
+        </label>
+        <textarea
+          id="pd-page-feedback-words"
+          rows={3}
+          maxLength={2000}
+          value={words}
+          onChange={event => setWords(event.target.value)}
+        />
         <div className="pd-page-feedback__foot">
-          <button type="button" className="pd-btn" onClick={() => setState("thanked")}>{t("Skip")}</button>
-          <button type="submit" className="pd-btn pd-btn--primary" disabled={busy || !words.trim()}>{t("Send")}</button>
+          <button type="button" className="pd-btn" onClick={() => setState("thanked")}>
+            {t("Skip")}
+          </button>
+          <button type="submit" className="pd-btn pd-btn--primary" disabled={busy || !words.trim()}>
+            {t("Send")}
+          </button>
         </div>
       </form>
     );
@@ -84,8 +103,14 @@ function Votes({ documentId, revision }: { documentId: string; revision: number 
   return (
     <div className="pd-page-feedback rp-not-doc" role="group" aria-label={t("Was this page helpful?")}>
       <span>{t("Was this page helpful?")}</span>
-      <button type="button" className="pd-btn pd-btn--icon" disabled={busy} onClick={() => void vote("helpful")}><ThumbsUp size={14} aria-hidden="true" />{t("Yes")}</button>
-      <button type="button" className="pd-btn pd-btn--icon" disabled={busy} onClick={() => void vote("unhelpful")}><ThumbsDown size={14} aria-hidden="true" />{t("No")}</button>
+      <button type="button" className="pd-btn pd-btn--icon" disabled={busy} onClick={() => void vote("helpful")}>
+        <ThumbsUp size={14} aria-hidden="true" />
+        {t("Yes")}
+      </button>
+      <button type="button" className="pd-btn pd-btn--icon" disabled={busy} onClick={() => void vote("unhelpful")}>
+        <ThumbsDown size={14} aria-hidden="true" />
+        {t("No")}
+      </button>
     </div>
   );
 }

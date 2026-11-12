@@ -7,9 +7,12 @@ const LENGTH = 32;
 
 export const MIN_PASSWORD_LENGTH = 8;
 
-const derive = (password: string, salt: Buffer, n: number, r: number, p: number) => new Promise<Buffer>((resolve, reject) => {
-  scrypt(password.normalize("NFKC"), salt, LENGTH, { N: n, r, p, maxmem: 256 * n * r }, (error, key) => (error ? reject(error) : resolve(key)));
-});
+const derive = (password: string, salt: Buffer, n: number, r: number, p: number) =>
+  new Promise<Buffer>((resolve, reject) => {
+    scrypt(password.normalize("NFKC"), salt, LENGTH, { N: n, r, p, maxmem: 256 * n * r }, (error, key) =>
+      error ? reject(error) : resolve(key)
+    );
+  });
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);

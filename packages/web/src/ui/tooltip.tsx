@@ -4,7 +4,15 @@ import { Tooltip as Base } from "@base-ui/react/tooltip";
 const DELAY_MS = 300;
 
 /** What an icon button does, in the app's own look and without the wait of the browser's `title`. */
-export function Tip({ label, side, children }: { readonly label: string | undefined; readonly side?: "top" | "bottom" | "left" | "right"; readonly children: React.ReactElement<Record<string, unknown>> }) {
+export function Tip({
+  label,
+  side,
+  children
+}: {
+  readonly label: string | undefined;
+  readonly side?: "top" | "bottom" | "left" | "right";
+  readonly children: React.ReactElement<Record<string, unknown>>;
+}) {
   if (!label) return children;
   return (
     <Base.Root>

@@ -35,13 +35,33 @@ const UPLOAD_PATH = /^\/api\/v1\/spaces\/[^/]+\/(?:assets|archive|imports|bulk-i
 /** Browsers repeat these for every blocked thing on a page, and anyone can send one. */
 const POLICY_REPORTS_PER_MINUTE = 60;
 
-const mostBytesFor = (pathname: string) => (UPLOAD_PATH.test(pathname) ? UPLOAD_BYTES : pathname === "/mcp" || pathname.startsWith(`${API_BASE}/`) ? API_BYTES : FORM_BYTES);
+const mostBytesFor = (pathname: string) =>
+  UPLOAD_PATH.test(pathname)
+    ? UPLOAD_BYTES
+    : pathname === "/mcp" || pathname.startsWith(`${API_BASE}/`)
+      ? API_BYTES
+      : FORM_BYTES;
 const bodyTooLarge = () => new PandocsError(413, "BODY_TOO_LARGE", t("The request body is too large"));
 
 for (const messages of [markdownZh, coreZh, serverZh]) addMessages("zh", messages);
 
 export function createApp(runtime: Runtime, options: { readonly cacheHtml?: boolean } = {}): Hono {
-  const { config, identity, services, users, sessions, tokens, throttle, passwordLinks, flows, pool, events, embedApps, oauth, publicAccess } = runtime;
+  const {
+    config,
+    identity,
+    services,
+    users,
+    sessions,
+    tokens,
+    throttle,
+    passwordLinks,
+    flows,
+    pool,
+    events,
+    embedApps,
+    oauth,
+    publicAccess
+  } = runtime;
   const app = new Hono();
 
   app.use("*", (c, next) => inLanguage(pickLanguage(c.req.header("accept-language")), next));
@@ -62,17 +82,19 @@ export function createApp(runtime: Runtime, options: { readonly cacheHtml?: bool
       headers: raw.headers,
       signal: raw.signal,
       duplex: "half",
-      body: raw.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
-        transform(chunk, controller) {
-          size += chunk.byteLength;
-          if (size <= most) {
-            controller.enqueue(chunk);
-          } else {
-            exceeded = true;
-            controller.error(bodyTooLarge());
+      body: raw.body.pipeThrough(
+        new TransformStream<Uint8Array, Uint8Array>({
+          transform(chunk, controller) {
+            size += chunk.byteLength;
+            if (size <= most) {
+              controller.enqueue(chunk);
+            } else {
+              exceeded = true;
+              controller.error(bodyTooLarge());
+            }
           }
-        }
-      }))
+        })
+      )
     } as RequestInit);
     await next();
     if (exceeded) {
@@ -106,14 +128,26 @@ export function createApp(runtime: Runtime, options: { readonly cacheHtml?: bool
   app.post(CSP_REPORT_PATH, async c => {
     const report = await c.req.text().catch(() => "");
     // A report says which page it is about, and the address of a shared one is what lets anyone read it.
-    if (policyReports.allow(clientAddress(c, config.trustProxy))) console.warn(JSON.stringify({ event: "web.csp_violation", report: report.slice(0, 2000).replace(/(pd[sg]_)[\w.-]+/gu, "$1…") }));
+    if (policyReports.allow(clientAddress(c, config.trustProxy)))
+      console.warn(
+        JSON.stringify({
+          event: "web.csp_violation",
+          report: report.slice(0, 2000).replace(/(pd[sg]_)[\w.-]+/gu, "$1…")
+        })
+      );
     return c.body(null, 204);
   });
 
   /** What the pages for signing in and authorizing take from the site's settings. */
   const siteLook = async () => {
     const site = await services.site.get();
-    return { brand: site.brandColor || DEFAULT_BRAND_COLOR, icon: site.favicon, logo: site.logo, description: site.description, base: config.basePath };
+    return {
+      brand: site.brandColor || DEFAULT_BRAND_COLOR,
+      icon: site.favicon,
+      logo: site.logo,
+      description: site.description,
+      base: config.basePath
+    };
   };
   registerAuthRoutes(app, {
     config,
@@ -125,13 +159,16 @@ export function createApp(runtime: Runtime, options: { readonly cacheHtml?: bool
     flows,
     siteTitle: async () => (await services.site.get()).title,
     siteLook,
-    host: runtime.hostSessions && config.hostSession ? { name: config.hostSession.name, loginUrl: runtime.hostSessions.loginUrl } : undefined
+    host:
+      runtime.hostSessions && config.hostSession
+        ? { name: config.hostSession.name, loginUrl: runtime.hostSessions.loginUrl }
+        : undefined
   });
 
   const mcp = createMcpHandler({ identity, services, siteUrl: config.siteUrl });
   app.all("/mcp", c => mcp(c.req.raw));
   app.all("/mcp/public", async c => {
-    if (!await publicAccess.open()) return errorResponse(404, "NOT_FOUND", t("No such page"));
+    if (!(await publicAccess.open())) return errorResponse(404, "NOT_FOUND", t("No such page"));
     // Any call can be a search, so all of them count as one.
     if (!publicAccess.allowRequest(clientAddress(c, config.trustProxy), "/search")) {
       const limited = errorResponse(429, "RATE_LIMITED", t("Too many requests. Try again later."));
@@ -150,32 +187,49 @@ export function createApp(runtime: Runtime, options: { readonly cacheHtml?: bool
 
   // Not behind a login: the address itself is the secret, the host calling it has no account here, and all it does is make the next look come sooner.
   app.post(`${API_BASE}/git-hooks/:token`, async c => {
-    if (!publicAccess.allowRequest(clientAddress(c, config.trustProxy), "/git-hooks")) return errorResponse(429, "RATE_LIMITED", t("Too many requests. Try again later."));
-    return await services.gitSync.hook(c.req.param("token")) ? c.json({ version: 1, data: { queued: true } }, 202) : errorResponse(404, "NOT_FOUND", t("Endpoint"));
+    if (!publicAccess.allowRequest(clientAddress(c, config.trustProxy), "/git-hooks"))
+      return errorResponse(429, "RATE_LIMITED", t("Too many requests. Try again later."));
+    return (await services.gitSync.hook(c.req.param("token")))
+      ? c.json({ version: 1, data: { queued: true } }, 202)
+      : errorResponse(404, "NOT_FOUND", t("Endpoint"));
   });
 
   app.get(`${API_BASE}/openapi.yaml`, c => {
     const document = openApiDocument();
-    return document === null ? errorResponse(404, "NOT_FOUND", t("Endpoint")) : new Response(document, { headers: { "Content-Type": "application/yaml; charset=utf-8", "Cache-Control": "public, max-age=300" } });
+    return document === null
+      ? errorResponse(404, "NOT_FOUND", t("Endpoint"))
+      : new Response(document, {
+          headers: { "Content-Type": "application/yaml; charset=utf-8", "Cache-Control": "public, max-age=300" }
+        });
   });
 
   const handle = createPandocsHandler(services, {
     basePath: API_BASE,
-    onError: error => console.error(JSON.stringify({ event: "api.internal_error", name: error instanceof Error ? error.name : "unknown", message: error instanceof Error ? error.message : "" }))
+    onError: error =>
+      console.error(
+        JSON.stringify({
+          event: "api.internal_error",
+          name: error instanceof Error ? error.name : "unknown",
+          message: error instanceof Error ? error.message : ""
+        })
+      )
   });
   app.all(`${API_BASE}/*`, async c => {
     const auth = await identity.authenticate(c.req.raw);
     if (auth.ok && auth.via !== "share") return handle(c.req.raw, auth.principal);
     if (auth.ok) {
-      if (publicAccess.allowRequest(clientAddress(c, config.trustProxy), new URL(c.req.url).pathname)) return handle(c.req.raw, auth.principal);
+      if (publicAccess.allowRequest(clientAddress(c, config.trustProxy), new URL(c.req.url).pathname))
+        return handle(c.req.raw, auth.principal);
       const limited = errorResponse(429, "RATE_LIMITED", t("Too many requests. Try again later."));
       limited.headers.set("Retry-After", "60");
       return limited;
     }
     // No login at all, as opposed to a wrong one, on a site with something public. The handler keeps this to what is meant for them.
-    if (auth.code !== "UNAUTHENTICATED" || !await publicAccess.open()) return errorResponse(auth.status, auth.code, auth.message);
+    if (auth.code !== "UNAUTHENTICATED" || !(await publicAccess.open()))
+      return errorResponse(auth.status, auth.code, auth.message);
     // Another site could otherwise spend this site's budget through its own visitors' browsers.
-    if (c.req.method !== "GET" && c.req.method !== "HEAD" && c.req.header("sec-fetch-site") === "cross-site") return errorResponse(auth.status, auth.code, auth.message);
+    if (c.req.method !== "GET" && c.req.method !== "HEAD" && c.req.header("sec-fetch-site") === "cross-site")
+      return errorResponse(auth.status, auth.code, auth.message);
     if (!publicAccess.allowRequest(clientAddress(c, config.trustProxy), new URL(c.req.url).pathname)) {
       const limited = errorResponse(429, "RATE_LIMITED", t("Too many requests. Try again later."));
       limited.headers.set("Retry-After", "60");
@@ -184,14 +238,32 @@ export function createApp(runtime: Runtime, options: { readonly cacheHtml?: bool
     return handle(c.req.raw, ANONYMOUS_PRINCIPAL);
   });
 
-  const rendering = createPageRendering({ webDir: config.webDir, enabled: config.renderPages, origin: config.publicUrl.origin, base: config.basePath, api: handle });
+  const rendering = createPageRendering({
+    webDir: config.webDir,
+    enabled: config.renderPages,
+    origin: config.publicUrl.origin,
+    base: config.basePath,
+    api: handle
+  });
   runtime.onDestroy(() => rendering.stop());
-  registerPageRoutes(app, { identity, services, embedApps, publicAccess, rendering, origin: config.siteUrl, base: config.basePath, trustProxy: config.trustProxy, files: createStaticFiles(config.webDir, { cacheHtml: options.cacheHtml ?? false, base: config.basePath }) });
+  registerPageRoutes(app, {
+    identity,
+    services,
+    embedApps,
+    publicAccess,
+    rendering,
+    origin: config.siteUrl,
+    base: config.basePath,
+    trustProxy: config.trustProxy,
+    files: createStaticFiles(config.webDir, { cacheHtml: options.cacheHtml ?? false, base: config.basePath })
+  });
 
   app.onError((error, c) => {
     if (error instanceof PandocsError) return errorResponse(error.status, error.code, error.message);
     // The pattern rather than the address: some addresses are themselves what lets someone in.
-    console.error(JSON.stringify({ event: "http.unhandled", route: routePath(c), name: error.name, message: error.message }));
+    console.error(
+      JSON.stringify({ event: "http.unhandled", route: routePath(c), name: error.name, message: error.message })
+    );
     return errorResponse(500, "INTERNAL_ERROR", t("The service is temporarily unavailable"));
   });
   return servedUnder(config.basePath, app);

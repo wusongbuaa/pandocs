@@ -17,13 +17,19 @@ const toOpenApi = (pattern: string) => `/${pattern.replace(/:([a-z]+)/gu, "{$1}"
 describe("Pandocs OpenAPI contract", () => {
   it("documents exactly the routes the handler serves", () => {
     const served = pandocsRouteTable.map(route => `${route.method} ${toOpenApi(route.pattern)}`).sort();
-    const documented = Object.entries(spec.paths).filter(([, operations]) => !operations["x-served-by"]).flatMap(([path, operations]) =>
-      METHODS.filter(method => operations[method]).map(method => `${method.toUpperCase()} ${path}`)).sort();
+    const documented = Object.entries(spec.paths)
+      .filter(([, operations]) => !operations["x-served-by"])
+      .flatMap(([path, operations]) =>
+        METHODS.filter(method => operations[method]).map(method => `${method.toUpperCase()} ${path}`)
+      )
+      .sort();
     expect(documented).toEqual(served);
   });
 
   it("names every operation once and requires an idempotency key on the writes that demand it", () => {
-    const operations = Object.values(spec.paths).flatMap(item => METHODS.flatMap(method => (item[method] ? [item[method]] : [])));
+    const operations = Object.values(spec.paths).flatMap(item =>
+      METHODS.flatMap(method => (item[method] ? [item[method]] : []))
+    );
     const ids = operations.map(operation => operation.operationId);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids.every(Boolean)).toBe(true);
@@ -35,6 +41,12 @@ describe("Pandocs OpenAPI contract", () => {
   });
 
   it("lists the edit operations the schema accepts", () => {
-    expect(spec.components.schemas.EditOp.oneOf.map(item => item.properties.op.const)).toEqual(["str_replace", "block_replace", "block_insert_after", "block_delete", "block_move_after"]);
+    expect(spec.components.schemas.EditOp.oneOf.map(item => item.properties.op.const)).toEqual([
+      "str_replace",
+      "block_replace",
+      "block_insert_after",
+      "block_delete",
+      "block_move_after"
+    ]);
   });
 });

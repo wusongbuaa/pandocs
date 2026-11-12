@@ -16,7 +16,16 @@ import { bodyRoot, clearHighlights, paintHighlights, scrollToAnchor, textThreads
 import { AnnotationPanel } from "./panel";
 import { registerBuiltinSelectionActions } from "./selection-actions";
 import { SelectionToolbar } from "./selection-toolbar";
-import { activateThread, closeDocument, closePanel, openDocument, openPanel, refreshProposals, startComment, useAnnotations } from "./store";
+import {
+  activateThread,
+  closeDocument,
+  closePanel,
+  openDocument,
+  openPanel,
+  refreshProposals,
+  startComment,
+  useAnnotations
+} from "./store";
 import { suggestionTarget } from "./suggestion-target";
 import { t } from "../i18n";
 
@@ -29,7 +38,7 @@ interface LiveSelection {
 }
 
 function blockRefOf(node: Node): string | undefined {
-  const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
+  const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
   return element?.closest("[data-block-ref]")?.getAttribute("data-block-ref") ?? undefined;
 }
 
@@ -40,12 +49,15 @@ function useSelection(): [LiveSelection | null, () => void] {
     setSelection(null);
   }, []);
   React.useEffect(() => {
-    const update = () => requestAnimationFrame(() => {
-      const root = bodyRoot();
-      const browserSelection = document.getSelection();
-      const captured = root ? captureSelection(root, browserSelection) : null;
-      setSelection(captured && browserSelection ? { captured, range: browserSelection.getRangeAt(0).cloneRange() } : null);
-    });
+    const update = () =>
+      requestAnimationFrame(() => {
+        const root = bodyRoot();
+        const browserSelection = document.getSelection();
+        const captured = root ? captureSelection(root, browserSelection) : null;
+        setSelection(
+          captured && browserSelection ? { captured, range: browserSelection.getRangeAt(0).cloneRange() } : null
+        );
+      });
     // Touch screens select without a mouse-up, and scrolling moves the rectangle the toolbar follows.
     let touchTimer: ReturnType<typeof setTimeout> | undefined;
     const onSelectionChange = () => {
@@ -70,7 +82,10 @@ function useSelection(): [LiveSelection | null, () => void] {
 function locateQuote(quote: string, occurrence: number): { start: number; end: number } | null {
   const root = bodyRoot();
   if (!root) return null;
-  const text = buildTextMap(root).segments.map(segment => segment.node.nodeValue ?? "").join("").replace(/\s+/gu, "");
+  const text = buildTextMap(root)
+    .segments.map(segment => segment.node.nodeValue ?? "")
+    .join("")
+    .replace(/\s+/gu, "");
   try {
     return anchorFromQuote(text, quote, occurrence);
   } catch {
@@ -98,7 +113,10 @@ function DocumentAnnotations({ page }: { page: PandocsPage }) {
   React.useEffect(() => {
     if (!registered) {
       registered = true;
-      registerBuiltinSelectionActions(context => openSuggestion.current(context), (context, action) => openAssist.current(context, action));
+      registerBuiltinSelectionActions(
+        context => openSuggestion.current(context),
+        (context, action) => openAssist.current(context, action)
+      );
     }
     const suggest = (context: SelectionContext) => setSuggesting({ context });
     const ask = (context: SelectionContext, action: AssistAction) => {
@@ -136,7 +154,11 @@ function DocumentAnnotations({ page }: { page: PandocsPage }) {
   const pendingText = pending?.kind === "text" ? pending : null;
   const assisted = assist?.context.selection ?? null;
   React.useEffect(() => {
-    paintHighlights(threads, activeId, [...(pendingText ? [pendingText] : []), ...(linked ? [linked] : []), ...(assisted ? [assisted] : [])]);
+    paintHighlights(threads, activeId, [
+      ...(pendingText ? [pendingText] : []),
+      ...(linked ? [linked] : []),
+      ...(assisted ? [assisted] : [])
+    ]);
   }, [threads, activeId, pendingText, linked, assisted, page.view.revision.no]);
 
   // Moving to a discussion moves the page to where it is anchored.
@@ -144,7 +166,10 @@ function DocumentAnnotations({ page }: { page: PandocsPage }) {
     const thread = threads.find(item => item.id === activeId);
     if (!thread) return;
     if (thread.anchor.kind === "text" && thread.anchorState !== "orphaned") scrollToAnchor(thread.anchor);
-    if (thread.anchor.kind === "block") bodyRoot()?.querySelector(`[data-block-ref="${thread.anchor.ref}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (thread.anchor.kind === "block")
+      bodyRoot()
+        ?.querySelector(`[data-block-ref="${thread.anchor.ref}"]`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
@@ -160,14 +185,25 @@ function DocumentAnnotations({ page }: { page: PandocsPage }) {
     /** A highlight has no element of its own to click. */
     const onClick = (event: MouseEvent) => {
       const root = bodyRoot();
-      if (!root || !(event.target instanceof Node) || !root.contains(event.target) || document.getSelection()?.isCollapsed === false) return;
-      const doc = document as Document & { caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null; caretRangeFromPoint?: (x: number, y: number) => Range | null };
+      if (
+        !root ||
+        !(event.target instanceof Node) ||
+        !root.contains(event.target) ||
+        document.getSelection()?.isCollapsed === false
+      )
+        return;
+      const doc = document as Document & {
+        caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+        caretRangeFromPoint?: (x: number, y: number) => Range | null;
+      };
       const position = doc.caretPositionFromPoint?.(event.clientX, event.clientY);
       const range = position ? null : doc.caretRangeFromPoint?.(event.clientX, event.clientY);
       const node = position?.offsetNode ?? range?.startContainer;
       if (!node || !root.contains(node)) return;
       const at = offsetAt(buildTextMap(root), root, node, position?.offset ?? range?.startOffset ?? 0);
-      const hit = textThreads(threads).find(thread => thread.anchor.kind === "text" && at >= thread.anchor.start && at < thread.anchor.end);
+      const hit = textThreads(threads).find(
+        thread => thread.anchor.kind === "text" && at >= thread.anchor.start && at < thread.anchor.end
+      );
       if (hit) activateThread(hit.id);
     };
     document.addEventListener("keydown", onKey);
@@ -178,20 +214,75 @@ function DocumentAnnotations({ page }: { page: PandocsPage }) {
     };
   }, [open, threads]);
 
-  const context: SelectionContext | null = selection && !params.get("mode") && !params.get("view") ? { page, selection: selection.captured, range: selection.range, clear: clearSelection } : null;
+  const context: SelectionContext | null =
+    selection && !params.get("mode") && !params.get("view")
+      ? { page, selection: selection.captured, range: selection.range, clear: clearSelection }
+      : null;
   const suggested = suggesting?.context;
-  const target = suggested ? suggestionTarget(page, suggested.selection.exact, blockRefOf(suggested.range.startContainer), blockRefOf(suggested.range.endContainer)) : null;
+  const target = suggested
+    ? suggestionTarget(
+        page,
+        suggested.selection.exact,
+        blockRefOf(suggested.range.startContainer),
+        blockRefOf(suggested.range.endContainer)
+      )
+    : null;
   return (
     <>
       {context?.selection.rect ? <SelectionToolbar rect={context.selection.rect} context={context} /> : null}
       {open ? <AnnotationPanel page={page} onOpenProposal={setProposalId} /> : null}
       {assist ? (
-        <AssistCard key={`${assist.action}:${assist.context.selection.start}`} rect={assist.context.selection.rect} action={assist.action} onClose={() => setAssist(null)}
-          load={() => api.send<{ text: string }>("POST", `documents/${page.entry.id}/assist`, { body: { action: assist.action, start: assist.context.selection.start, end: assist.context.selection.end, revision: page.view.revision.no } })}
-          actions={text => (assist.action === "rewrite" && atLeast(page.view.role, "commenter") ? <button type="button" className="pd-btn pd-btn--primary" onClick={() => { setSuggesting({ context: assist.context, draft: text }); setAssist(null); }}><FilePenLine size={14} aria-hidden="true" />{t("Suggest changes")}</button> : null)} />
+        <AssistCard
+          key={`${assist.action}:${assist.context.selection.start}`}
+          rect={assist.context.selection.rect}
+          action={assist.action}
+          onClose={() => setAssist(null)}
+          load={() =>
+            api.send<{ text: string }>("POST", `documents/${page.entry.id}/assist`, {
+              body: {
+                action: assist.action,
+                start: assist.context.selection.start,
+                end: assist.context.selection.end,
+                revision: page.view.revision.no
+              }
+            })
+          }
+          actions={text =>
+            assist.action === "rewrite" && atLeast(page.view.role, "commenter") ? (
+              <button
+                type="button"
+                className="pd-btn pd-btn--primary"
+                onClick={() => {
+                  setSuggesting({ context: assist.context, draft: text });
+                  setAssist(null);
+                }}
+              >
+                <FilePenLine size={14} aria-hidden="true" />
+                {t("Suggest changes")}
+              </button>
+            ) : null
+          }
+        />
       ) : null}
-      {target ? <React.Suspense fallback={null}><SuggestDialog page={page} target={target} draft={suggesting?.draft} onSubmitted={() => void refreshProposals()} onClose={() => { setSuggesting(null); clearSelection(); }} /></React.Suspense> : null}
-      {proposalId ? <React.Suspense fallback={null}><ProposalDialog proposalId={proposalId} page={page} onClose={() => setProposalId(null)} /></React.Suspense> : null}
+      {target ? (
+        <React.Suspense fallback={null}>
+          <SuggestDialog
+            page={page}
+            target={target}
+            draft={suggesting?.draft}
+            onSubmitted={() => void refreshProposals()}
+            onClose={() => {
+              setSuggesting(null);
+              clearSelection();
+            }}
+          />
+        </React.Suspense>
+      ) : null}
+      {proposalId ? (
+        <React.Suspense fallback={null}>
+          <ProposalDialog proposalId={proposalId} page={page} onClose={() => setProposalId(null)} />
+        </React.Suspense>
+      ) : null}
     </>
   );
 }
@@ -201,7 +292,9 @@ export function AnnotationLayer() {
   const page = useAppPage();
   return (
     <>
-      {page?.kind === "document" && !page.translation?.exists ? <DocumentAnnotations key={page.entry.id} page={page} /> : null}
+      {page?.kind === "document" && !page.translation?.exists ? (
+        <DocumentAnnotations key={page.entry.id} page={page} />
+      ) : null}
       <Toaster />
       <ConfirmHost />
     </>
@@ -209,5 +302,10 @@ export function AnnotationLayer() {
 }
 
 export function commentOnBlock(page: PandocsPage, ref: string): void {
-  startComment({ kind: "block", ref, preview: page.view.blocks.find(block => block.ref === ref)?.preview ?? "", revision: page.view.revision.no });
+  startComment({
+    kind: "block",
+    ref,
+    preview: page.view.blocks.find(block => block.ref === ref)?.preview ?? "",
+    revision: page.view.revision.no
+  });
 }

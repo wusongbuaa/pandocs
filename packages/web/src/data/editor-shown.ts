@@ -21,4 +21,9 @@ export function setEditorShown(value: boolean): void {
  * Opening the editor takes a moment: its code, any draft left behind, the shared draft. Until it can take the page's
  * place, the page stays as it was read, so that switching is one change on screen rather than the page going blank.
  */
-export const useEditorShown = (): boolean => React.useSyncExternalStore(subscribe, () => shown, () => false);
+export const useEditorShown = (): boolean =>
+  React.useSyncExternalStore(
+    subscribe,
+    () => shown,
+    () => false
+  );

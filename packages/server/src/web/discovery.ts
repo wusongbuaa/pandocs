@@ -13,7 +13,14 @@ export function robotsTxt(open: boolean, siteUrl: string): string {
   // Below a path, crawlers read the host's own file rather than this one, which says what to put in it.
   const base = new URL(siteUrl).pathname.replace(/\/$/u, "");
   if (!open) return `User-agent: *\nDisallow: ${base}/\n`;
-  return ["User-agent: *", `Allow: ${base}/`, ...["/_/", "/api/", "/auth/", "/embed/", "/login", "/logout"].map(path => `Disallow: ${base}${path}`), "", `Sitemap: ${siteUrl}/sitemap.xml`, ""].join("\n");
+  return [
+    "User-agent: *",
+    `Allow: ${base}/`,
+    ...["/_/", "/api/", "/auth/", "/embed/", "/login", "/logout"].map(path => `Disallow: ${base}${path}`),
+    "",
+    `Sitemap: ${siteUrl}/sitemap.xml`,
+    ""
+  ].join("\n");
 }
 
 /** Every page someone with no login can read, in each language it has been written in. A space's front page is only made of links to these. */
@@ -29,10 +36,15 @@ export async function sitemapXml(services: PandocsServices, origin: string): Pro
       const path = node.path === HOME_DOCUMENT_PATH ? "" : encodePath(node.path);
       const updatedAt = new Date(node.updatedAt).toISOString();
       entries.push({ path: `${base}${path}`, updatedAt });
-      for (const lang of Object.keys(node.titles ?? {})) if (lang !== defaultLang) entries.push({ path: `/${lang}${base}${path}`, updatedAt });
+      for (const lang of Object.keys(node.titles ?? {}))
+        if (lang !== defaultLang) entries.push({ path: `/${lang}${base}${path}`, updatedAt });
     }
   }
-  const urls = entries.slice(0, SITEMAP_LIMIT).map(({ path, updatedAt }) => `  <url><loc>${escapeXml(`${origin}${path}`)}</loc><lastmod>${updatedAt}</lastmod></url>`);
+  const urls = entries
+    .slice(0, SITEMAP_LIMIT)
+    .map(
+      ({ path, updatedAt }) => `  <url><loc>${escapeXml(`${origin}${path}`)}</loc><lastmod>${updatedAt}</lastmod></url>`
+    );
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n`;
 }
 
@@ -57,17 +69,24 @@ export function absoluteLinks(markdown: string, page: string, assets: string): s
   };
   const rewrite = (_match: string, before: string, target: string) => `${before}${absolute(target)}`;
   let fence = "";
-  return markdown.split("\n").map(line => {
-    const marker = FENCE.exec(line)?.[1];
-    if (fence) {
-      if (marker && marker[0] === fence[0] && marker.length >= fence.length) fence = "";
-      return line;
-    }
-    if (marker) {
-      fence = marker;
-      return line;
-    }
-    if (FILE_BLOCK.test(line)) return line.replace(FILE_ATTRIBUTE, rewrite);
-    return line.split(/(`[^`]*`)/u).map((part, at) => (at % 2 === 1 ? part : part.replace(INLINE_LINK, rewrite))).join("").replace(LINK_DEFINITION, rewrite);
-  }).join("\n");
+  return markdown
+    .split("\n")
+    .map(line => {
+      const marker = FENCE.exec(line)?.[1];
+      if (fence) {
+        if (marker && marker[0] === fence[0] && marker.length >= fence.length) fence = "";
+        return line;
+      }
+      if (marker) {
+        fence = marker;
+        return line;
+      }
+      if (FILE_BLOCK.test(line)) return line.replace(FILE_ATTRIBUTE, rewrite);
+      return line
+        .split(/(`[^`]*`)/u)
+        .map((part, at) => (at % 2 === 1 ? part : part.replace(INLINE_LINK, rewrite)))
+        .join("")
+        .replace(LINK_DEFINITION, rewrite);
+    })
+    .join("\n");
 }

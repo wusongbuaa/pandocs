@@ -5,8 +5,20 @@ import { createRateLimiter } from "../src/public-access.js";
 import { PUBLIC_URL, signInFirstAdmin, startServer, type Client, type TestServer } from "./support.js";
 
 const postgres = usePostgresFixture();
-const WRITES_FOR_VISITORS = ["PATCH documents/:id/feedback/:feedback", "POST ask", "POST ask/:id/rating", "POST documents/:id/feedback", "POST stats/searches", "POST stats/views"];
-const PNG = new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"));
+const WRITES_FOR_VISITORS = [
+  "PATCH documents/:id/feedback/:feedback",
+  "POST ask",
+  "POST ask/:id/rating",
+  "POST documents/:id/feedback",
+  "POST stats/searches",
+  "POST stats/views"
+];
+const PNG = new Uint8Array(
+  Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64"
+  )
+);
 
 describe("public spaces", () => {
   let server: TestServer;
@@ -21,7 +33,11 @@ describe("public spaces", () => {
 
   const api = (path: string) => visitor.json("GET", `/api/v1/${path}`);
   const upload = async (space: string, bytes: Uint8Array, name: string) => {
-    const response = await admin.request(`/api/v1/spaces/${space}/assets?filename=${name}`, { method: "POST", headers: { "content-type": "image/png" }, body: bytes as BodyInit });
+    const response = await admin.request(`/api/v1/spaces/${space}/assets?filename=${name}`, {
+      method: "POST",
+      headers: { "content-type": "image/png" },
+      body: bytes as BodyInit
+    });
     return ((await response.json()) as { data: { sha256: string; path: string } }).data;
   };
   /** Answers for visitors are shared for a few seconds, and knowing which spaces are public is too. */
@@ -37,7 +53,10 @@ describe("public spaces", () => {
     server = await startServer(postgres.getConnectionString());
     admin = await signInFirstAdmin(server);
     visitor = server.client();
-    for (const [slug, name] of [["shop", "书店"], ["inside", "内部"]] as const) {
+    for (const [slug, name] of [
+      ["shop", "书店"],
+      ["inside", "内部"]
+    ] as const) {
       await admin.json("POST", "/api/v1/spaces", { slug, name, defaultRole: "viewer" });
     }
     const image = await upload("shop", PNG, "open.png");
@@ -45,16 +64,46 @@ describe("public spaces", () => {
     unusedImage = (await upload("shop", new Uint8Array([...PNG, 2]), "unused.png")).sha256;
     openImage = image.sha256;
     lockedImage = secret.sha256;
-    openPage = (await admin.json("POST", "/api/v1/spaces/shop/documents", { title: "退货", slug: "returns", markdown: `# 退货\n\n七天内可以退货。\n\n![图](${image.path})\n` })).data.document.id;
-    lockedPage = (await admin.json("POST", "/api/v1/spaces/shop/documents", { title: "内部价", slug: "cost", markdown: `进货价保密。\n\n![图](${secret.path})\n`, restricted: true })).data.document.id;
-    closedPage = (await admin.json("POST", "/api/v1/spaces/inside/documents", { title: "内部", slug: "note", markdown: "只给同事看\n" })).data.document.id;
-    await admin.json("POST", `/api/v1/documents/${openPage}/threads`, { anchor: { kind: "quote", quote: "七天" }, body: "内部讨论：是不是太短了" });
+    openPage = (
+      await admin.json("POST", "/api/v1/spaces/shop/documents", {
+        title: "退货",
+        slug: "returns",
+        markdown: `# 退货\n\n七天内可以退货。\n\n![图](${image.path})\n`
+      })
+    ).data.document.id;
+    lockedPage = (
+      await admin.json("POST", "/api/v1/spaces/shop/documents", {
+        title: "内部价",
+        slug: "cost",
+        markdown: `进货价保密。\n\n![图](${secret.path})\n`,
+        restricted: true
+      })
+    ).data.document.id;
+    closedPage = (
+      await admin.json("POST", "/api/v1/spaces/inside/documents", {
+        title: "内部",
+        slug: "note",
+        markdown: "只给同事看\n"
+      })
+    ).data.document.id;
+    await admin.json("POST", `/api/v1/documents/${openPage}/threads`, {
+      anchor: { kind: "quote", quote: "七天" },
+      body: "内部讨论：是不是太短了"
+    });
   });
   afterAll(() => server.close());
 
   describe("before anything is public", () => {
     it("is as closed as a site with no such thing", async () => {
-      for (const path of ["bootstrap", "blocks", "site", "spaces", "search?q=退货", `documents/${openPage}`, "llms.txt"]) {
+      for (const path of [
+        "bootstrap",
+        "blocks",
+        "site",
+        "spaces",
+        "search?q=退货",
+        `documents/${openPage}`,
+        "llms.txt"
+      ]) {
         expect((await api(path)).status, path).toBe(401);
       }
       for (const path of ["/", "/shop/returns", "/nothing"]) {
@@ -68,7 +117,11 @@ describe("public spaces", () => {
 
   describe("turning it on", () => {
     it("takes someone administering that space, and is on the record", async () => {
-      await admin.json("POST", "/api/v1/admin/users", { email: "member@example.test", displayName: "同事", password: "member-password-1" });
+      await admin.json("POST", "/api/v1/admin/users", {
+        email: "member@example.test",
+        displayName: "同事",
+        password: "member-password-1"
+      });
       const member = server.client();
       await member.form("/login", { email: "member@example.test", password: "member-password-1", next: "/" });
       const { id } = (await member.json("GET", "/api/v1/account")).data;
@@ -154,7 +207,12 @@ describe("public spaces", () => {
     });
 
     describe("leaving something behind", () => {
-      const post = (path: string, body: unknown, headers: Record<string, string> = {}) => visitor.request(`/api/v1/${path}`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
+      const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
+        visitor.request(`/api/v1/${path}`, {
+          method: "POST",
+          headers: { "content-type": "application/json", ...headers },
+          body: JSON.stringify(body)
+        });
 
       it("can vote on a public page, and count reading it", async () => {
         expect((await post(`documents/${openPage}/feedback`, { kind: "helpful" })).status).toBe(201);
@@ -170,7 +228,11 @@ describe("public spaces", () => {
       });
 
       it("cannot be made to from another site", async () => {
-        const answer = await post(`documents/${openPage}/feedback`, { kind: "helpful" }, { "sec-fetch-site": "cross-site" });
+        const answer = await post(
+          `documents/${openPage}/feedback`,
+          { kind: "helpful" },
+          { "sec-fetch-site": "cross-site" }
+        );
         expect(answer.status).toBe(401);
       });
 
@@ -183,8 +245,12 @@ describe("public spaces", () => {
       it("has limits of its own", () => {
         const access = server.runtime.publicAccess;
         const address = "198.51.100.7";
-        expect(Array.from({ length: 31 }, () => access.allowRequest(address, "/api/v1/documents/x/feedback")).filter(Boolean)).toHaveLength(30);
-        expect(Array.from({ length: 21 }, () => access.allowRequest(address, "/api/v1/ask")).filter(Boolean)).toHaveLength(20);
+        expect(
+          Array.from({ length: 31 }, () => access.allowRequest(address, "/api/v1/documents/x/feedback")).filter(Boolean)
+        ).toHaveLength(30);
+        expect(
+          Array.from({ length: 21 }, () => access.allowRequest(address, "/api/v1/ask")).filter(Boolean)
+        ).toHaveLength(20);
         expect(access.allowRequest(address, "/api/v1/stats/views")).toBe(true);
       });
     });
@@ -196,12 +262,25 @@ describe("public spaces", () => {
           headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
           body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
         });
-        return (await response.json()) as { result: { tools: { name: string }[]; structuredContent: { data?: any; error?: { code: string } }; isError?: boolean } };
+        return (await response.json()) as {
+          result: {
+            tools: { name: string }[];
+            structuredContent: { data?: any; error?: { code: string } };
+            isError?: boolean;
+          };
+        };
       };
 
       it("offers reading and saying what is wrong, and nothing else", async () => {
         const { result } = await rpc("tools/list");
-        expect(result.tools.map(tool => tool.name).sort()).toEqual(["doc_blocks", "doc_get", "doc_list", "doc_report", "doc_search", "doc_spaces"]);
+        expect(result.tools.map(tool => tool.name).sort()).toEqual([
+          "doc_blocks",
+          "doc_get",
+          "doc_list",
+          "doc_report",
+          "doc_search",
+          "doc_spaces"
+        ]);
       });
 
       it("reads a public page, without who wrote it", async () => {
@@ -218,7 +297,10 @@ describe("public spaces", () => {
         expect(spaces.result.structuredContent.data.map((space: { slug: string }) => space.slug)).toEqual(["shop"]);
         const hits = await rpc("tools/call", { name: "doc_search", arguments: { query: "退货" } });
         expect(hits.result.structuredContent.data.map((hit: { id: string }) => hit.id)).toEqual([openPage]);
-        expect((await rpc("tools/call", { name: "doc_search", arguments: { query: "只给同事看" } })).result.structuredContent.data).toEqual([]);
+        expect(
+          (await rpc("tools/call", { name: "doc_search", arguments: { query: "只给同事看" } })).result.structuredContent
+            .data
+        ).toEqual([]);
       });
 
       it("does not reach anything else, by id or by an earlier version", async () => {
@@ -232,11 +314,22 @@ describe("public spaces", () => {
       });
 
       it("takes a report of what is wrong with a public page, and no other", async () => {
-        const { result } = await rpc("tools/call", { name: "doc_report", arguments: { doc: openPage, problem: "The period looks wrong." } });
+        const { result } = await rpc("tools/call", {
+          name: "doc_report",
+          arguments: { doc: openPage, problem: "The period looks wrong." }
+        });
         expect(result.structuredContent.data.id).toBeTruthy();
         const [report] = (await admin.json("GET", "/api/v1/spaces/shop/feedback")).data;
-        expect(report).toMatchObject({ kind: "report", audience: "agent", reporter: null, body: "The period looks wrong." });
-        for (const doc of [lockedPage, closedPage]) expect((await rpc("tools/call", { name: "doc_report", arguments: { doc, problem: "x" } })).result.isError).toBe(true);
+        expect(report).toMatchObject({
+          kind: "report",
+          audience: "agent",
+          reporter: null,
+          body: "The period looks wrong."
+        });
+        for (const doc of [lockedPage, closedPage])
+          expect(
+            (await rpc("tools/call", { name: "doc_report", arguments: { doc, problem: "x" } })).result.isError
+          ).toBe(true);
       });
 
       it("refuses tools that are not on the list", async () => {
@@ -248,14 +341,15 @@ describe("public spaces", () => {
   });
 
   describe("what stays closed to a visitor", () => {
-    const concrete = (pattern: string) => pattern
-      .replace(":space", "shop")
-      .replace(":id", openPage)
-      .replace(":lang", "en")
-      .replace(":no", "1")
-      .replace(":file", "x")
-      .replace(":name", "x")
-      .replace("*", "x");
+    const concrete = (pattern: string) =>
+      pattern
+        .replace(":space", "shop")
+        .replace(":id", openPage)
+        .replace(":lang", "en")
+        .replace(":no", "1")
+        .replace(":file", "x")
+        .replace(":name", "x")
+        .replace("*", "x");
 
     it("is every read of the API not meant for them, including any added later", async () => {
       const allowed = new Set(publicRouteTable);
@@ -276,7 +370,9 @@ describe("public spaces", () => {
     });
 
     it("is everything that changes something", async () => {
-      for (const route of pandocsRouteTable.filter(item => item.method !== "GET" && !WRITES_FOR_VISITORS.includes(`${item.method} ${item.pattern}`))) {
+      for (const route of pandocsRouteTable.filter(
+        item => item.method !== "GET" && !WRITES_FOR_VISITORS.includes(`${item.method} ${item.pattern}`)
+      )) {
         const answer = await visitor.json(route.method, `/api/v1/${concrete(route.pattern)}`, {});
         expect(answer.status, `${route.method} ${route.pattern}`).toBe(401);
       }
@@ -295,7 +391,9 @@ describe("public spaces", () => {
     });
 
     it("does not treat a wrong credential as no credential", async () => {
-      const wrong = await visitor.json("GET", "/api/v1/spaces/shop", undefined, { authorization: "Bearer pd_not_real" });
+      const wrong = await visitor.json("GET", "/api/v1/spaces/shop", undefined, {
+        authorization: "Bearer pd_not_real"
+      });
       expect(wrong.status).toBe(401);
       expect(wrong.error.code).toBe("TOKEN_INVALID");
     });
@@ -311,8 +409,18 @@ describe("public spaces", () => {
   describe("people who are signed in", () => {
     it("can read a public space with no role in it, and comment only with one", async () => {
       await admin.json("POST", "/api/v1/spaces", { slug: "open-only", name: "只公开", defaultRole: "none" });
-      const page = (await admin.json("POST", "/api/v1/spaces/open-only/documents", { title: "一页", slug: "page", markdown: "正文\n" })).data.document.id;
-      await admin.json("POST", "/api/v1/admin/users", { email: "other@example.test", displayName: "别的同事", password: "other-password-12" });
+      const page = (
+        await admin.json("POST", "/api/v1/spaces/open-only/documents", {
+          title: "一页",
+          slug: "page",
+          markdown: "正文\n"
+        })
+      ).data.document.id;
+      await admin.json("POST", "/api/v1/admin/users", {
+        email: "other@example.test",
+        displayName: "别的同事",
+        password: "other-password-12"
+      });
       const other = server.client();
       await other.form("/login", { email: "other@example.test", password: "other-password-12", next: "/" });
       expect((await other.json("GET", `/api/v1/documents/${page}`)).status).toBe(404);
@@ -320,7 +428,10 @@ describe("public spaces", () => {
       const read = await other.json("GET", `/api/v1/documents/${page}`);
       expect(read.status).toBe(200);
       expect(read.data.revision.actorName).toBe("站长");
-      expect((await other.json("POST", `/api/v1/documents/${page}/threads`, { anchor: { kind: "document" }, body: "看看" })).status).toBe(403);
+      expect(
+        (await other.json("POST", `/api/v1/documents/${page}/threads`, { anchor: { kind: "document" }, body: "看看" }))
+          .status
+      ).toBe(403);
       await admin.json("PATCH", "/api/v1/spaces/open-only", { publicRead: false });
     });
 
@@ -332,7 +443,15 @@ describe("public spaces", () => {
   describe("pages", () => {
     it("answers any address with a page, which is where a closed one and a missing one look the same, and the app's own pages need a login", async () => {
       later();
-      for (const path of ["/", "/shop", "/shop/returns", "/shop/does-not-exist", "/inside", "/inside/note", "/no-such-space/page"]) {
+      for (const path of [
+        "/",
+        "/shop",
+        "/shop/returns",
+        "/shop/does-not-exist",
+        "/inside",
+        "/inside/note",
+        "/no-such-space/page"
+      ]) {
         const page = await visitor.request(path);
         expect(page.status, path).toBe(200);
         expect(page.headers.get("content-type")).toContain("text/html");
@@ -346,7 +465,13 @@ describe("public spaces", () => {
 
     it("follows the site's languages", async () => {
       later();
-      await admin.json("PATCH", "/api/v1/site", { defaultLang: "zh", locales: [{ lang: "zh", label: "中文" }, { lang: "en", label: "English" }] });
+      await admin.json("PATCH", "/api/v1/site", {
+        defaultLang: "zh",
+        locales: [
+          { lang: "zh", label: "中文" },
+          { lang: "en", label: "English" }
+        ]
+      });
       vi.restoreAllMocks();
       later();
       expect((await visitor.request("/en/shop/returns")).status).toBe(200);

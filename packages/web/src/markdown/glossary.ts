@@ -1,14 +1,34 @@
 import type { Element, ElementContent, Root, RootContent } from "hast";
 import type { GlossaryEntry } from "../types";
 
-const SKIPPED_TAGS = new Set(["a", "abbr", "button", "code", "h1", "h2", "h3", "h4", "h5", "h6", "kbd", "math", "pre", "sub", "sup", "svg"]);
+const SKIPPED_TAGS = new Set([
+  "a",
+  "abbr",
+  "button",
+  "code",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "kbd",
+  "math",
+  "pre",
+  "sub",
+  "sup",
+  "svg"
+]);
 const SKIPPED_CLASSES = new Set(["katex", "katex-display", "katex-error", "rp-header-anchor"]);
 const LATIN = /[A-Za-z0-9_]/u;
 
 const escaped = (term: string) => term.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 
 function skips(node: Element): boolean {
-  return SKIPPED_TAGS.has(node.tagName) || [node.properties?.className ?? []].flat().some(name => SKIPPED_CLASSES.has(String(name)));
+  return (
+    SKIPPED_TAGS.has(node.tagName) ||
+    [node.properties?.className ?? []].flat().some(name => SKIPPED_CLASSES.has(String(name)))
+  );
 }
 
 /**
@@ -17,8 +37,15 @@ function skips(node: Element): boolean {
  */
 export function rehypeGlossary(glossary: readonly GlossaryEntry[]) {
   return (tree: Root) => {
-    const remaining = new Map([...glossary].sort((a, b) => b.term.length - a.term.length).map(entry => [entry.term.toLowerCase(), entry] as const));
-    const pattern = () => (remaining.size === 0 ? null : new RegExp([...remaining.values()].map(entry => escaped(entry.term)).join("|"), "giu"));
+    const remaining = new Map(
+      [...glossary]
+        .sort((a, b) => b.term.length - a.term.length)
+        .map(entry => [entry.term.toLowerCase(), entry] as const)
+    );
+    const pattern = () =>
+      remaining.size === 0
+        ? null
+        : new RegExp([...remaining.values()].map(entry => escaped(entry.term)).join("|"), "giu");
     let matcher = pattern();
 
     const inText = (value: string): ElementContent[] | null => {
@@ -39,7 +66,12 @@ export function rehypeGlossary(glossary: readonly GlossaryEntry[]) {
         }
         const entry = remaining.get(word.toLowerCase())!;
         if (match.index > copied) parts.push({ type: "text", value: value.slice(copied, match.index) });
-        parts.push({ type: "element", tagName: "abbr", properties: { "data-definition": entry.definition }, children: [{ type: "text", value: word }] });
+        parts.push({
+          type: "element",
+          tagName: "abbr",
+          properties: { "data-definition": entry.definition },
+          children: [{ type: "text", value: word }]
+        });
         at = match.index + word.length;
         copied = at;
         remaining.delete(word.toLowerCase());

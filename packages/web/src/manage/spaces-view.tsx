@@ -17,7 +17,12 @@ import { DEFAULT_ROLES, ROLE_LABELS } from "./roles";
 import { t } from "../i18n";
 
 /** Latin names say what the address should be. A Chinese name does not, and the person chooses one. */
-const slugFromName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "").slice(0, 64);
+const slugFromName = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-+|-+$/gu, "")
+    .slice(0, 64);
 
 function CreateSpaceDialog({ onClose }: { onClose: () => void }) {
   const [name, setName] = React.useState("");
@@ -31,11 +36,52 @@ function CreateSpaceDialog({ onClose }: { onClose: () => void }) {
     location.assign(`${pageUrl(spaceManageRoute(slug, "pages"))}?new=1`);
   };
   return (
-    <FormDialog title={t("New space")} onClose={onClose} action={t("Create")} onSubmit={submit} fieldFor={error => (error.code.startsWith("SPACE_SLUG") ? "slug" : undefined)}>
-      <TextField name="name" label={t("Name")} required autoFocus value={name} onChange={event => { setName(event.target.value); if (!slugTouched) setSlug(slugFromName(event.target.value)); }} />
-      <TextField name="slug" label={t("Address")} required pattern="[a-z0-9][a-z0-9\-]{0,63}" data-problem={t("Lowercase letters, digits and hyphens")} description={t("Lowercase letters, digits and hyphens. It cannot change once created. Pages live at /{0}/…", slug || "handbook")} value={slug} placeholder="handbook" onChange={event => { setSlugTouched(true); setSlug(event.target.value.toLowerCase()); }} />
-      <TextField label={t("Description (optional)")} value={description} onChange={event => setDescription(event.target.value)} />
-      <SelectField label={t("People signed in can by default")} value={defaultRole} onChange={value => setDefaultRole(value as Role)} choices={DEFAULT_ROLES.map(role => ({ value: role, label: ROLE_LABELS[role] }))} />
+    <FormDialog
+      title={t("New space")}
+      onClose={onClose}
+      action={t("Create")}
+      onSubmit={submit}
+      fieldFor={error => (error.code.startsWith("SPACE_SLUG") ? "slug" : undefined)}
+    >
+      <TextField
+        name="name"
+        label={t("Name")}
+        required
+        autoFocus
+        value={name}
+        onChange={event => {
+          setName(event.target.value);
+          if (!slugTouched) setSlug(slugFromName(event.target.value));
+        }}
+      />
+      <TextField
+        name="slug"
+        label={t("Address")}
+        required
+        pattern="[a-z0-9][a-z0-9\-]{0,63}"
+        data-problem={t("Lowercase letters, digits and hyphens")}
+        description={t(
+          "Lowercase letters, digits and hyphens. It cannot change once created. Pages live at /{0}/…",
+          slug || "handbook"
+        )}
+        value={slug}
+        placeholder="handbook"
+        onChange={event => {
+          setSlugTouched(true);
+          setSlug(event.target.value.toLowerCase());
+        }}
+      />
+      <TextField
+        label={t("Description (optional)")}
+        value={description}
+        onChange={event => setDescription(event.target.value)}
+      />
+      <SelectField
+        label={t("People signed in can by default")}
+        value={defaultRole}
+        onChange={value => setDefaultRole(value as Role)}
+        choices={DEFAULT_ROLES.map(role => ({ value: role, label: ROLE_LABELS[role] }))}
+      />
     </FormDialog>
   );
 }
@@ -50,8 +96,20 @@ function SampleDocsDialog({ onClose }: { onClose: () => void }) {
     location.assign(pageUrl(`/${SAMPLE_SPACE}/`));
   };
   return (
-    <FormDialog title={t("Import the sample documents")} description={t("This makes a space with Pandocs' own documentation, using each kind of block, with a comment and a suggestion to try. Delete the space when you no longer want it.")} onClose={onClose} action={t("Import")} onSubmit={submit}>
-      {progress ? <p className="pd-sample-progress" role="status">{t("Importing {0}/{1}…", progress[0], progress[1])}</p> : null}
+    <FormDialog
+      title={t("Import the sample documents")}
+      description={t(
+        "This makes a space with Pandocs' own documentation, using each kind of block, with a comment and a suggestion to try. Delete the space when you no longer want it."
+      )}
+      onClose={onClose}
+      action={t("Import")}
+      onSubmit={submit}
+    >
+      {progress ? (
+        <p className="pd-sample-progress" role="status">
+          {t("Importing {0}/{1}…", progress[0], progress[1])}
+        </p>
+      ) : null}
     </FormDialog>
   );
 }
@@ -64,8 +122,21 @@ function RestoreElsewhere({ space, onClose }: { space: DeletedSpace; onClose: ()
     location.reload();
   };
   return (
-    <FormDialog title={t("Restore \"{0}\" at another address", space.name)} description={t("Another space has the address {0} now.", space.slug)} action={t("Restore")} onClose={onClose} onSubmit={submit}>
-      <TextField name="slug" label={t("Address")} required pattern="[a-z0-9][a-z0-9\-]{0,63}" value={slug} onChange={event => setSlug(event.target.value)} />
+    <FormDialog
+      title={t('Restore "{0}" at another address', space.name)}
+      description={t("Another space has the address {0} now.", space.slug)}
+      action={t("Restore")}
+      onClose={onClose}
+      onSubmit={submit}
+    >
+      <TextField
+        name="slug"
+        label={t("Address")}
+        required
+        pattern="[a-z0-9][a-z0-9\-]{0,63}"
+        value={slug}
+        onChange={event => setSlug(event.target.value)}
+      />
     </FormDialog>
   );
 }
@@ -75,7 +146,14 @@ function DeletedSpaces() {
   const [elsewhere, setElsewhere] = React.useState<DeletedSpace | null>(null);
   if (deleted.status !== "ready" || deleted.data.length === 0) return null;
   const restore = async (space: DeletedSpace) => {
-    if (!await confirm({ title: t("Restore \"{0}\"?", space.name), description: t("Its pages, versions and discussions come back."), action: t("Restore") })) return;
+    if (
+      !(await confirm({
+        title: t('Restore "{0}"?', space.name),
+        description: t("Its pages, versions and discussions come back."),
+        action: t("Restore")
+      }))
+    )
+      return;
     try {
       await api.send("POST", `deleted-spaces/${space.id}/restore`);
       location.reload();
@@ -88,14 +166,29 @@ function DeletedSpaces() {
     <>
       <h2>{t("Deleted spaces")}</h2>
       <table>
-        <thead><tr><th>{t("Name")}</th><th>{t("Address")}</th><th>{t("Delete")}</th><th /></tr></thead>
+        <thead>
+          <tr>
+            <th>{t("Name")}</th>
+            <th>{t("Address")}</th>
+            <th>{t("Delete")}</th>
+            <th />
+          </tr>
+        </thead>
         <tbody>
           {deleted.data.map(space => (
             <tr key={space.id}>
               <td>{space.name}</td>
-              <td><code>{space.slug}</code></td>
-              <td>{space.deletedName ?? t("Unknown")} · {relativeTime(space.deletedAt)}</td>
-              <td className="pd-table__actions"><Button variant="outline" size="sm" onClick={() => void restore(space)}>{t("Restore")}</Button></td>
+              <td>
+                <code>{space.slug}</code>
+              </td>
+              <td>
+                {space.deletedName ?? t("Unknown")} · {relativeTime(space.deletedAt)}
+              </td>
+              <td className="pd-table__actions">
+                <Button variant="outline" size="sm" onClick={() => void restore(space)}>
+                  {t("Restore")}
+                </Button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -113,20 +206,49 @@ export function SpacesView() {
   useOpenFromLink(() => setSampling(me.isAdmin), "sample");
   return (
     <>
-      <ManageHead title={t("All spaces")} description={t("A space is a set of pages with its own structure, members and trash.")}>
-        {me.isAdmin && !spaces.some(space => space.slug === SAMPLE_SPACE) ? <Button variant="outline" onClick={() => setSampling(true)}>{t("Import the sample documents")}</Button> : null}
+      <ManageHead
+        title={t("All spaces")}
+        description={t("A space is a set of pages with its own structure, members and trash.")}
+      >
+        {me.isAdmin && !spaces.some(space => space.slug === SAMPLE_SPACE) ? (
+          <Button variant="outline" onClick={() => setSampling(true)}>
+            {t("Import the sample documents")}
+          </Button>
+        ) : null}
         {me.isAdmin ? <Button onClick={() => setCreating(true)}>{t("New space")}</Button> : null}
       </ManageHead>
-      {spaces.length === 0 ? <EmptyState>{me.isAdmin ? t("There are no spaces yet. Create one, then start writing in it.") : t("No spaces you can see yet.")}</EmptyState> : (
+      {spaces.length === 0 ? (
+        <EmptyState>
+          {me.isAdmin
+            ? t("There are no spaces yet. Create one, then start writing in it.")
+            : t("No spaces you can see yet.")}
+        </EmptyState>
+      ) : (
         <table>
-          <thead><tr><th>{t("Name")}</th><th>{t("Page")}</th><th>{t("My role")}</th><th /></tr></thead>
+          <thead>
+            <tr>
+              <th>{t("Name")}</th>
+              <th>{t("Page")}</th>
+              <th>{t("My role")}</th>
+              <th />
+            </tr>
+          </thead>
           <tbody>
             {spaces.map(space => (
               <tr key={space.id}>
-                <td><Link href={`/${space.slug}/`}>{space.name}</Link>{space.description ? <div className="pd-table__note">{space.description}</div> : null}</td>
+                <td>
+                  <Link href={`/${space.slug}/`}>{space.name}</Link>
+                  {space.description ? <div className="pd-table__note">{space.description}</div> : null}
+                </td>
                 <td>{space.tree.length}</td>
                 <td>{ROLE_LABELS[space.role]}</td>
-                <td className="pd-table__actions">{atLeast(space.role, "editor") ? <Link href={spaceManageRoute(space.slug, "pages")} className="pd-btn">{t("Manage")}</Link> : null}</td>
+                <td className="pd-table__actions">
+                  {atLeast(space.role, "editor") ? (
+                    <Link href={spaceManageRoute(space.slug, "pages")} className="pd-btn">
+                      {t("Manage")}
+                    </Link>
+                  ) : null}
+                </td>
               </tr>
             ))}
           </tbody>

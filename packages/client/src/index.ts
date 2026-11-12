@@ -25,7 +25,12 @@ export interface PandocsClientOptions {
 
 /** The server said no. `code` is stable and meant for programs, such as `REVISION_CONFLICT` or `MERGE_CONFLICT`. */
 export class PandocsError extends Error {
-  constructor(readonly status: number, readonly code: string, message: string, readonly details?: unknown) {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+    readonly details?: unknown
+  ) {
     super(message);
     this.name = "PandocsError";
   }
@@ -38,19 +43,28 @@ const MAX_RECONNECT_MS = 30_000;
 
 interface Answer<T> {
   readonly data?: { readonly data: T } | undefined;
-  readonly error?: { readonly error?: { readonly code?: string; readonly message?: string; readonly details?: unknown } } | undefined;
+  readonly error?:
+    | { readonly error?: { readonly code?: string; readonly message?: string; readonly details?: unknown } }
+    | undefined;
   readonly response: Response;
 }
 
 function unwrap<T>({ data, error, response }: Answer<T>): T {
   if (data) return data.data;
-  throw new PandocsError(response.status, error?.error?.code ?? "UNKNOWN", error?.error?.message ?? `The server answered ${response.status}`, error?.error?.details);
+  throw new PandocsError(
+    response.status,
+    error?.error?.code ?? "UNKNOWN",
+    error?.error?.message ?? `The server answered ${response.status}`,
+    error?.error?.details
+  );
 }
 
 const newKey = () => crypto.randomUUID();
 
 /** Reads Server-Sent Events off a response body. A proxy can split a frame anywhere, so frames are only read once whole. */
-async function* framesOf(body: ReadableStream<Uint8Array>): AsyncGenerator<{ id?: string; event?: string; data?: string }> {
+async function* framesOf(
+  body: ReadableStream<Uint8Array>
+): AsyncGenerator<{ id?: string; event?: string; data?: string }> {
   const decoder = new TextDecoder();
   const reader = body.getReader();
   let buffer = "";
@@ -96,33 +110,68 @@ export function createPandocsClient(options: PandocsClientOptions) {
     me: async () => unwrap(await api.GET("/me")),
     spaces: async () => unwrap(await api.GET("/spaces")),
     tree: async (space: string) => unwrap(await api.GET("/spaces/{space}/tree", { params: { path: { space } } })),
-    search: async (q: string, filter: { readonly space?: string } = {}) => unwrap(await api.GET("/search", { params: { query: { q, ...filter } } })),
+    search: async (q: string, filter: { readonly space?: string } = {}) =>
+      unwrap(await api.GET("/search", { params: { query: { q, ...filter } } })),
     read: async (id: string) => unwrap(await api.GET("/documents/{id}", { params: { path: { id } } })),
     /** Finds a page by its address in a space. */
-    resolve: async (space: string, path: string) => unwrap(await api.GET("/spaces/{space}/resolve", { params: { path: { space }, query: { path } } })) as unknown as { readonly id: string },
-    create: async (space: string, input: paths["/spaces/{space}/documents"]["post"]["requestBody"]["content"]["application/json"]) =>
-      unwrap(await api.POST("/spaces/{space}/documents", { params: { path: { space } }, body: input })),
+    resolve: async (space: string, path: string) =>
+      unwrap(await api.GET("/spaces/{space}/resolve", { params: { path: { space }, query: { path } } })) as unknown as {
+        readonly id: string;
+      },
+    create: async (
+      space: string,
+      input: paths["/spaces/{space}/documents"]["post"]["requestBody"]["content"]["application/json"]
+    ) => unwrap(await api.POST("/spaces/{space}/documents", { params: { path: { space } }, body: input })),
     /** Saves a page, naming the revision the edit started from. With `merge`, an edit to a page that moved on is merged by block. */
-    save: async (id: string, input: paths["/documents/{id}/content"]["put"]["requestBody"]["content"]["application/json"]) =>
-      unwrap(await api.PUT("/documents/{id}/content", { params: { path: { id }, header: { "Idempotency-Key": newKey() } }, body: input })),
+    save: async (
+      id: string,
+      input: paths["/documents/{id}/content"]["put"]["requestBody"]["content"]["application/json"]
+    ) =>
+      unwrap(
+        await api.PUT("/documents/{id}/content", {
+          params: { path: { id }, header: { "Idempotency-Key": newKey() } },
+          body: input
+        })
+      ),
     /** Suggests a change for someone with edit rights to decide. Give the whole edited text as `markdown`, or `ops`. */
-    propose: async (id: string, input: paths["/documents/{id}/proposals"]["post"]["requestBody"]["content"]["application/json"]) =>
-      unwrap(await api.POST("/documents/{id}/proposals", { params: { path: { id } }, body: input, headers: { "Idempotency-Key": newKey() } })),
-    threads: async (id: string) => unwrap(await api.GET("/documents/{id}/threads", { params: { path: { id }, query: {} } })),
-    comment: async (id: string, input: paths["/documents/{id}/threads"]["post"]["requestBody"]["content"]["application/json"]) =>
-      unwrap(await api.POST("/documents/{id}/threads", { params: { path: { id } }, body: input })),
-    reply: async (threadId: string, body: string) => unwrap(await api.POST("/threads/{id}/comments", { params: { path: { id: threadId } }, body: { body } })),
+    propose: async (
+      id: string,
+      input: paths["/documents/{id}/proposals"]["post"]["requestBody"]["content"]["application/json"]
+    ) =>
+      unwrap(
+        await api.POST("/documents/{id}/proposals", {
+          params: { path: { id } },
+          body: input,
+          headers: { "Idempotency-Key": newKey() }
+        })
+      ),
+    threads: async (id: string) =>
+      unwrap(await api.GET("/documents/{id}/threads", { params: { path: { id }, query: {} } })),
+    comment: async (
+      id: string,
+      input: paths["/documents/{id}/threads"]["post"]["requestBody"]["content"]["application/json"]
+    ) => unwrap(await api.POST("/documents/{id}/threads", { params: { path: { id } }, body: input })),
+    reply: async (threadId: string, body: string) =>
+      unwrap(await api.POST("/threads/{id}/comments", { params: { path: { id: threadId } }, body: { body } })),
     /** A space as files: every page this token can read, and the uploads they use, with hashes. */
-    manifest: async (space: string) => unwrap(await api.GET("/spaces/{space}/manifest", { params: { path: { space } } })),
+    manifest: async (space: string) =>
+      unwrap(await api.GET("/spaces/{space}/manifest", { params: { path: { space } } })),
     /** Anything the server offers, by name. See `GET /tools` for what there is. */
     tool: async <T = unknown>(name: string, args: Record<string, unknown>) =>
-      unwrap<T>(await api.POST("/tools/{name}", { params: { path: { name } }, body: args as never }) as Answer<T>),
+      unwrap<T>((await api.POST("/tools/{name}", { params: { path: { name } }, body: args as never })) as Answer<T>),
     /**
      * What changes, as it happens, until `signal` aborts. Reconnects by itself and misses nothing in between. A row says
      * what changed, not what to do about it, so read current state when one arrives. A `reset` means too much went by to
      * list, so compare everything you care about. Throws if the server refuses, as retrying would not help.
      */
-    events: async function* (filter: { readonly space?: string; readonly document?: string; readonly since?: string; readonly signal?: AbortSignal } = {}): AsyncGenerator<LiveEvent> {
+    events: async function* (
+      filter: {
+        readonly space?: string;
+        readonly document?: string;
+        readonly since?: string;
+        readonly signal?: AbortSignal;
+      } = {}
+    ): AsyncGenerator<LiveEvent> {
       let position = filter.since;
       let delay = RECONNECT_MS;
       const query = new URLSearchParams();
@@ -131,11 +180,21 @@ export function createPandocsClient(options: PandocsClientOptions) {
       const address = `${server}/api/v1/events?${query}`;
       while (!filter.signal?.aborted) {
         try {
-          const response = await fetchImpl(address, { headers: { ...headers, Accept: "text/event-stream", ...(position ? { "Last-Event-ID": position } : {}) }, ...(filter.signal ? { signal: filter.signal } : {}) });
+          const response = await fetchImpl(address, {
+            headers: { ...headers, Accept: "text/event-stream", ...(position ? { "Last-Event-ID": position } : {}) },
+            ...(filter.signal ? { signal: filter.signal } : {})
+          });
           if (!response.ok || !response.body) {
-            const payload = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
+            const payload = (await response.json().catch(() => null)) as {
+              error?: { code?: string; message?: string };
+            } | null;
             // Anything but a server that is restarting will say the same again.
-            if (response.status < 500) throw new PandocsError(response.status, payload?.error?.code ?? "UNKNOWN", payload?.error?.message ?? `The server answered ${response.status}`);
+            if (response.status < 500)
+              throw new PandocsError(
+                response.status,
+                payload?.error?.code ?? "UNKNOWN",
+                payload?.error?.message ?? `The server answered ${response.status}`
+              );
           } else {
             delay = RECONNECT_MS;
             for await (const frame of framesOf(response.body)) {

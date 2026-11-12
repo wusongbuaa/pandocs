@@ -1,4 +1,10 @@
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client, S3ServiceException } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+  S3ServiceException
+} from "@aws-sdk/client-s3";
 import type { AssetStore } from "../ports.js";
 
 export interface S3AssetStoreOptions {
@@ -21,7 +27,9 @@ export function createS3AssetStore(options: S3AssetStoreOptions): AssetStore & {
   const keyOf = (key: string) => `${options.prefix.replace(/\/+$/u, "")}/${key}`;
   return {
     async put(key, bytes, contentType) {
-      await client.send(new PutObjectCommand({ Bucket: options.bucket, Key: keyOf(key), Body: bytes, ContentType: contentType }));
+      await client.send(
+        new PutObjectCommand({ Bucket: options.bucket, Key: keyOf(key), Body: bytes, ContentType: contentType })
+      );
     },
     async get(key) {
       try {

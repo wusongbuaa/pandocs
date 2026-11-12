@@ -24,7 +24,11 @@ pandocsDescribe("keeping a space the same as a repository", () => {
     // Work in the background speaks the site's language, there being nobody's browser to ask.
     await app.api("admin", "PATCH", "site", { defaultLang: "zh", locales: [{ lang: "zh", label: "简体中文" }] });
     await app.api("admin", "POST", "spaces", { slug: SPACE, name: "同步", defaultRole: "viewer" });
-    await app.api("admin", "POST", `spaces/${SPACE}/documents`, { title: "指南", slug: "guide", markdown: "第一段。\n" });
+    await app.api("admin", "POST", `spaces/${SPACE}/documents`, {
+      title: "指南",
+      slug: "guide",
+      markdown: "第一段。\n"
+    });
   }, 120_000);
 
   afterAll(async () => {
@@ -49,7 +53,9 @@ pandocsDescribe("keeping a space the same as a repository", () => {
     await dialog.getByRole("button", { name: "保存", exact: true }).click();
 
     await browserExpect(page.getByText("等待第一次同步")).toBeVisible();
-    await browserExpect(page.getByRole("definition").getByText("https://git.example.com/acme/docs.git", { exact: true })).toBeVisible();
+    await browserExpect(
+      page.getByRole("definition").getByText("https://git.example.com/acme/docs.git", { exact: true })
+    ).toBeVisible();
     await browserExpect(page.getByRole("definition").getByText("已设置", { exact: true })).toBeVisible();
     await browserExpect(page.getByText("secret-token")).toHaveCount(0);
     const address = await page.getByRole("textbox", { name: "Webhook 地址" }).inputValue();
@@ -84,7 +90,11 @@ pandocsDescribe("keeping a space the same as a repository", () => {
 
     await page.getByRole("button", { name: "更多操作", exact: true }).click();
     await page.getByRole("menuitem", { name: "断开", exact: true }).click();
-    await page.getByRole("alertdialog").or(page.getByRole("dialog")).getByRole("button", { name: "断开", exact: true }).click();
+    await page
+      .getByRole("alertdialog")
+      .or(page.getByRole("dialog"))
+      .getByRole("button", { name: "断开", exact: true })
+      .click();
     await browserExpect(page.getByText("还没有连接仓库")).toBeVisible();
   });
 

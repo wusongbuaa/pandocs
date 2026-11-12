@@ -16,11 +16,23 @@ describe("writing through the server", () => {
   afterAll(() => server.close());
 
   it("answers a save with the new revision, so the next save can follow it", async () => {
-    const { document } = (await admin.json("POST", "/api/v1/spaces/handbook/documents", { title: "页面", markdown: "第一版\n" })).data;
-    const saved = await admin.json("PUT", `/api/v1/documents/${document.id}/content`, { markdown: "第二版\n", expectedRevision: 1 }, { "idempotency-key": "save-following-1" });
+    const { document } = (
+      await admin.json("POST", "/api/v1/spaces/handbook/documents", { title: "页面", markdown: "第一版\n" })
+    ).data;
+    const saved = await admin.json(
+      "PUT",
+      `/api/v1/documents/${document.id}/content`,
+      { markdown: "第二版\n", expectedRevision: 1 },
+      { "idempotency-key": "save-following-1" }
+    );
     expect(saved.status).toBe(200);
     expect(saved.data.revision.no).toBe(2);
-    const replay = await admin.json("PUT", `/api/v1/documents/${document.id}/content`, { markdown: "第二版\n", expectedRevision: 1 }, { "idempotency-key": "save-following-1" });
+    const replay = await admin.json(
+      "PUT",
+      `/api/v1/documents/${document.id}/content`,
+      { markdown: "第二版\n", expectedRevision: 1 },
+      { "idempotency-key": "save-following-1" }
+    );
     expect(replay.response.headers.get("idempotent-replay")).toBe("true");
     expect(replay.data.revision.no).toBe(2);
   });

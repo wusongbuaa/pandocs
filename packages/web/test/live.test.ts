@@ -16,7 +16,8 @@ class FakeEventSource {
     this.closed = true;
   }
   emit(name: string, lastEventId: string, data: unknown = {}) {
-    for (const listener of this.listeners.get(name) ?? []) listener(new MessageEvent(name, { lastEventId, data: JSON.stringify(data) }));
+    for (const listener of this.listeners.get(name) ?? [])
+      listener(new MessageEvent(name, { lastEventId, data: JSON.stringify(data) }));
   }
 }
 

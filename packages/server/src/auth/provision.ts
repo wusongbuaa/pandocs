@@ -16,9 +16,14 @@ export interface ProvisionRules {
  * The account someone has here by what another system says about them: made the first time they come, and brought up to
  * date each time after, so that names, groups and who administers the site stay that system's to decide.
  */
-export async function userFromProfile(users: UserStore, rules: ProvisionRules, profile: ProviderProfile): Promise<User | { error: string }> {
+export async function userFromProfile(
+  users: UserStore,
+  rules: ProvisionRules,
+  profile: ProviderProfile
+): Promise<User | { error: string }> {
   const domain = profile.email?.split("@")[1]?.toLowerCase();
-  if (rules.allowedDomains.length > 0 && (!domain || !rules.allowedDomains.includes(domain))) return { error: "domain" };
+  if (rules.allowedDomains.length > 0 && (!domain || !rules.allowedDomains.includes(domain)))
+    return { error: "domain" };
   let user = await users.findByIdentity(profile.issuer, profile.subject);
   if (!user && profile.email && profile.emailVerified) {
     user = await users.findByEmail(profile.email);
@@ -29,8 +34,10 @@ export async function userFromProfile(users: UserStore, rules: ProvisionRules, p
     // An address the provider did not vouch for cannot claim an existing account, and two accounts cannot share one.
     if (await users.findByEmail(profile.email)) return { error: "email" };
     const displayName = profile.displayName ?? profile.email.split("@")[0]!;
-    const first = rules.adminGroup ? null : await users.createFirstAdmin({ email: profile.email, displayName, passwordHash: null, groups: profile.groups });
-    user = first ?? await users.create({ email: profile.email, displayName, groups: profile.groups });
+    const first = rules.adminGroup
+      ? null
+      : await users.createFirstAdmin({ email: profile.email, displayName, passwordHash: null, groups: profile.groups });
+    user = first ?? (await users.create({ email: profile.email, displayName, groups: profile.groups }));
     await users.linkIdentity(profile.issuer, profile.subject, user.id);
   }
   if (user.status !== "active") return { error: "disabled" };

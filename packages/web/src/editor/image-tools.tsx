@@ -29,7 +29,10 @@ export function ImageTools({ editor }: { editor: Editor }) {
   const update = React.useCallback(() => {
     const { selection } = editor.state;
     // While someone types a caption the focus is there, and the image is still what they are working on.
-    const image = selection instanceof NodeSelection && selection.node.type.name === "image" && (editor.view.hasFocus() || document.activeElement === captionInput.current);
+    const image =
+      selection instanceof NodeSelection &&
+      selection.node.type.name === "image" &&
+      (editor.view.hasFocus() || document.activeElement === captionInput.current);
     const dom = image ? editor.view.nodeDOM(selection.from) : null;
     setBox(dom instanceof HTMLElement ? dom.getBoundingClientRect() : null);
   }, [editor]);
@@ -55,24 +58,64 @@ export function ImageTools({ editor }: { editor: Editor }) {
   const apart = (change: Record<string, unknown>) => {
     const written = parseImageTitle(String(attrs.title ?? ""));
     const legacy = written.align !== undefined || written.width !== undefined;
-    return legacy ? { title: layout.title || null, align: layout.align ?? null, width: layout.width ?? null, ...change } : change;
+    return legacy
+      ? { title: layout.title || null, align: layout.align ?? null, width: layout.width ?? null, ...change }
+      : change;
   };
   return (
-    <div className="pd-toolbar" role="toolbar" aria-label={t("Image settings")} style={{ top: Math.max(box.top - 48, 72), left: Math.max(box.left + box.width / 2 - CENTER_OFFSET, 8) }} onMouseDown={event => { if (!(event.target instanceof HTMLInputElement)) event.preventDefault(); }}>
+    <div
+      className="pd-toolbar"
+      role="toolbar"
+      aria-label={t("Image settings")}
+      style={{ top: Math.max(box.top - 48, 72), left: Math.max(box.left + box.width / 2 - CENTER_OFFSET, 8) }}
+      onMouseDown={event => {
+        if (!(event.target instanceof HTMLInputElement)) event.preventDefault();
+      }}
+    >
       {ALIGNMENTS.map(({ value, label, icon: Icon }) => (
-        <Tip key={value} label={label}><button type="button" className={clsx("pd-tool pd-tool--icon", layout.align === value && "pd-tool--active")} aria-label={label} aria-pressed={layout.align === value}
-          onClick={() => editor.chain().focus().updateAttributes("image", apart({ align: value })).run()}>
-          <Icon size={16} aria-hidden="true" />
-        </button></Tip>
+        <Tip key={value} label={label}>
+          <button
+            type="button"
+            className={clsx("pd-tool pd-tool--icon", layout.align === value && "pd-tool--active")}
+            aria-label={label}
+            aria-pressed={layout.align === value}
+            onClick={() =>
+              editor
+                .chain()
+                .focus()
+                .updateAttributes("image", apart({ align: value }))
+                .run()
+            }
+          >
+            <Icon size={16} aria-hidden="true" />
+          </button>
+        </Tip>
       ))}
-      <input ref={captionInput} className="pd-image-caption" aria-label={t("Image caption")} placeholder={t("Add a caption")} value={caption ?? layout.title}
+      <input
+        ref={captionInput}
+        className="pd-image-caption"
+        aria-label={t("Image caption")}
+        placeholder={t("Add a caption")}
+        value={caption ?? layout.title}
         onFocus={() => setCaption(layout.title)}
-        onBlur={() => { setCaption(null); update(); }}
-        onKeyDown={event => { if (event.key === "Enter" && !fromInputMethod(event)) { event.preventDefault(); editor.commands.focus(); } }}
+        onBlur={() => {
+          setCaption(null);
+          update();
+        }}
+        onKeyDown={event => {
+          if (event.key === "Enter" && !fromInputMethod(event)) {
+            event.preventDefault();
+            editor.commands.focus();
+          }
+        }}
         onChange={event => {
           setCaption(event.target.value);
-          editor.chain().updateAttributes("image", apart({ title: event.target.value.trim() || null })).run();
-        }} />
+          editor
+            .chain()
+            .updateAttributes("image", apart({ title: event.target.value.trim() || null }))
+            .run();
+        }}
+      />
     </div>
   );
 }

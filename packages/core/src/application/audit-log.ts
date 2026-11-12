@@ -4,7 +4,7 @@ import { requireSpace, type AppContext } from "./context.js";
 import { t } from "@pandocs/i18n";
 
 export const AUDIT_CATEGORIES = ["document", "discussion", "proposal", "member", "space"] as const;
-export type AuditCategory = typeof AUDIT_CATEGORIES[number];
+export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
 
 const CATEGORY_FILTER: Readonly<Record<AuditCategory, string>> = {
   document: `(e.action LIKE 'document.%' AND e.action <> 'document.member.set' AND e.action <> 'document.summarize_threads' AND e.action <> 'document.assist')`,
@@ -51,7 +51,11 @@ export class AuditLogService {
 
   private async read(where: string, params: readonly unknown[], query: AuditQuery): Promise<AuditEntry[]> {
     const limit = Math.min(Math.max(query.limit ?? 50, 1), 200);
-    const conditions = [where, ...(query.category ? [CATEGORY_FILTER[query.category]] : []), ...(query.before ? [`e.id < $${params.length + 2}`] : [])];
+    const conditions = [
+      where,
+      ...(query.category ? [CATEGORY_FILTER[query.category]] : []),
+      ...(query.before ? [`e.id < $${params.length + 2}`] : [])
+    ];
     const { rows } = await this.context.db.query(
       `SELECT e.id, e.actor_id, e.actor_name, e.actor_kind, e.channel, e.action, e.detail, e.created_at, doc.title AS document_title, doc.path AS document_path, doc.space_slug
        FROM pandocs.audit_events e ${DOCUMENT_OF_EVENT}
@@ -62,7 +66,8 @@ export class AuditLogService {
     // Events from before names were recorded only have the identifier.
     const unnamed = [...new Set(rows.filter(row => !row.actor_name).map(row => String(row.actor_id)))];
     // A change to who can see what is about a person, not an identifier.
-    const subjectOf = (row: Record<string, unknown>) => /^user:(.+)$/u.exec(String((row.detail as Record<string, unknown>).subject ?? ""))?.[1];
+    const subjectOf = (row: Record<string, unknown>) =>
+      /^user:(.+)$/u.exec(String((row.detail as Record<string, unknown>).subject ?? ""))?.[1];
     const subjects = rows.map(subjectOf).filter((id): id is string => id !== undefined);
     const { directory } = this.context.ports;
     const wanted = [...new Set([...unnamed, ...subjects])];
@@ -74,7 +79,10 @@ export class AuditLogService {
       actorKind: String(row.actor_kind),
       channel: String(row.channel),
       action: String(row.action),
-      detail: { ...(row.detail as Record<string, unknown>), ...(names.has(subjectOf(row) ?? "") ? { subjectName: names.get(subjectOf(row)!) } : {}) },
+      detail: {
+        ...(row.detail as Record<string, unknown>),
+        ...(names.has(subjectOf(row) ?? "") ? { subjectName: names.get(subjectOf(row)!) } : {})
+      },
       documentTitle: row.document_title ? String(row.document_title) : null,
       documentPath: row.document_path ? String(row.document_path) : null,
       spaceSlug: row.space_slug ? String(row.space_slug) : null,
@@ -84,7 +92,11 @@ export class AuditLogService {
 
   async forSpace(principal: Principal, slug: string, query: AuditQuery): Promise<AuditEntry[]> {
     const { space } = await requireSpace(this.context.db, principal, slug, "admin");
-    return this.read(`((e.target_type = 'space' AND e.target_id = $1) OR doc.space_id::text = $1 OR e.detail->>'spaceId' = $1)`, [space.id], query);
+    return this.read(
+      `((e.target_type = 'space' AND e.target_id = $1) OR doc.space_id::text = $1 OR e.detail->>'spaceId' = $1)`,
+      [space.id],
+      query
+    );
   }
 
   async forSite(principal: Principal, query: AuditQuery): Promise<AuditEntry[]> {

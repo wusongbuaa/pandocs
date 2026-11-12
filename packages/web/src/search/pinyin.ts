@@ -19,11 +19,22 @@ const lastBuilt: { prefix: string; index: Promise<readonly IndexedTitle[]> | nul
 /** The dictionary is the size of everything else on the page, so it only loads when someone types Latin letters. */
 async function buildIndex(lang: string, prefix: string): Promise<readonly IndexedTitle[]> {
   const { pinyin } = await import("pinyin-pro");
-  const plain = (text: string, pattern: "pinyin" | "first") => pinyin(text, { pattern, toneType: "none", type: "array", nonZh: "consecutive" }).join("").replace(/[^a-z0-9]/giu, "").toLowerCase();
-  return app.bootstrap.spaces.flatMap(space => space.tree.map(entry => {
-    const title = entry.titles?.[lang] ?? entry.title;
-    return { title, link: documentRoute(space.slug, entry.path, prefix), full: plain(title, "pinyin"), initials: plain(title, "first") };
-  }));
+  const plain = (text: string, pattern: "pinyin" | "first") =>
+    pinyin(text, { pattern, toneType: "none", type: "array", nonZh: "consecutive" })
+      .join("")
+      .replace(/[^a-z0-9]/giu, "")
+      .toLowerCase();
+  return app.bootstrap.spaces.flatMap(space =>
+    space.tree.map(entry => {
+      const title = entry.titles?.[lang] ?? entry.title;
+      return {
+        title,
+        link: documentRoute(space.slug, entry.path, prefix),
+        full: plain(title, "pinyin"),
+        initials: plain(title, "first")
+      };
+    })
+  );
 }
 
 export async function pinyinMatches(query: string, lang: string, prefix: string): Promise<readonly IndexedTitle[]> {
@@ -67,7 +78,9 @@ interface ServerHit {
 async function serverMatches(query: string, lang: string, prefix: string) {
   const text = query.trim();
   if (!app.bootstrap.fullTextOnServer || !text) return [];
-  const hits = await api.get<ServerHit[]>(`search?q=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`).catch(() => [] as ServerHit[]);
+  const hits = await api
+    .get<ServerHit[]>(`search?q=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`)
+    .catch(() => [] as ServerHit[]);
   return hits.map(hit => {
     const at = hit.snippet.toLowerCase().indexOf(text.toLowerCase());
     return {
@@ -100,8 +113,16 @@ function writtenPages(lang: string): Promise<readonly WrittenPage[]> {
   let pages = written.get(url);
   if (!pages) {
     pages = fetch(url)
-      .then(response => (response.ok ? response.json() as Promise<PageIndexInfo[]> : []))
-      .then(list => list.map(page => ({ title: page.title, link: page.routePath, content: page.content ?? "", lowerTitle: page.title.toLowerCase(), lowerContent: (page.content ?? "").toLowerCase() })));
+      .then(response => (response.ok ? (response.json() as Promise<PageIndexInfo[]>) : []))
+      .then(list =>
+        list.map(page => ({
+          title: page.title,
+          link: page.routePath,
+          content: page.content ?? "",
+          lowerTitle: page.title.toLowerCase(),
+          lowerContent: (page.content ?? "").toLowerCase()
+        }))
+      );
     const cached = pages;
     cached.catch(() => written.delete(url));
     written.set(url, cached);
@@ -117,15 +138,38 @@ function writtenPages(lang: string): Promise<readonly WrittenPage[]> {
 export async function exactMatches(query: string, lang: string) {
   const needle = query.trim().toLowerCase();
   if (needle.length < 2) return [];
-  const found: { type: "title" | "content"; title: string; header: string; link: string; query: string; statement?: string; highlightInfoList: { start: number; length: number }[] }[] = [];
+  const found: {
+    type: "title" | "content";
+    title: string;
+    header: string;
+    link: string;
+    query: string;
+    statement?: string;
+    highlightInfoList: { start: number; length: number }[];
+  }[] = [];
   for (const page of await writtenPages(lang).catch(() => [] as readonly WrittenPage[])) {
     if (page.lowerTitle.includes(needle)) {
-      found.push({ type: "title", title: page.title, header: page.title, link: page.link, query, highlightInfoList: [] });
+      found.push({
+        type: "title",
+        title: page.title,
+        header: page.title,
+        link: page.link,
+        query,
+        highlightInfoList: []
+      });
     } else {
       const at = page.lowerContent.indexOf(needle);
       if (at < 0) continue;
       const start = Math.max(0, at - 40);
-      found.push({ type: "content", title: page.title, header: page.title, link: page.link, query, statement: page.content.slice(start, at + needle.length + 80), highlightInfoList: [{ start: at - start, length: needle.length }] });
+      found.push({
+        type: "content",
+        title: page.title,
+        header: page.title,
+        link: page.link,
+        query,
+        statement: page.content.slice(start, at + needle.length + 80),
+        highlightInfoList: [{ start: at - start, length: needle.length }]
+      });
     }
     if (found.length >= MOST_EXACT) break;
   }
@@ -141,7 +185,17 @@ export const onSearch: OnSearch = async (query, matched) => {
   const exact = (await exactMatches(query, lang)).filter(item => !known.has(item.link));
   for (const item of exact) known.add(item.link);
   const extra = (await pinyinMatches(query, lang, prefix)).filter(item => !known.has(item.link));
-  results.unshift(...exact as typeof results, ...extra.map(item => ({ type: "title" as const, title: item.title, header: item.title, link: item.link, query, highlightInfoList: [] })));
+  results.unshift(
+    ...(exact as typeof results),
+    ...extra.map(item => ({
+      type: "title" as const,
+      title: item.title,
+      header: item.title,
+      link: item.link,
+      query,
+      highlightInfoList: []
+    }))
+  );
   for (const hit of await serverMatches(query, lang, prefix)) {
     if (!known.has(hit.link)) results.push(hit);
   }

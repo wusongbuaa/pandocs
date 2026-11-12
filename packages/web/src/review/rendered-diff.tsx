@@ -43,11 +43,16 @@ export function RenderedDiff({ before, after, reader }: { before: string; after:
     let current = true;
     setRows(null);
     const collapsed = collapseUnchanged(diffBlocks(sourceBlocks(before), sourceBlocks(after)));
-    void Promise.all(collapsed.map(renderRow)).then(result => { if (current) setRows(result); });
-    return () => { current = false; };
+    void Promise.all(collapsed.map(renderRow)).then(result => {
+      if (current) setRows(result);
+    });
+    return () => {
+      current = false;
+    };
   }, [before, after]);
   const components = React.useMemo(() => ({ ...provided, ...dialectComponents }) as never, [provided]);
-  const show = (hast: Root) => toJsxRuntime(hast, { Fragment, jsx, jsxs, components, ignoreInvalidStyle: true, passKeys: true });
+  const show = (hast: Root) =>
+    toJsxRuntime(hast, { Fragment, jsx, jsxs, components, ignoreInvalidStyle: true, passKeys: true });
   if (!rows) return <p className="pd-muted">{t("Comparing…")}</p>;
   const changed = rows.some(row => row.kind !== "same" && row.kind !== "collapsed");
   return (
@@ -57,7 +62,11 @@ export function RenderedDiff({ before, after, reader }: { before: string; after:
         {rows.map((row, index) => {
           switch (row.kind) {
             case "collapsed":
-              return <p key={index} className="pd-diff__collapsed">{t("{0} unchanged {0|block|blocks}", row.count)}</p>;
+              return (
+                <p key={index} className="pd-diff__collapsed">
+                  {t("{0} unchanged {0|block|blocks}", row.count)}
+                </p>
+              );
             case "changed":
               return (
                 <React.Fragment key={index}>
@@ -66,9 +75,17 @@ export function RenderedDiff({ before, after, reader }: { before: string; after:
                 </React.Fragment>
               );
             case "same":
-              return <div key={index} className="pd-diff__row">{show(row.hast)}</div>;
+              return (
+                <div key={index} className="pd-diff__row">
+                  {show(row.hast)}
+                </div>
+              );
             default:
-              return <div key={index} className={`pd-diff__row pd-diff__row--${row.kind}`}>{show(row.hast)}</div>;
+              return (
+                <div key={index} className={`pd-diff__row pd-diff__row--${row.kind}`}>
+                  {show(row.hast)}
+                </div>
+              );
           }
         })}
       </div>

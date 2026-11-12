@@ -14,13 +14,37 @@ export interface Mention {
 
 export const EMOJIS = ["👍", "👏", "🎉", "❤️", "😄", "🤔", "👀", "✅"];
 
-export function EmojiPicker({ label, onPick, children }: { label: string; onPick: (emoji: string) => void; children: React.ReactNode }) {
+export function EmojiPicker({
+  label,
+  onPick,
+  children
+}: {
+  label: string;
+  onPick: (emoji: string) => void;
+  children: React.ReactNode;
+}) {
   const [open, setOpen] = React.useState(false);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Tip label={label}><Popover.Trigger className="pd-icon-button pd-icon-button--small" aria-label={label}>{children}</Popover.Trigger></Tip>
+      <Tip label={label}>
+        <Popover.Trigger className="pd-icon-button pd-icon-button--small" aria-label={label}>
+          {children}
+        </Popover.Trigger>
+      </Tip>
       <Popover.Content className="pd-emoji-picker" side="top" align="start" sideOffset={6}>
-        {EMOJIS.map(emoji => <button type="button" key={emoji} className="pd-emoji-picker__item" onClick={() => { onPick(emoji); setOpen(false); }}>{emoji}</button>)}
+        {EMOJIS.map(emoji => (
+          <button
+            type="button"
+            key={emoji}
+            className="pd-emoji-picker__item"
+            onClick={() => {
+              onPick(emoji);
+              setOpen(false);
+            }}
+          >
+            {emoji}
+          </button>
+        ))}
       </Popover.Content>
     </Popover.Root>
   );
@@ -41,7 +65,15 @@ export interface ComposerProps {
   onCancel?: (() => void) | undefined;
 }
 
-export function Composer({ placeholder, submitLabel = t("Send"), autoFocus, initial = "", initialMentions = [], onSubmit, onCancel }: ComposerProps) {
+export function Composer({
+  placeholder,
+  submitLabel = t("Send"),
+  autoFocus,
+  initial = "",
+  initialMentions = [],
+  onSubmit,
+  onCancel
+}: ComposerProps) {
   const [body, setBody] = React.useState(initial);
   const [busy, setBusy] = React.useState(false);
   const [mentions, setMentions] = React.useState<readonly Mention[]>(initialMentions);
@@ -63,11 +95,16 @@ export function Composer({ placeholder, submitLabel = t("Send"), autoFocus, init
     }
     let current = true;
     const timer = setTimeout(() => {
-      api.get<Mention[]>(`directory?q=${encodeURIComponent(query)}`).then(result => {
-        if (!current) return;
-        setSuggestions(result);
-        setHighlighted(0);
-      }, () => { if (current) setSuggestions([]); });
+      api.get<Mention[]>(`directory?q=${encodeURIComponent(query)}`).then(
+        result => {
+          if (!current) return;
+          setSuggestions(result);
+          setHighlighted(0);
+        },
+        () => {
+          if (current) setSuggestions([]);
+        }
+      );
     }, 150);
     return () => {
       current = false;
@@ -107,7 +144,10 @@ export function Composer({ placeholder, submitLabel = t("Send"), autoFocus, init
     setBusy(true);
     try {
       // Someone who was mentioned and then edited out of the text is no longer mentioned.
-      await onSubmit(text, mentions.filter(person => text.includes(`@${person.name}`)));
+      await onSubmit(
+        text,
+        mentions.filter(person => text.includes(`@${person.name}`))
+      );
       setBody("");
       setMentions([]);
     } catch (error) {
@@ -122,7 +162,9 @@ export function Composer({ placeholder, submitLabel = t("Send"), autoFocus, init
     if (suggestions.length > 0 && !fromInputMethod(event)) {
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
-        setHighlighted(index => (index + (event.key === "ArrowDown" ? 1 : suggestions.length - 1)) % suggestions.length);
+        setHighlighted(
+          index => (index + (event.key === "ArrowDown" ? 1 : suggestions.length - 1)) % suggestions.length
+        );
         return;
       }
       if (event.key === "Enter" || event.key === "Tab") {
@@ -145,13 +187,30 @@ export function Composer({ placeholder, submitLabel = t("Send"), autoFocus, init
   return (
     <div className="pd-composer" onClick={event => event.stopPropagation()}>
       <div className="pd-composer__field">
-        <textarea ref={area} value={body} autoFocus={autoFocus} rows={2} placeholder={placeholder} aria-label={placeholder}
-          onChange={event => setBody(event.target.value)} onKeyDown={onKeyDown} />
+        <textarea
+          ref={area}
+          value={body}
+          autoFocus={autoFocus}
+          rows={2}
+          placeholder={placeholder}
+          aria-label={placeholder}
+          onChange={event => setBody(event.target.value)}
+          onKeyDown={onKeyDown}
+        />
         {suggestions.length > 0 ? (
           <ul className="pd-mentions" role="listbox" aria-label={t("Mention someone")}>
             {suggestions.map((person, index) => (
               <li key={person.id} role="option" aria-selected={index === highlighted}>
-                <button type="button" className={index === highlighted ? "pd-mentions__item pd-mentions__item--active" : "pd-mentions__item"} onMouseDown={event => event.preventDefault()} onClick={() => pick(person)}>{person.name}</button>
+                <button
+                  type="button"
+                  className={
+                    index === highlighted ? "pd-mentions__item pd-mentions__item--active" : "pd-mentions__item"
+                  }
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => pick(person)}
+                >
+                  {person.name}
+                </button>
               </li>
             ))}
           </ul>
@@ -159,12 +218,34 @@ export function Composer({ placeholder, submitLabel = t("Send"), autoFocus, init
       </div>
       <div className="pd-composer__foot">
         <div className="pd-composer__tools">
-          <Tip label={t("Mention someone")}><button type="button" className="pd-icon-button pd-icon-button--small" aria-label={t("Mention someone")} onClick={() => insertAtCaret("@")}><AtSign size={15} aria-hidden="true" /></button></Tip>
-          <EmojiPicker label={t("Insert emoji")} onPick={insertAtCaret}><Smile size={15} aria-hidden="true" /></EmojiPicker>
+          <Tip label={t("Mention someone")}>
+            <button
+              type="button"
+              className="pd-icon-button pd-icon-button--small"
+              aria-label={t("Mention someone")}
+              onClick={() => insertAtCaret("@")}
+            >
+              <AtSign size={15} aria-hidden="true" />
+            </button>
+          </Tip>
+          <EmojiPicker label={t("Insert emoji")} onPick={insertAtCaret}>
+            <Smile size={15} aria-hidden="true" />
+          </EmojiPicker>
         </div>
         <div className="pd-composer__actions">
-          {onCancel ? <button type="button" className="pd-btn" onClick={onCancel}>{t("Cancel")}</button> : null}
-          <button type="button" className="pd-btn pd-btn--primary" disabled={!body.trim() || busy} onClick={() => void submit()}>{submitLabel}</button>
+          {onCancel ? (
+            <button type="button" className="pd-btn" onClick={onCancel}>
+              {t("Cancel")}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="pd-btn pd-btn--primary"
+            disabled={!body.trim() || busy}
+            onClick={() => void submit()}
+          >
+            {submitLabel}
+          </button>
         </div>
       </div>
     </div>

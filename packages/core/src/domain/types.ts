@@ -26,7 +26,11 @@ export interface Principal {
   /** Came through a share link: these pages and nothing else, whatever else is open to anyone. */
   readonly shared?: { readonly spaceId: string; readonly documents: readonly string[] } | undefined;
   /** An agent acts for someone: it can read no more than they can. */
-  readonly onBehalfOf?: { readonly id: string; readonly groups: readonly string[]; readonly isAdmin?: boolean | undefined };
+  readonly onBehalfOf?: {
+    readonly id: string;
+    readonly groups: readonly string[];
+    readonly isAdmin?: boolean | undefined;
+  };
 }
 
 /** What it takes for changes to land in a space. */
@@ -181,7 +185,12 @@ export interface IngestTarget {
 export interface IngestReport {
   readonly processors?: readonly { readonly name: string; readonly detail?: string }[];
   readonly warnings?: readonly string[];
-  readonly diagnostics?: readonly { readonly severity: string; readonly code: string; readonly message: string; readonly line?: number }[];
+  readonly diagnostics?: readonly {
+    readonly severity: string;
+    readonly code: string;
+    readonly message: string;
+    readonly line?: number;
+  }[];
   readonly stats?: Readonly<Record<string, number>>;
 }
 

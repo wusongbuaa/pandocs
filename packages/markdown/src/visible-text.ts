@@ -2,7 +2,20 @@ import type { Nodes } from "mdast";
 import { dialectOf, type ParsedDocument } from "./parse.js";
 import { defaultBlockRegistry, type BlockRegistry } from "./registry.js";
 
-const FLOW = new Set(["root", "paragraph", "heading", "blockquote", "list", "listItem", "table", "tableRow", "tableCell", "containerDirective", "code", "thematicBreak"]);
+const FLOW = new Set([
+  "root",
+  "paragraph",
+  "heading",
+  "blockquote",
+  "list",
+  "listItem",
+  "table",
+  "tableRow",
+  "tableCell",
+  "containerDirective",
+  "code",
+  "thematicBreak"
+]);
 
 /** The text a reader sees, in document order. Images, diagrams and unknown blocks take block anchors instead. */
 export function visibleText(document: ParsedDocument, registry: BlockRegistry = defaultBlockRegistry): string {
@@ -30,7 +43,8 @@ export function visibleTextOf(root: Nodes, registry: BlockRegistry = defaultBloc
       case "leafDirective":
         return "";
       case "code": {
-        const hidden = node.lang && registry.get(node.lang)?.kind === "fence" && registry.get(node.lang)?.visibleText === false;
+        const hidden =
+          node.lang && registry.get(node.lang)?.kind === "fence" && registry.get(node.lang)?.visibleText === false;
         return hidden ? "" : `${node.value}\n`;
       }
       default:
@@ -39,7 +53,9 @@ export function visibleTextOf(root: Nodes, registry: BlockRegistry = defaultBloc
     if (dialectOf(node).pandocsUnknown) return "";
     if (!("children" in node)) return "";
     const labelHidden = node.type === "containerDirective" && registry.get(node.name)?.labelText === false;
-    const shown = labelHidden ? node.children.filter(child => !(child.data as { directiveLabel?: boolean } | undefined)?.directiveLabel) : node.children;
+    const shown = labelHidden
+      ? node.children.filter(child => !(child.data as { directiveLabel?: boolean } | undefined)?.directiveLabel)
+      : node.children;
     const text = shown.map(walk).join("");
     return FLOW.has(node.type) ? `${text}\n` : text;
   };

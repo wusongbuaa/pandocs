@@ -8,13 +8,17 @@ const SPACE = "review";
 
 pandocsDescribe("change sets", () => {
   let app: Awaited<ReturnType<typeof startPandocs>>;
-  const createPage = async (title: string, slug: string, markdown: string) => (await app.api("admin", "POST", `spaces/${SPACE}/documents`, { title, slug, markdown })).data.document.id as string;
+  const createPage = async (title: string, slug: string, markdown: string) =>
+    (await app.api("admin", "POST", `spaces/${SPACE}/documents`, { title, slug, markdown })).data.document.id as string;
 
   beforeAll(async () => {
     app = await startPandocs(postgres.getConnectionString());
     await app.api("admin", "POST", "spaces", { slug: SPACE, name: "评审", defaultRole: "viewer" });
     await app.api("admin", "PUT", `spaces/${SPACE}/members`, { subject: `user:${PEOPLE.editor.id}`, role: "editor" });
-    await app.api("admin", "PUT", `spaces/${SPACE}/members`, { subject: `user:${PEOPLE.commenter.id}`, role: "commenter" });
+    await app.api("admin", "PUT", `spaces/${SPACE}/members`, {
+      subject: `user:${PEOPLE.commenter.id}`,
+      role: "commenter"
+    });
   }, 120_000);
 
   afterAll(async () => {
@@ -25,7 +29,9 @@ pandocsDescribe("change sets", () => {
   it("goes from an edit in the editor, through a second page and a review, to landing on both pages at once", async () => {
     const guide = await createPage("指南", "guide", "第一段说明。\n");
     await createPage("常见问题", "faq", "老的答案。\n");
-    await app.api("admin", "PATCH", `spaces/${SPACE}`, { mergeRules: { requiredApprovals: 1, requireChangeSets: false } });
+    await app.api("admin", "PATCH", `spaces/${SPACE}`, {
+      mergeRules: { requiredApprovals: 1, requireChangeSets: false }
+    });
 
     const author = await app.open("commenter", `/${SPACE}/guide?mode=edit`);
     const editor = author.locator(".ProseMirror");
@@ -76,9 +82,21 @@ pandocsDescribe("change sets", () => {
   it("shows what a conflict is about, and what is missing, rather than merging", async () => {
     const page = await createPage("冲突页", "conflict", "同一段。\n");
     const { data: set } = await app.api("commenter", "POST", `spaces/${SPACE}/change-sets`, { title: "会冲突" });
-    await app.api("commenter", "POST", `change-sets/${set.id as string}/pages`, { document: page, baseRevision: 1, markdown: "我的版本。\n" });
-    await app.api("editor", "PUT", `documents/${page}/content`, { markdown: "他的版本。\n", expectedRevision: 1 }, { "idempotency-key": "change-sets-conflict" });
-    await app.api("admin", "PATCH", `spaces/${SPACE}`, { mergeRules: { requiredApprovals: 0, requireChangeSets: false } });
+    await app.api("commenter", "POST", `change-sets/${set.id as string}/pages`, {
+      document: page,
+      baseRevision: 1,
+      markdown: "我的版本。\n"
+    });
+    await app.api(
+      "editor",
+      "PUT",
+      `documents/${page}/content`,
+      { markdown: "他的版本。\n", expectedRevision: 1 },
+      { "idempotency-key": "change-sets-conflict" }
+    );
+    await app.api("admin", "PATCH", `spaces/${SPACE}`, {
+      mergeRules: { requiredApprovals: 0, requireChangeSets: false }
+    });
     const reviewer = await app.open("editor", `/_/spaces/${SPACE}/change-sets?id=${set.id as string}`);
     await browserExpect(reviewer.getByText("这个页面的同一处已被改动")).toBeVisible({ timeout: 15_000 });
     await browserExpect(reviewer.getByRole("button", { name: "合并", exact: true })).toBeDisabled();
@@ -93,7 +111,9 @@ pandocsDescribe("change sets", () => {
     await browserExpect(author).toHaveURL(new RegExp(`/_/spaces/${SPACE}/change-sets$`, "u"));
     await browserExpect(author.locator(".pd-manage").getByText("建错的变更集")).toHaveCount(0);
     expect((await app.api("commenter", "GET", `change-sets/${set.id as string}`)).status).toBe(404);
-    const { data: other } = await app.api("commenter", "POST", `spaces/${SPACE}/change-sets`, { title: "别人的变更集" });
+    const { data: other } = await app.api("commenter", "POST", `spaces/${SPACE}/change-sets`, {
+      title: "别人的变更集"
+    });
     const reviewer = await app.open("editor", `/_/spaces/${SPACE}/change-sets?id=${other.id as string}`);
     await browserExpect(reviewer.getByRole("button", { name: "关闭", exact: true })).toBeVisible({ timeout: 15_000 });
     await browserExpect(reviewer.getByRole("button", { name: "删除变更集" })).toHaveCount(0);
@@ -101,7 +121,9 @@ pandocsDescribe("change sets", () => {
 
   it("is the only way to change anything in a space that says so, without anyone needing to be told how", async () => {
     await createPage("受保护", "guarded", "原文。\n");
-    await app.api("admin", "PATCH", `spaces/${SPACE}`, { mergeRules: { requiredApprovals: 2, requireChangeSets: true } });
+    await app.api("admin", "PATCH", `spaces/${SPACE}`, {
+      mergeRules: { requiredApprovals: 2, requireChangeSets: true }
+    });
     const page = await app.open("editor", `/${SPACE}/guarded?mode=edit`);
     const editor = page.locator(".ProseMirror");
     await browserExpect(editor).toBeVisible({ timeout: 15_000 });
@@ -118,7 +140,9 @@ pandocsDescribe("change sets", () => {
     await page.keyboard.press("Escape");
     await dialog.getByRole("button", { name: "提交", exact: true }).click();
     await browserExpect(page.getByText("已加入变更集")).toBeVisible();
-    await app.api("admin", "PATCH", `spaces/${SPACE}`, { mergeRules: { requiredApprovals: 0, requireChangeSets: false } });
+    await app.api("admin", "PATCH", `spaces/${SPACE}`, {
+      mergeRules: { requiredApprovals: 0, requireChangeSets: false }
+    });
   }, 60_000);
 
   it("lets an administrator set the rules", async () => {
@@ -127,7 +151,11 @@ pandocsDescribe("change sets", () => {
     await page.getByLabel("变更集需要的批准人数").fill("3");
     await page.getByRole("switch", { name: /所有改动都要经过评审/u }).check();
     await page.locator(".pd-merge-rules").getByRole("button", { name: "保存", exact: true }).click();
-    await expect.poll(async () => (await app.api("admin", "GET", `spaces/${SPACE}`)).data.mergeRules).toEqual({ requiredApprovals: 3, requireChangeSets: true });
-    await app.api("admin", "PATCH", `spaces/${SPACE}`, { mergeRules: { requiredApprovals: 0, requireChangeSets: false } });
+    await expect
+      .poll(async () => (await app.api("admin", "GET", `spaces/${SPACE}`)).data.mergeRules)
+      .toEqual({ requiredApprovals: 3, requireChangeSets: true });
+    await app.api("admin", "PATCH", `spaces/${SPACE}`, {
+      mergeRules: { requiredApprovals: 0, requireChangeSets: false }
+    });
   }, 60_000);
 });
