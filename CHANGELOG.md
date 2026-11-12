@@ -4,6 +4,8 @@ What changes for someone running or using Pandocs. The format follows [Keep a Ch
 
 ## Unreleased
 
+## 0.1.0 - 2026-11-12
+
 The first release.
 
 ### Reading
