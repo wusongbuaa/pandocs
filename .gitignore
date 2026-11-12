@@ -1,0 +1,23 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+coverage/
+packages/web/parity/.work/
+*.bun-build
+/data/
+/bin/
+# What `go build` leaves in cli/, which carries the paths of the machine it was built on.
+/cli/cli
+test/nfs/.bin
+
+__pycache__/
+*.pyc
+
+test/helm/.kubeconfig
+/out/
+/packages/client/LICENSE
+/packages/embed/LICENSE

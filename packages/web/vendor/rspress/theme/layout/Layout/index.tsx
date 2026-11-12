@@ -1,0 +1,267 @@
+import type { FrontMatterMeta } from '@rspress/core';
+import {
+  Content,
+  useFrontmatter,
+  useLocaleSiteData,
+  usePage,
+  useSite,
+} from '@rspress/core/runtime';
+import type { HomeLayoutProps } from '@rspress/core/theme';
+import {
+  HomeLayout as DefaultHomeLayout,
+  NotFoundLayout as DefaultNotFoundLayout,
+  DocLayout,
+  type DocLayoutProps,
+  Nav,
+  type NavProps,
+  useSetup,
+} from '@rspress/core/theme';
+import { Head, useHead } from '@unhead/react';
+import React, { memo, useMemo } from 'react';
+
+export type LayoutProps = {
+  top?: React.ReactNode;
+  bottom?: React.ReactNode;
+  HomeLayout?: React.FC<HomeLayoutProps>;
+  NotFoundLayout?: React.FC<any>;
+  beforeNav?: React.ReactNode;
+  afterNav?: React.ReactNode;
+} & Omit<DocLayoutProps, 'uiSwitch'> &
+  HomeLayoutProps &
+  NavProps;
+
+const concatTitle = (title: string, suffix?: string) => {
+  if (!suffix) {
+    return title;
+  }
+
+  title = title.trim();
+  suffix = suffix.trim();
+
+  if (!suffix.startsWith('-') && !suffix.startsWith('|')) {
+    return `${title} - ${suffix}`;
+  }
+
+  return `${title} ${suffix}`;
+};
+
+const HeadTags = memo(
+  (props: {
+    title: string | undefined;
+    description: string | undefined;
+    frontmatter: FrontMatterMeta;
+    lang?: string;
+  }) => {
+    const { lang, frontmatter, description, title } = props;
+
+    const head = frontmatter.head;
+    const frontmatterTags = useMemo(() => {
+      return head?.map(([tagName, attrs]) => {
+        return tagName ? React.createElement(tagName, { ...attrs }) : null;
+      });
+    }, [head]);
+
+    const frontmatterMetaProperties = useMemo(() => {
+      const properties = new Set<string>();
+      if (head) {
+        for (const [tagName, attrs] of head) {
+          if (tagName === 'meta' && attrs?.property) {
+            properties.add(attrs.property as string);
+          }
+          if (tagName === 'meta' && attrs?.name) {
+            properties.add(attrs.name as string);
+          }
+        }
+      }
+      return properties;
+    }, [head]);
+
+    useHead({
+      htmlAttrs: {
+        lang: lang || 'en',
+      },
+      title: title || undefined,
+      meta: [
+        frontmatterMetaProperties.has('og:type')
+          ? undefined
+          : {
+              property: 'og:type',
+              content: 'website',
+            },
+        title && !frontmatterMetaProperties.has('og:title')
+          ? {
+              property: 'og:title',
+              content: title,
+            }
+          : undefined,
+        ...(description
+          ? [
+              frontmatterMetaProperties.has('description')
+                ? undefined
+                : {
+                    name: 'description',
+                    content: description,
+                  },
+              frontmatterMetaProperties.has('og:description')
+                ? undefined
+                : {
+                    property: 'og:description',
+                    content: description,
+                  },
+            ]
+          : []),
+      ],
+    });
+
+    return <Head>{frontmatterTags ?? null}</Head>;
+  },
+);
+
+const ClientEffects = () => {
+  useSetup();
+  return null;
+};
+
+export function Layout(props: LayoutProps) {
+  const {
+    top,
+    bottom,
+    beforeDocFooter,
+    afterDocFooter,
+    beforeDoc,
+    afterDoc,
+    beforeDocContent,
+    afterDocContent,
+    beforeSidebar,
+    afterSidebar,
+    beforeOutline,
+    afterOutline,
+    beforeNavTitle,
+    afterNavTitle,
+    navTitle,
+    beforeNav,
+    afterNav,
+    beforeHero,
+    afterHero,
+    beforeFeatures,
+    afterFeatures,
+    beforeLeftNavItems,
+    afterLeftNavItems,
+    beforeRightNavItems,
+    afterRightNavItems,
+    beforeNavMenu,
+    afterNavMenu,
+    components,
+    HomeLayout = DefaultHomeLayout,
+    NotFoundLayout = DefaultNotFoundLayout,
+  } = props;
+  const docProps: DocLayoutProps = {
+    beforeDocFooter,
+    afterDocFooter,
+    beforeDocContent,
+    afterDocContent,
+    beforeDoc,
+    afterDoc,
+    beforeSidebar,
+    afterSidebar,
+    beforeOutline,
+    afterOutline,
+    components,
+  };
+  const homeProps: HomeLayoutProps = {
+    beforeHero,
+    afterHero,
+    beforeFeatures,
+    afterFeatures,
+  };
+  const { page } = usePage();
+  const { site } = useSite();
+  const { frontmatter } = useFrontmatter();
+  const {
+    pageType,
+    lang: currentLang,
+    // Inject by remark-plugin-toc
+    title: articleTitle,
+  } = page;
+  const localesData = useLocaleSiteData();
+
+  const { navbar: showNavbar = true } = frontmatter;
+
+  // Always show sidebar by default
+  // Priority: front matter title > h1 title
+  let title = (frontmatter.title as string) ?? articleTitle;
+  const mainTitle = site.title || localesData.title || '';
+
+  if (title && (pageType === 'doc' || pageType === 'doc-wide')) {
+    // append main title as a suffix
+    title = concatTitle(
+      title,
+      (frontmatter.titleSuffix as string) || mainTitle,
+    );
+  } else if (pageType === 'home') {
+    title = concatTitle(mainTitle, frontmatter.titleSuffix as string);
+  } else if (pageType === '404') {
+    title = concatTitle('404', mainTitle);
+  } else {
+    title = mainTitle;
+  }
+
+  const description =
+    page.description || site.description || localesData.description;
+
+  // Use doc layout by default
+  const getContentLayout = () => {
+    switch (pageType) {
+      case 'home':
+        return <HomeLayout {...homeProps} />;
+      case 'doc':
+      case 'doc-wide':
+        return <DocLayout {...docProps} navTitle={navTitle} />;
+      case '404':
+        return <NotFoundLayout />;
+      // The custom pageType will have navbar while the blank pageType will not.
+      case 'custom':
+      case 'blank':
+        return <Content />;
+      default:
+        return <DocLayout {...docProps} />;
+    }
+  };
+
+  if (import.meta.env.SSG_MD) {
+    return <>{getContentLayout()}</>;
+  }
+  return (
+    <>
+      <ClientEffects />
+      <HeadTags
+        lang={currentLang}
+        title={title}
+        description={description}
+        frontmatter={frontmatter}
+      />
+
+      {top}
+      {pageType !== 'blank' && showNavbar && (
+        <>
+          {beforeNav}
+          <Nav
+            beforeNavTitle={beforeNavTitle}
+            afterNavTitle={afterNavTitle}
+            navTitle={navTitle}
+            beforeLeftNavItems={beforeLeftNavItems}
+            afterLeftNavItems={afterLeftNavItems}
+            beforeRightNavItems={beforeRightNavItems}
+            afterRightNavItems={afterRightNavItems}
+            beforeNavMenu={beforeNavMenu}
+            afterNavMenu={afterNavMenu}
+          />
+          {afterNav}
+        </>
+      )}
+
+      {getContentLayout()}
+      {bottom}
+    </>
+  );
+}

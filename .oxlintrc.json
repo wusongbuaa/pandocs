@@ -1,0 +1,40 @@
+{
+  "plugins": ["typescript", "unicorn", "oxc"],
+  "categories": { "correctness": "error" },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-useless-escape": "warn",
+    "no-control-regex": "warn",
+    "no-constant-condition": ["error", { "checkLoops": false }],
+    "no-unused-expressions": ["error", { "allowShortCircuit": true, "allowTernary": true }],
+    "typescript/no-this-alias": ["error", { "allowedNames": ["self"] }],
+    "unicorn/no-new-array": "off",
+    "unicorn/no-useless-spread": "warn",
+    "unicorn/no-useless-fallback-in-spread": "warn",
+    "unicorn/prefer-string-starts-ends-with": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.tsx"],
+      "plugins": ["typescript", "unicorn", "oxc", "react"],
+      "rules": {
+        "react/rules-of-hooks": "error",
+        "react/jsx-key": "error",
+        "react/exhaustive-deps": "warn",
+        "react/set-state-in-effect": "off",
+        "react/refs": "off",
+        "react/immutability": "off",
+        "react/globals": "off",
+        "react/purity": "off",
+        "react/static-components": "off",
+        "react/use-memo": "off",
+        "react/incompatible-library": "off"
+      }
+    },
+    {
+      "files": ["**/test/**", "**/*.test.ts", "**/*.test.tsx", "test/**"],
+      "rules": { "no-unsafe-optional-chaining": "warn", "require-yield": "off" }
+    }
+  ],
+  "ignorePatterns": ["packages/web/vendor/**", "docs/**", "**/dist/**"]
+}

@@ -1,0 +1,64 @@
+# What a cloud would provide: a database and object storage. Throwaway, for this test only.
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: postgres}
+spec:
+  selector: {matchLabels: {app: postgres}}
+  template:
+    metadata: {labels: {app: postgres}}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:18-alpine
+          imagePullPolicy: Never
+          env: [{name: POSTGRES_PASSWORD, value: postgres}]
+          args: ["-c", "fsync=off", "-c", "synchronous_commit=off"]
+          readinessProbe: {exec: {command: ["pg_isready", "-U", "postgres"]}, periodSeconds: 2}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: postgres}
+spec:
+  selector: {app: postgres}
+  ports: [{port: 5432}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: s3}
+spec:
+  selector: {matchLabels: {app: s3}}
+  template:
+    metadata: {labels: {app: s3}}
+    spec:
+      containers:
+        - name: s3
+          image: rustfs/rustfs:1.0.4
+          imagePullPolicy: Never
+          env:
+            - {name: RUSTFS_ACCESS_KEY, value: testkey12345}
+            - {name: RUSTFS_SECRET_KEY, value: testsecret1234567890}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: s3}
+spec:
+  selector: {app: s3}
+  ports: [{port: 9000, targetPort: 9000, nodePort: 30090}]
+  type: NodePort
+---
+apiVersion: v1
+kind: Secret
+metadata: {name: pandocs-test}
+stringData:
+  DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+  AWS_ACCESS_KEY_ID: testkey12345
+  AWS_SECRET_ACCESS_KEY: testsecret1234567890
+  PANDOCS_ADMIN_EMAIL: admin@example.test
+  PANDOCS_ADMIN_PASSWORD: test-password-for-the-chart
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: shared}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources: {requests: {storage: 1Gi}}

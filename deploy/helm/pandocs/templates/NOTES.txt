@@ -1,0 +1,16 @@
+Pandocs is starting. Watch it with:
+
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+
+Then open {{ .Values.url }} and create the administrator. The first person to get there becomes it, so do this before
+opening the site up, or set PANDOCS_ADMIN_EMAIL and PANDOCS_ADMIN_PASSWORD in the Secret.
+{{- if .Values.publish.enabled }}
+
+Publishing {{ .Values.publish.spaces }} to the claim {{ .Values.publish.existingClaim }}. Anyone with that mount can read it.
+{{- end }}
+{{- if and .Values.ingress.enabled (not .Values.ingress.tls) (hasPrefix "https://" .Values.url) }}
+
+The ingress has no tls, while the url starts with https://. Unless TLS ends in front of it, at a cloud load balancer
+for example, people reach the site over plain HTTP, where signing in does not work: its cookies only travel over
+HTTPS. Set ingress.tls, with a certificate from cert-manager for example.
+{{- end }}

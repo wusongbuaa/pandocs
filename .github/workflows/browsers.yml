@@ -1,0 +1,58 @@
+name: Other browsers
+
+# The browser tests in Firefox and in WebKit, the engine behind Safari. CI runs them in Chromium on every push; the
+# other two each take about as long again, so they run once a week, and whenever someone starts them by hand.
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browsers-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    # Playwright's browser dependencies do not cover newer images yet.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      # One engine failing says nothing about the other.
+      fail-fast: false
+      matrix:
+        engine: [firefox, webkit]
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+      PANDOCS_E2E_ENGINE: ${{ matrix.engine }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-1.58.2-${{ matrix.engine }}
+      # Playwright's installer hangs while unpacking on Node 26, so this runs on an older release.
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: npx --yes playwright@1.58.2 install --with-deps ${{ matrix.engine }}
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test:e2e

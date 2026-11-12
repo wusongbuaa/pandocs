@@ -1,0 +1,179 @@
+/* Everything here builds on the theme's --rp-* variables and the look of its own dropdown (.rp-llms-view-options__menu). */
+
+.pd-muted { color: var(--rp-c-text-2); }
+/* The theme's big buttons have a minimum width and no padding, which suits short labels and leaves others touching the ends. */
+.rp-button--big { padding-inline: 20px; }
+/* A page's first line, while it loads, starts where the page will. React keeps a <template> ahead of it for a while. */
+.rp-doc > .pd-muted:first-child, .rp-doc > template:first-child + .pd-muted { margin-top: 0; }
+
+/* Inside another system's page, which has its own navigation. The theme also keeps space for its bar through this variable. */
+:root.pd-embedded { --rp-nav-height: 0px; }
+.pd-embedded .rp-nav { display: none; }
+
+.pd-notice { max-width: 640px; margin: 120px auto; padding: 0 24px; text-align: center; color: var(--rp-c-text-2); }
+.pd-notice h1 { margin-bottom: 12px; color: var(--rp-c-text-1); font-size: 24px; font-weight: 600; }
+
+.pd-block { position: relative; }
+.pd-block-comment { position: absolute; top: 8px; right: 8px; display: none; align-items: center; justify-content: center; width: 28px; height: 28px; color: var(--rp-c-text-2); background: var(--rp-c-bg); border: 1px solid var(--rp-c-divider-light); border-radius: 6px; cursor: pointer; }
+.pd-block:hover > .pd-block-comment, .pd-block-comment:focus-visible { display: inline-flex; }
+.pd-block-comment:hover { color: var(--rp-c-text-1); background: var(--rp-c-bg-mute); }
+
+.pd-columns { display: flex; gap: 24px; margin: 20px 0; }
+.pd-column { flex: 1 1 0; min-width: 0; }
+.pd-column > :first-child { margin-top: 0; }
+.pd-column > :last-child { margin-bottom: 0; }
+@media (max-width: 768px) { .pd-columns { flex-direction: column; } }
+
+.pd-doc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; margin: 20px 0; }
+.pd-doc-card { position: relative; min-width: 0; padding: 16px 20px; color: var(--rp-c-text-2); font-size: 14px; background-color: var(--rp-c-bg-soft); border: var(--rp-c-overview-group-border); border-radius: var(--rp-radius); transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.pd-doc-card--link:hover { border-color: var(--rp-c-brand-light); box-shadow: 0 4px 6px 0 rgba(0, 0, 0, 0.04); }
+.pd-doc-card > :last-child { margin-bottom: 0; }
+.pd-doc-card > p { margin: 8px 0; line-height: 22px; }
+.pd-doc-card__title { color: var(--rp-c-text-1); font-size: 16px; font-weight: 600; line-height: 24px; }
+.pd-doc-card__title a { color: inherit; text-decoration: none; }
+.pd-doc-card__title a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.pd-doc-card--link:hover .pd-doc-card__title a { color: var(--rp-c-brand); }
+/* What a card holds besides its title stays reachable above the title's hit area. */
+.pd-doc-card > :not(.pd-doc-card__title) a { position: relative; z-index: 1; }
+
+.pd-figure { display: block; width: fit-content; max-width: 100%; }
+.pd-figure > img { display: block; }
+.pd-figure[data-align="center"] { margin-right: auto; margin-left: auto; }
+.pd-figure[data-align="right"] { margin-left: auto; }
+.pd-figure__caption { display: block; margin-top: 8px; color: var(--rp-c-text-2); font-size: 14px; line-height: 22px; text-align: center; }
+/* The editor keeps the words out of the document's text, so copying an image does not copy them as a paragraph. */
+.pd-figure[data-caption]::after { content: attr(data-caption); display: block; margin-top: 8px; color: var(--rp-c-text-2); font-size: 14px; line-height: 22px; text-align: center; }
+/* A picture inside a line of text, such as an icon or a badge, sits in the line as it does on the reading page. */
+.pd-inline-image { display: inline; max-width: 100%; vertical-align: middle; }
+
+/* Mermaid measures its labels away from the page, so the theme's paragraph spacing would not fit the boxes it drew. */
+.rp-doc svg foreignObject p { margin: 0; font-size: inherit; line-height: inherit; }
+
+.pd-diagram--enlargeable { cursor: zoom-in; }
+.pd-diagram--enlargeable:focus-visible { border-radius: 8px; outline: 2px solid var(--rp-c-brand); outline-offset: 4px; }
+.pd-zoom { position: fixed; inset: 0; z-index: 1100; color: var(--rp-c-text-1); background: var(--rp-c-bg); }
+.pd-zoom__inner { display: flex; flex-direction: column; height: 100%; outline: none; }
+.pd-zoom__bar { display: flex; flex: none; align-items: center; gap: 4px; height: 56px; padding: 0 16px; border-bottom: 1px solid var(--rp-c-divider-light); }
+.pd-zoom__title { overflow: hidden; margin: 0; font-size: 15px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
+.pd-zoom__hint { flex: 1; margin-left: 12px; color: var(--rp-c-text-3); font-size: 13px; white-space: nowrap; }
+.pd-zoom__stage { flex: 1; min-height: 0; overflow: hidden; cursor: grab; touch-action: none; user-select: none; }
+.pd-zoom__stage:active { cursor: grabbing; }
+.pd-zoom__canvas { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; transform-origin: 0 0; }
+@media (max-width: 768px) { .pd-zoom__hint { visibility: hidden; } }
+
+.pd-mindmap { height: clamp(320px, 50vh, 520px); margin: 20px 0; background-color: var(--rp-c-bg-soft); border: 1px solid var(--rp-c-divider-light); border-radius: 12px; }
+.pd-mindmap__chart { display: block; width: 100%; height: 100%; }
+.pd-mindmap__chart.markmap { --markmap-font: 400 15px/22px var(--rp-font-family-base, sans-serif); --markmap-text-color: var(--rp-c-text-1); --markmap-code-bg: var(--rp-c-bg-mute); --markmap-code-color: var(--rp-c-text-1); --markmap-circle-open-bg: var(--rp-c-bg); }
+.pd-mindmap__chart--links .markmap-foreign { cursor: pointer; }
+.pd-mindmap__chart--links .markmap-foreign:hover { color: var(--rp-c-brand); }
+
+html:has(.pd-present) { overflow: hidden; }
+.pd-present { position: fixed; inset: 0; z-index: 1000; color: var(--rp-c-text-1); background: var(--rp-c-bg); }
+.pd-present .pd-present__exit { position: absolute; top: 12px; right: 12px; z-index: 40; background: var(--rp-c-bg); }
+.pd-present__empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--rp-c-text-2); }
+.pd-present .reveal { --r-link-color: var(--rp-c-brand); --r-controls-spacing: 16px; width: 100%; height: 100%; }
+.pd-present .reveal-viewport { color: var(--rp-c-text-1); line-height: 1.7; background-color: var(--rp-c-bg); }
+.pd-present .reveal .progress { color: var(--rp-c-brand); background-color: var(--rp-c-divider-light); }
+.pd-present .reveal .controls { color: var(--rp-c-text-1); }
+.pd-present .reveal .slides { text-align: left; }
+.pd-present .reveal .slides > section { box-sizing: border-box; height: 100%; padding: 16px 0; overflow-y: auto; scrollbar-width: thin; }
+.pd-present .reveal .slide-number { color: var(--rp-c-text-2); background: transparent; }
+.pd-slide { box-sizing: border-box; min-height: 100%; }
+.pd-slide > :first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.pd-slide > h2 { margin-bottom: 24px; }
+.pd-slide > h2::before { display: none; }
+.pd-slide .rp-header-anchor { display: none; }
+/* A tall diagram shrinks to fit the slide rather than making people scroll past half of it. */
+.pd-slide .pd-diagram > svg { display: block; max-height: 440px; margin: 0 auto; }
+.pd-slide .pd-mindmap { height: 400px; }
+.pd-slide--opening { display: flex; flex-direction: column; justify-content: center; min-height: 100%; }
+.pd-slide--opening h1 { margin-bottom: 24px; font-size: 44px; line-height: 1.25; }
+
+.pd-compare { margin: 20px 0; }
+.pd-compare__stage { position: relative; overflow: hidden; border: 1px solid var(--rp-c-divider-light); border-radius: 12px; }
+.pd-compare__stage--loading { min-height: 240px; background-color: var(--rp-c-bg-soft); }
+.pd-compare__label { position: absolute; top: 12px; z-index: 1; padding: 2px 8px; color: #fff; font-size: 12px; line-height: 20px; background-color: rgba(0, 0, 0, 0.6); border-radius: 6px; pointer-events: none; }
+.pd-compare__label--before { left: 12px; }
+.pd-compare__label--after { right: 12px; }
+.pd-compare figcaption { margin-top: 8px; color: var(--rp-c-text-2); font-size: 14px; text-align: center; }
+
+.pd-hotspots { margin: 20px 0; }
+.pd-hotspots__stage { position: relative; line-height: 0; }
+.pd-hotspots__stage img { display: block; width: 100%; border: 1px solid var(--rp-c-divider-light); border-radius: 12px; }
+.pd-hotspots__mark { position: absolute; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; color: #fff; font-size: 13px; font-weight: 600; line-height: 1; background-color: var(--rp-c-brand); border: 2px solid var(--rp-c-bg); border-radius: 50%; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); transform: translate(-50%, -50%); transition: transform 0.15s ease; cursor: pointer; }
+.pd-hotspots__mark:hover, .pd-hotspots__mark--active, .pd-hotspots__mark[data-popup-open] { transform: translate(-50%, -50%) scale(1.2); }
+.pd-hotspots__tip { gap: 4px; width: auto; max-width: 280px; font-size: 14px; line-height: 22px; }
+.pd-hotspots__tip p { margin: 0; color: var(--rp-c-text-2); }
+.pd-hotspots__legend { margin: 12px 0 0; padding-left: 24px; color: var(--rp-c-text-2); font-size: 14px; line-height: 22px; list-style: decimal; }
+.pd-hotspots__legend li { margin: 4px 0; }
+.pd-hotspots__legend strong { margin-right: 8px; color: var(--rp-c-text-1); font-weight: 600; }
+
+.pd-file { display: flex; align-items: center; gap: 10px; margin: 16px 0; padding: 12px 16px; border: 1px solid var(--rp-c-divider-light); border-radius: 12px; color: var(--rp-c-text-1); text-decoration: none; }
+.pd-file:hover { border-color: var(--rp-c-brand); }
+.pd-file__name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.pd-file__action { display: inline-flex; flex: none; align-items: center; gap: 4px; color: var(--rp-c-text-2); font-size: 14px; }
+.pd-video { margin: 20px 0; }
+.pd-video video { width: 100%; border: 1px solid var(--rp-c-divider-light); border-radius: 12px; }
+.pd-video figcaption, .pd-chart figcaption { margin-top: 8px; color: var(--rp-c-text-2); font-size: 14px; text-align: center; }
+.pd-chart { min-height: 260px; margin: 20px 0; }
+.pd-source { margin: 8px 0 0; padding: 12px; overflow: auto; font-size: 13px; background: var(--rp-c-bg-soft); border-radius: 8px; }
+.pd-page-failed { max-width: 40rem; margin: 20vh auto 0; padding: 0 24px; text-align: center; }
+
+.pd-app-switch { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-right: 12px; color: var(--rp-c-text-1); background: none; border: 0; border-radius: 8px; cursor: pointer; }
+.pd-app-switch:hover, .pd-app-switch[data-popup-open] { background: var(--rp-c-bg-mute); }
+
+/* With the theme's switch for dark mode, as one group of icons: the bar leaves 24px between what it holds. */
+.pd-nav-account { display: flex; align-items: center; gap: 16px; margin-left: -8px; }
+.pd-avatar { flex: none; display: inline-flex; width: 24px; height: 24px; padding: 0; overflow: hidden; background: none; border: 0; border-radius: 50%; }
+.pd-avatar > svg { display: block; width: 100%; height: 100%; }
+.pd-avatar--nav { width: 28px; height: 28px; cursor: pointer; }
+
+/* What holds a menu or panel in place, above dialogs for what opens from inside one. */
+.pd-floating { z-index: 120; }
+.pd-tip { padding: 4px 8px; color: var(--rp-c-bg); font-size: 12px; line-height: 18px; background: var(--rp-c-text-1); border-radius: 6px; }
+
+.pd-menu { z-index: 100; display: flex; flex-direction: column; min-width: 180px; padding: 6px; color: var(--rp-c-text-1); background: var(--rp-c-bg); border: 1px solid var(--rp-c-divider-light); border-radius: 10px; box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.15), 0 0 2px 0 rgba(0, 0, 0, 0.05); }
+.pd-menu__item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; color: var(--rp-c-text-2); font-size: 14px; font-weight: 500; text-decoration: none; background: none; border: 0; border-radius: 6px; outline: none; cursor: pointer; }
+.pd-menu__item[data-highlighted], .pd-menu__item:hover { color: var(--rp-c-text-1); background: var(--rp-c-bg-mute); }
+.pd-menu__item[data-disabled] { opacity: 0.5; cursor: not-allowed; }
+
+/* A name in the top bar stays on one line, as the bar does not grow; the spaces that do not fit are in a list. */
+.rp-nav-menu__item__container { white-space: nowrap; }
+
+/* The page's menu beside its title, open as the theme's own looks open. */
+.rp-llms-view-options__trigger[data-popup-open] { color: var(--rp-c-text-1); background: var(--rp-c-bg-mute); border-color: var(--rp-c-divider); }
+.rp-llms-view-options__trigger[data-popup-open] .rp-llms-view-options__arrow { transform: rotate(180deg); }
+.pd-page-menu { min-width: 220px; }
+
+/* Tabs in a page are buttons, which bring a border and background of their own. */
+.rp-tabs__label button.rp-tabs__label__item { font-family: inherit; line-height: inherit; border: 0; }
+.rp-tabs__label button.rp-tabs__label__item--not-selected { background-color: transparent; }
+.rp-tabs__label button.rp-tabs__label__item--not-selected:hover { background-color: var(--rp-c-bg-mute); }
+.rp-tabs__label button.rp-tabs__label__item:focus-visible { outline: 2px solid var(--rp-c-brand); outline-offset: 1px; }
+.pd-tabs__print-label { display: none; }
+@media print {
+  .rp-tabs__label { display: none; }
+  .rp-tabs__content__item--hidden { display: block !important; }
+  .pd-tabs__print-label { display: block; margin: 12px 0 4px; font-weight: 600; }
+}
+
+/* A card tilts toward the pointer, and its near edge grows by about 1.3% of its width. The theme's row clips at 10px, which a card as wide as the row (one to a row on Pandocs' front pages) passes by up to 15px, so the row gets the same 26px sides as the list below it. */
+.rp-home-feature { padding-inline: 26px; }
+
+/* What changed lately, under the spaces on the site's front page, as wide as the theme's cards. */
+.pd-home-recent { max-width: 72rem; margin: 0 auto; padding: 8px 26px 56px; }
+.pd-home-recent h2 { margin: 0 0 12px; font-size: 20px; font-weight: 600; line-height: 28px; color: var(--rp-c-text-1); }
+.pd-home-recent ul { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rp-c-divider-light); }
+.pd-home-recent li { display: flex; gap: 16px; align-items: baseline; padding: 10px 2px; border-bottom: 1px solid var(--rp-c-divider-light); font-size: 14px; }
+.pd-home-recent li a { flex: 1; min-width: 0; overflow: hidden; color: var(--rp-c-text-1); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.pd-home-recent li a:hover { color: var(--rp-c-brand); }
+.pd-home-recent li span, .pd-home-recent li time { flex: none; color: var(--rp-c-text-2); font-size: 13px; white-space: nowrap; }
+@media (max-width: 640px) { .pd-home-recent li span { display: none; } }
+
+/*
+ * The API reference's panel, flush with the title and the buttons above it; the colours inside are set where it starts.
+ * It keeps a paragraph's distance from what is above and below it, such as the row of labels editors see.
+ */
+.pd-api-reference { margin: 20px 0; overflow: clip; border: 1px solid var(--rp-c-divider-light); border-radius: 12px; }
+/* The theme's column scrolls sideways, so the reference's own list would stick to the column, which never scrolls down, rather than to the window. */
+html.pd-api-reference-full .rp-doc-layout__doc { overflow: clip visible; }

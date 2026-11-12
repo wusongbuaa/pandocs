@@ -1,0 +1,35 @@
+name: Chart
+
+on:
+  push:
+    branches: [main]
+    paths: ["deploy/helm/**", "test/helm/**", ".github/workflows/chart.yml"]
+  pull_request:
+    paths: ["deploy/helm/**", "test/helm/**", ".github/workflows/chart.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  # On a real cluster: several replicas, an update under load, and losing the publishing pod.
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: go install sigs.k8s.io/kind@v0.33.0
+      - run: helm lint deploy/helm/pandocs --set url=https://docs.example.com,existingSecret=s,storage.s3.bucket=b
+      - run: docker build -t pandocs:local .
+      - run: docker pull postgres:18-alpine && docker pull rustfs/rustfs:1.0.4
+      - run: test/helm/run.sh

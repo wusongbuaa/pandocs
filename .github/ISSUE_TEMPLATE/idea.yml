@@ -1,0 +1,19 @@
+name: An idea
+description: Something Pandocs could do, or do differently.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The situation, and what gets in the way today. This matters more than a solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+  - type: textarea
+    id: instead
+    attributes:
+      label: What you do instead for now

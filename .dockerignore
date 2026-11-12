@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+.git
+.github
+data
+docs
+!docs/api/openapi.yaml
+test
+packages/web/parity/.work
+out

@@ -1,0 +1,58 @@
+{
+  "name": "@pandocs/embed",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Puts a Pandocs page inside another web app, with comments and suggestions, as a web component or a React component.",
+  "keywords": [
+    "pandocs",
+    "docs",
+    "embed",
+    "web-component",
+    "react"
+  ],
+  "homepage": "https://github.com/wusongbuaa/pandocs#readme",
+  "bugs": "https://github.com/wusongbuaa/pandocs/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wusongbuaa/pandocs.git",
+    "directory": "packages/embed"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./react": "./src/react.tsx"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./react": {
+        "types": "./dist/react.d.ts",
+        "import": "./dist/react.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "prepack": "tsc -p tsconfig.build.json && cp ../../LICENSE LICENSE",
+    "postpack": "rm -f LICENSE"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "esbuild": "0.28.1",
+    "react": "^19.2.7"
+  }
+}

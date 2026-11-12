@@ -1,0 +1,18 @@
+packages:
+  - "packages/*"
+
+allowBuilds:
+  "@parcel/watcher": false
+  esbuild: true
+  vue-demi: false
+
+patchedDependencies:
+  '@tiptap/extension-list@3.32.3': patches/@tiptap__extension-list@3.32.3.patch
+  micromark-util-edit-map@1.0.0: patches/micromark-util-edit-map@1.0.0.patch
+
+overrides:
+  katex: ^0.19.1
+
+# pdfjs-dist is here for its character maps and fonts. It would draw pages with this native module, which nothing here does.
+ignoredOptionalDependencies:
+  - "@napi-rs/canvas"

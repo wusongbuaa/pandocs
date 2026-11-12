@@ -1,0 +1,2 @@
+# Old Office formats are opened by LibreOffice from Debian, and Docling runs as a service of its own.
+markitdown[docx,pptx,xlsx,xls,pdf]==0.1.9

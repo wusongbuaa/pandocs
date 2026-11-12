@@ -1,0 +1,49 @@
+{{- include "pandocs.check" . -}}
+{{- $probes := dict
+  "startupProbe" (dict "httpGet" (dict "path" "/healthz" "port" "http") "periodSeconds" 2 "failureThreshold" 60)
+  "readinessProbe" (dict "httpGet" (dict "path" "/readyz" "port" "http") "periodSeconds" 5 "failureThreshold" 2)
+  "livenessProbe" (dict "httpGet" (dict "path" "/healthz" "port" "http") "periodSeconds" 15 "failureThreshold" 4)
+-}}
+{{- $local := not .Values.storage.s3.bucket -}}
+{{- $mounts := list -}}
+{{- $volumes := list -}}
+{{- if $local -}}
+{{- $mounts = list (dict "name" "data" "mountPath" "/data") -}}
+{{- $volumes = list (dict "name" "data" "persistentVolumeClaim" (dict "claimName" (printf "%s-data" (include "pandocs.fullname" .)))) -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pandocs.fullname" . }}-web
+  labels:
+    {{- include "pandocs.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  {{- if $local }}
+  # The volume can only be on one pod at a time, so the old one has to go first.
+  strategy:
+    type: Recreate
+  {{- else }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "pandocs.selector" (dict "root" . "component" "web") | nindent 6 }}
+  template:
+    {{- include "pandocs.pod" (dict
+      "root" .
+      "component" "web"
+      "roles" (ternary "web" "web,worker" .Values.worker.separate)
+      "resources" .Values.resources
+      "ports" (dict "ports" (list (dict "name" "http" "containerPort" 8080)))
+      "probes" $probes
+      "mounts" $mounts
+      "volumes" $volumes
+    ) | nindent 4 }}

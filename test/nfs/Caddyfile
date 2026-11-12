@@ -1,0 +1,8 @@
+:8080 {
+	reverse_proxy app-1:8080 app-2:8080 {
+		lb_try_duration 10s
+		fail_duration 5s
+		health_uri /healthz
+		health_interval 1s
+	}
+}

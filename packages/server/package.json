@@ -1,0 +1,53 @@
+{
+  "name": "@pandocs/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "The Pandocs server process: accounts, OIDC and OAuth login, API tokens, the MCP endpoint, model calls, and the web app.",
+  "exports": {
+    ".": "./src/app.ts",
+    "./csp": "./src/web/csp.ts"
+  },
+  "scripts": {
+    "dev": "node --import tsx --watch src/main.ts",
+    "build": "node build.mjs",
+    "start": "node dist/main.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.92.0",
+    "@pandocs/core": "workspace:*",
+    "@pandocs/editor-model": "workspace:*",
+    "@pandocs/i18n": "workspace:*",
+    "@pandocs/markdown": "workspace:*",
+    "@hocuspocus/server": "4.8.0",
+    "@hono/node-server": "^2.1.6",
+    "@mixmark-io/domino": "2.2.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "fflate": "0.8.3",
+    "hono": "^4.13.16",
+    "mammoth": "^1.13.0",
+    "nodemailer": "^10.3.1",
+    "openid-client": "^6.8.1",
+    "pdfjs-dist": "6.4.299",
+    "pg": "^8.21.0",
+    "read-excel-file": "^7.0.3",
+    "turndown": "^7.2.5",
+    "turndown-plugin-gfm": "^1.0.2",
+    "unpdf": "^1.9.1",
+    "ws": "^8.22.1",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.33",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@pandocs/client": "workspace:*",
+    "@hocuspocus/provider": "4.8.0",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.20.0",
+    "@types/turndown": "^5.0.6",
+    "@types/ws": "^8.18.2",
+    "esbuild": "0.28.1",
+    "jose": "^6.1.3"
+  }
+}

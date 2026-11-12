@@ -1,0 +1,27 @@
+{
+  "name": "@pandocs/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Pandocs' domain and application services, ports, HTTP handler, tool catalog, PostgreSQL storage and ingest pipeline.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./migrate": "./src/infrastructure/migrate.ts",
+    "./s3-asset-store": "./src/infrastructure/s3-asset-store.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1116.0",
+    "@pandocs/i18n": "workspace:*",
+    "@pandocs/markdown": "workspace:*",
+    "diff": "^8.0.2",
+    "fflate": "0.8.3",
+    "pg": "^8.21.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@pandocs/editor-model": "workspace:*",
+    "@types/pg": "^8.20.0",
+    "yjs": "^13.6.33"
+  }
+}

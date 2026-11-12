@@ -1,0 +1,26 @@
+diff --git a/dev/index.js b/dev/index.js
+index ea19c4844ace45a23c45c25b9a3794230538383d..d41d0f938ae8d990329db580d91b3399b547ea10 100644
+--- a/dev/index.js
++++ b/dev/index.js
+@@ -129,8 +129,6 @@ export class EditMap {
+       events.length = this.map[index][0]
+     }
+ 
+-    vecs.push(events.slice())
+-    events.length = 0
+ 
+     let slice = vecs.pop()
+ 
+diff --git a/index.js b/index.js
+index 5ddf22c742d46cb5a8c2642320bf917632e56ab7..62951fc832aaf7542edd9f91841890932edd050e 100644
+--- a/index.js
++++ b/index.js
+@@ -124,8 +124,6 @@ export class EditMap {
+       // Truncate rest.
+       events.length = this.map[index][0];
+     }
+-    vecs.push(events.slice());
+-    events.length = 0;
+     let slice = vecs.pop();
+     while (slice) {
+       for (const element of slice) {

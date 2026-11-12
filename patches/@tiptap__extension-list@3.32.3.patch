@@ -1,0 +1,159 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index d7bc26c3d857ee36af9662b7edd9f4691498bfb2..6c1709079fc55be1333d8da369af4795acdde2d6 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -878,7 +878,7 @@ function collectOrderedListItems(lines) {
+ 				nextLineIndex += 1;
+ 			} else if (nextLine.match(INDENTED_LINE_REGEX)) {
+ 				const leadingWhitespace = nextLine.length - nextLine.trimStart().length;
+-				const contentIndent = indentLevel + marker.length + 1;
++				const contentIndent = line.length - content.length;
+ 				itemLines.push(nextLine);
+ 				itemContentLines.push(nextLine.slice(Math.min(leadingWhitespace, contentIndent)));
+ 				nextLineIndex += 1;
+@@ -958,7 +958,7 @@ function buildNestedStructure(items, baseIndent, lexer) {
+ 				raw: mainText,
+ 				tokens: lexer.inlineTokens(mainText)
+ 			});
+-			const additionalContent = blockLines.join("\n").trim();
++			const commonIndent = Math.min(...blockLines.filter((blockLine) => blockLine.trim()).map((blockLine) => blockLine.length - blockLine.trimStart().length)); const additionalContent = blockLines.map((blockLine) => blockLine.slice(Math.min(commonIndent, blockLine.length - blockLine.trimStart().length))).join("\n").replace(/^(?:[ \t]*\n)+/, "").trimEnd();
+ 			if (additionalContent) {
+ 				const blockTokens = lexer.blockTokens(additionalContent);
+ 				tokens.push(...blockTokens);
+diff --git a/dist/index.js b/dist/index.js
+index 6c8031ff98dc8419e895ad6e7a1e03d9cdd15743..873d8ee06badcbcb10a829d6f7e8e27b7edbdb50 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -866,7 +866,7 @@ function collectOrderedListItems(lines) {
+ 				nextLineIndex += 1;
+ 			} else if (nextLine.match(INDENTED_LINE_REGEX)) {
+ 				const leadingWhitespace = nextLine.length - nextLine.trimStart().length;
+-				const contentIndent = indentLevel + marker.length + 1;
++				const contentIndent = line.length - content.length;
+ 				itemLines.push(nextLine);
+ 				itemContentLines.push(nextLine.slice(Math.min(leadingWhitespace, contentIndent)));
+ 				nextLineIndex += 1;
+@@ -946,7 +946,7 @@ function buildNestedStructure(items, baseIndent, lexer) {
+ 				raw: mainText,
+ 				tokens: lexer.inlineTokens(mainText)
+ 			});
+-			const additionalContent = blockLines.join("\n").trim();
++			const commonIndent = Math.min(...blockLines.filter((blockLine) => blockLine.trim()).map((blockLine) => blockLine.length - blockLine.trimStart().length)); const additionalContent = blockLines.map((blockLine) => blockLine.slice(Math.min(commonIndent, blockLine.length - blockLine.trimStart().length))).join("\n").replace(/^(?:[ \t]*\n)+/, "").trimEnd();
+ 			if (additionalContent) {
+ 				const blockTokens = lexer.blockTokens(additionalContent);
+ 				tokens.push(...blockTokens);
+diff --git a/dist/kit/index.cjs b/dist/kit/index.cjs
+index aea99783693df7fecdf0f25d7bd132d91779fb7a..68b0d0c433ed3b449dd1db0196d86f515922024f 100644
+--- a/dist/kit/index.cjs
++++ b/dist/kit/index.cjs
+@@ -820,7 +820,7 @@ function collectOrderedListItems(lines) {
+ 				nextLineIndex += 1;
+ 			} else if (nextLine.match(INDENTED_LINE_REGEX)) {
+ 				const leadingWhitespace = nextLine.length - nextLine.trimStart().length;
+-				const contentIndent = indentLevel + marker.length + 1;
++				const contentIndent = line.length - content.length;
+ 				itemLines.push(nextLine);
+ 				itemContentLines.push(nextLine.slice(Math.min(leadingWhitespace, contentIndent)));
+ 				nextLineIndex += 1;
+@@ -900,7 +900,7 @@ function buildNestedStructure(items, baseIndent, lexer) {
+ 				raw: mainText,
+ 				tokens: lexer.inlineTokens(mainText)
+ 			});
+-			const additionalContent = blockLines.join("\n").trim();
++			const commonIndent = Math.min(...blockLines.filter((blockLine) => blockLine.trim()).map((blockLine) => blockLine.length - blockLine.trimStart().length)); const additionalContent = blockLines.map((blockLine) => blockLine.slice(Math.min(commonIndent, blockLine.length - blockLine.trimStart().length))).join("\n").replace(/^(?:[ \t]*\n)+/, "").trimEnd();
+ 			if (additionalContent) {
+ 				const blockTokens = lexer.blockTokens(additionalContent);
+ 				tokens.push(...blockTokens);
+diff --git a/dist/kit/index.js b/dist/kit/index.js
+index d53a655cd299711fce0e6d10f7ede97c5a682ebf..dc96cd1ae8a0748edabd79d4ab56d8a22bbbdc8a 100644
+--- a/dist/kit/index.js
++++ b/dist/kit/index.js
+@@ -819,7 +819,7 @@ function collectOrderedListItems(lines) {
+ 				nextLineIndex += 1;
+ 			} else if (nextLine.match(INDENTED_LINE_REGEX)) {
+ 				const leadingWhitespace = nextLine.length - nextLine.trimStart().length;
+-				const contentIndent = indentLevel + marker.length + 1;
++				const contentIndent = line.length - content.length;
+ 				itemLines.push(nextLine);
+ 				itemContentLines.push(nextLine.slice(Math.min(leadingWhitespace, contentIndent)));
+ 				nextLineIndex += 1;
+@@ -899,7 +899,7 @@ function buildNestedStructure(items, baseIndent, lexer) {
+ 				raw: mainText,
+ 				tokens: lexer.inlineTokens(mainText)
+ 			});
+-			const additionalContent = blockLines.join("\n").trim();
++			const commonIndent = Math.min(...blockLines.filter((blockLine) => blockLine.trim()).map((blockLine) => blockLine.length - blockLine.trimStart().length)); const additionalContent = blockLines.map((blockLine) => blockLine.slice(Math.min(commonIndent, blockLine.length - blockLine.trimStart().length))).join("\n").replace(/^(?:[ \t]*\n)+/, "").trimEnd();
+ 			if (additionalContent) {
+ 				const blockTokens = lexer.blockTokens(additionalContent);
+ 				tokens.push(...blockTokens);
+diff --git a/dist/ordered-list/index.cjs b/dist/ordered-list/index.cjs
+index c24ddec9cc77b4cb72e5be36fa6f0b0edeefb50f..1c01a9866ca34e506aaf7893f294e840358525dd 100644
+--- a/dist/ordered-list/index.cjs
++++ b/dist/ordered-list/index.cjs
+@@ -276,7 +276,7 @@ function collectOrderedListItems(lines) {
+ 				nextLineIndex += 1;
+ 			} else if (nextLine.match(INDENTED_LINE_REGEX)) {
+ 				const leadingWhitespace = nextLine.length - nextLine.trimStart().length;
+-				const contentIndent = indentLevel + marker.length + 1;
++				const contentIndent = line.length - content.length;
+ 				itemLines.push(nextLine);
+ 				itemContentLines.push(nextLine.slice(Math.min(leadingWhitespace, contentIndent)));
+ 				nextLineIndex += 1;
+@@ -356,7 +356,7 @@ function buildNestedStructure(items, baseIndent, lexer) {
+ 				raw: mainText,
+ 				tokens: lexer.inlineTokens(mainText)
+ 			});
+-			const additionalContent = blockLines.join("\n").trim();
++			const commonIndent = Math.min(...blockLines.filter((blockLine) => blockLine.trim()).map((blockLine) => blockLine.length - blockLine.trimStart().length)); const additionalContent = blockLines.map((blockLine) => blockLine.slice(Math.min(commonIndent, blockLine.length - blockLine.trimStart().length))).join("\n").replace(/^(?:[ \t]*\n)+/, "").trimEnd();
+ 			if (additionalContent) {
+ 				const blockTokens = lexer.blockTokens(additionalContent);
+ 				tokens.push(...blockTokens);
+diff --git a/dist/ordered-list/index.js b/dist/ordered-list/index.js
+index ecc0efa7e872661d5d6e7b4c0c20475e99e1d611..c70db5b253cb7b1f811d30dd82b41d79c61370e1 100644
+--- a/dist/ordered-list/index.js
++++ b/dist/ordered-list/index.js
+@@ -275,7 +275,7 @@ function collectOrderedListItems(lines) {
+ 				nextLineIndex += 1;
+ 			} else if (nextLine.match(INDENTED_LINE_REGEX)) {
+ 				const leadingWhitespace = nextLine.length - nextLine.trimStart().length;
+-				const contentIndent = indentLevel + marker.length + 1;
++				const contentIndent = line.length - content.length;
+ 				itemLines.push(nextLine);
+ 				itemContentLines.push(nextLine.slice(Math.min(leadingWhitespace, contentIndent)));
+ 				nextLineIndex += 1;
+@@ -355,7 +355,7 @@ function buildNestedStructure(items, baseIndent, lexer) {
+ 				raw: mainText,
+ 				tokens: lexer.inlineTokens(mainText)
+ 			});
+-			const additionalContent = blockLines.join("\n").trim();
++			const commonIndent = Math.min(...blockLines.filter((blockLine) => blockLine.trim()).map((blockLine) => blockLine.length - blockLine.trimStart().length)); const additionalContent = blockLines.map((blockLine) => blockLine.slice(Math.min(commonIndent, blockLine.length - blockLine.trimStart().length))).join("\n").replace(/^(?:[ \t]*\n)+/, "").trimEnd();
+ 			if (additionalContent) {
+ 				const blockTokens = lexer.blockTokens(additionalContent);
+ 				tokens.push(...blockTokens);
+diff --git a/src/ordered-list/utils.ts b/src/ordered-list/utils.ts
+index d0a3b84aa4c0ccb7bae75384aef5897fae102c70..c1b9503fc3c74fa12242d40d5e28ee9fb6c64470 100644
+--- a/src/ordered-list/utils.ts
++++ b/src/ordered-list/utils.ts
+@@ -171,7 +171,7 @@ export function collectOrderedListItems(lines: string[]): [OrderedListItem[], nu
+         // Strip the indentation only up to the whitespace that is actually present,
+         // so an under-indented line (e.g. a single leading space) keeps its first character.
+         const leadingWhitespace = nextLine.length - nextLine.trimStart().length
+-        const contentIndent = indentLevel + marker.length + 1
++        const contentIndent = line.length - content.length
+         itemLines.push(nextLine)
+         itemContentLines.push(nextLine.slice(Math.min(leadingWhitespace, contentIndent)))
+         nextLineIndex += 1
+@@ -291,7 +291,12 @@ export function buildNestedStructure(
+         })
+       }
+ 
+-      const additionalContent = blockLines.join('\n').trim()
++      const commonIndent = Math.min(...blockLines.filter(blockLine => blockLine.trim()).map(blockLine => blockLine.length - blockLine.trimStart().length))
++      const additionalContent = blockLines
++        .map(blockLine => blockLine.slice(Math.min(commonIndent, blockLine.length - blockLine.trimStart().length)))
++        .join('\n')
++        .replace(/^(?:[ \t]*\n)+/, '')
++        .trimEnd()
+       if (additionalContent) {
+         const blockTokens = lexer.blockTokens(additionalContent)
+         tokens.push(...blockTokens)

@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`vendor/rspress > stays a verbatim copy, so the look and upgrades stay official 1`] = `"eed752ebc338e69c235415d06f31f2356ab1bb1f4aaf510f3fc5dd0ec0229fdd"`;
+
+exports[`vendor/shadcn > stays a verbatim copy, so the look and upgrades stay official 1`] = `"df7c26d70681f9705299bbc63265936867a07950d684c74eb975cf9735736ff0"`;

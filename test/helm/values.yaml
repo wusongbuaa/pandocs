@@ -1,0 +1,14 @@
+image: {repository: pandocs, tag: local, pullPolicy: Never}
+url: http://127.0.0.1:18080
+existingSecret: pandocs-test
+replicaCount: 2
+worker: {separate: true, replicaCount: 2}
+service: {type: NodePort, port: 80, nodePort: 30080}
+storage:
+  s3: {bucket: pandocs, endpoint: "http://s3:9000", forcePathStyle: true}
+publish: {enabled: true, existingClaim: shared, spaces: "*", packSeconds: 5}
+# Six pods at the chart's default ask for more than a two-core machine has left once Kubernetes itself has started.
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi

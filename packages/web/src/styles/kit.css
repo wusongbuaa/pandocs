@@ -1,0 +1,94 @@
+/*
+ * The form kit's styles: shadcn/ui's components in vendor/shadcn, with every colour taken from the theme's variables, so
+ * that dark mode and the site's brand colour carry over. Only chunks loaded on demand bring this in.
+ */
+@layer rp-base, theme, base, components, utilities;
+/* Tailwind's own reset stays out. The theme has one in rp-base, and what it leaves alone is below. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "../../vendor/shadcn/components/ui";
+@source "../ui";
+@import "tw-animate-css";
+@import "../../vendor/shadcn/tailwind.css";
+
+/* The theme switches both this class and rp-dark. */
+@custom-variant dark (&:is(.dark *));
+
+/* The theme's bar sits at 60, above the 50 these use for what should cover the page. */
+@theme {
+  --z-index-50: 110;
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--rp-font-family-base);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+:root {
+  --background: var(--rp-c-bg);
+  --foreground: var(--rp-c-text-1);
+  --card: var(--rp-c-bg);
+  --card-foreground: var(--rp-c-text-1);
+  --popover: var(--rp-c-bg);
+  --popover-foreground: var(--rp-c-text-1);
+  --primary: var(--rp-c-brand);
+  --primary-foreground: #fff;
+  --secondary: var(--rp-c-bg-soft);
+  --secondary-foreground: var(--rp-c-text-1);
+  --muted: var(--rp-c-bg-soft);
+  --muted-foreground: var(--rp-c-text-2);
+  --accent: var(--rp-c-bg-mute);
+  --accent-foreground: var(--rp-c-text-1);
+  --destructive: rgb(237, 60, 80);
+  --border: var(--rp-c-divider-light);
+  --input: var(--rp-c-divider);
+  --ring: var(--rp-c-brand);
+  --radius: 0.5rem;
+}
+
+@layer base {
+  [data-slot] { border-color: var(--border); outline-color: color-mix(in oklab, var(--ring) 50%, transparent); }
+  /* The theme's reset deliberately leaves buttons alone, and these expect them bare. */
+  button[data-slot], [data-slot] button { background-color: transparent; background-image: none; color: inherit; cursor: pointer; }
+}
+
+:root { --pd-kit-loaded: visible; }
+
+/*
+ * A dialog stops the page scrolling, which takes its scrollbar away. The room for it stays, so nothing moves, but what
+ * covers the page does not reach there and the page's own background shows. This is that background, covered the same.
+ */
+html[data-pd-covered] { background: color-mix(in srgb, var(--rp-c-bg), #000 10%); }
+
+/* What happened while a dialog is open has to be readable, and a toast shown before it opened comes before it on the page. */
+[data-slot="toast-viewport"] { z-index: 130; }
+
+/* In the label's own text this would change what the field is called to anything reading it. */
+[data-slot="field"][data-required] > [data-slot="field-label"]::after { margin-left: -4px; color: var(--destructive); content: "*"; }
+
+/* The sign-in dialog's card is the sign-in pages' own, from /sign-in.css. Where it sits on the screen is all that is the app's. */
+.pd-sign-in-dialog { position: fixed; inset: 0; z-index: var(--z-index-50); display: grid; place-items: center; overflow-y: auto; padding: 72px 16px 24px; pointer-events: none; }
+.pd-sign-in-dialog > .pd-sign-in { pointer-events: auto; }

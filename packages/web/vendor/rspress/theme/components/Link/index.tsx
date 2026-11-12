@@ -1,0 +1,157 @@
+import { preloadLink } from '@rspress/core/runtime';
+import clsx from 'clsx';
+import type React from 'react';
+import type { ComponentProps, TransitionStartFunction } from 'react';
+import { forwardRef } from 'react';
+import './index.scss';
+import { getHref } from './getHref';
+import { useLinkNavigate } from './useLinkNavigate';
+
+export interface LinkProps extends ComponentProps<'a'> {
+  href?: string;
+  children?: React.ReactNode;
+  className?: string;
+  onMouseEnter?: (
+    event: React.MouseEvent<HTMLAnchorElement, MouseEvent>,
+  ) => void;
+
+  /**
+   * Get isPending state of Link navigation
+   *
+   * ```tsx
+   * const [isPending, startTransition] = useTransition();
+   * <Link
+   *   href="/some-path"
+   *   startTransition={startTransition}
+   * >
+   *   Some Link
+   * </Link>
+   * ```
+   *
+   * @private
+   * @unstable
+   */
+  startTransition?: TransitionStartFunction;
+}
+
+/**
+ * What's the difference between <Link> and <a>?
+ * Link can tell whether it's in current site or external site.
+ * 1. If external, open a new page and navigate to it.
+ * 2. If inCurrentPage, scroll to anchor.
+ * 3. If inCurrentSite, it will navigate and scroll to anchor, prefetch route resources when hovering over the link.
+ * 4. Link is styled.
+ */
+export const Link = forwardRef<HTMLAnchorElement, LinkProps>((props, ref) => {
+  const {
+    href = '/',
+    children,
+    className = '',
+    onClick,
+    onMouseEnter,
+    startTransition,
+    ...otherProps
+  } = props;
+
+  const { linkType, removeBaseHref, routePath, withBaseHref } = getHref(href);
+  const navigate = useLinkNavigate({ startTransition });
+
+  if (linkType === 'external') {
+    return (
+      <a
+        ref={ref}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={clsx(className, 'rp-link')}
+        onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        {...otherProps}
+      >
+        {children}
+      </a>
+    );
+  }
+
+  if (linkType === 'hashOnly' || linkType === 'relative') {
+    return (
+      <a
+        ref={ref}
+        href={href}
+        className={clsx(className, 'rp-link')}
+        onMouseEnter={event => {
+          onMouseEnter?.(event);
+          if (linkType === 'relative') {
+            preloadLink(routePath);
+          }
+        }}
+        onTouchStart={() => {
+          if (linkType === 'relative') {
+            preloadLink(routePath);
+          }
+        }}
+        onClick={e => {
+          onClick?.(e);
+          if (
+            e.defaultPrevented ||
+            e.currentTarget.hasAttribute('download') ||
+            // left click only
+            e.button !== 0 ||
+            // `target` are usually used for open link in new window/tab
+            (e.currentTarget.target && e.currentTarget.target !== '_self') ||
+            // modifier keys are usually used for open link in new window/tab
+            e.metaKey ||
+            e.shiftKey ||
+            e.altKey ||
+            e.ctrlKey
+          ) {
+            return;
+          }
+          e.preventDefault();
+          navigate(href);
+        }}
+        {...otherProps}
+      >
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <a
+      ref={ref}
+      href={withBaseHref}
+      className={clsx(className, 'rp-link')}
+      onMouseEnter={event => {
+        onMouseEnter?.(event);
+        preloadLink(routePath);
+      }}
+      onTouchStart={() => {
+        preloadLink(routePath);
+      }}
+      onClick={e => {
+        onClick?.(e);
+        if (
+          // left click only
+          e.button !== 0 ||
+          // `target` are usually used for open link in new window/tab
+          (e.currentTarget.target && e.currentTarget.target !== '_self') ||
+          // modifier keys are usually used for open link in new window/tab
+          e.metaKey ||
+          e.shiftKey ||
+          e.altKey ||
+          e.ctrlKey
+        ) {
+          return;
+        }
+        e.preventDefault();
+        navigate(removeBaseHref);
+      }}
+      {...otherProps}
+    >
+      {children}
+    </a>
+  );
+});
+
+Link.displayName = 'Link';

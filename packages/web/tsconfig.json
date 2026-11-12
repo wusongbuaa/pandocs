@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "types": ["vite/client", "node", "vitest"],
+    "paths": {
+      "@/*": ["./vendor/shadcn/*"],
+      "@pandocs/editor-model": ["./../editor-model/src/index.ts"],
+      "@pandocs/markdown": ["./../markdown/src/index.ts"],
+      "@rspress/core": ["./src/virtual/core-types.ts"],
+      "@rspress/core/runtime": ["./vendor/rspress/runtime/index.ts"],
+      "@rspress/core/theme-original": ["./vendor/rspress/theme/index.ts"],
+      "@rspress/core/theme": ["./src/theme/index.tsx"],
+      "#theme": ["./src/theme/index.tsx"],
+      "@rspress/core/shiki-transformers": ["./vendor/rspress/shiki-transformers.ts"],
+      "@rspress/shared/node-utils": ["./src/virtual/node-utils.ts"]
+    }
+  },
+  "include": ["src", "test", "vendor", "build", "parity", "vite.config.ts"],
+  "exclude": ["parity/.work"]
+}

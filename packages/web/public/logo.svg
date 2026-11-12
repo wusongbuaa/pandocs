@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><title>Pandocs</title>
+<circle cx="17" cy="14" r="7.2" fill="#1f2430"/><circle cx="47" cy="14" r="7.2" fill="#1f2430"/>
+<path d="M10.5 44V37C10.5 22.6 20.1 11.5 32 11.5S53.5 22.6 53.5 37v7z" fill="#fff" stroke="#1f2430" stroke-width="3.6" stroke-linejoin="round"/>
+<ellipse cx="23.8" cy="27.6" rx="5.7" ry="7.2" transform="rotate(32 23.8 27.6)" fill="#1f2430"/>
+<ellipse cx="40.2" cy="27.6" rx="5.7" ry="7.2" transform="rotate(-32 40.2 27.6)" fill="#1f2430"/>
+<circle cx="24.9" cy="26.6" r="2.25" fill="#fff"/><circle cx="39.1" cy="26.6" r="2.25" fill="#fff"/>
+<path d="M32 40.5C26.4 37.2 18.2 35.8 10.4 36.2Q7.6 36.4 7.6 39.2V53.4Q7.6 56 10.2 56.1C18.2 56.5 26.4 58.1 32 61.6z" fill="#22b573" stroke="#1f2430" stroke-width="3.4" stroke-linejoin="round"/>
+<path d="M32 40.5C37.6 37.2 45.8 35.8 53.6 36.2Q56.4 36.4 56.4 39.2V53.4Q56.4 56 53.8 56.1C45.8 56.5 37.6 58.1 32 61.6z" fill="#5fd39a" stroke="#1f2430" stroke-width="3.4" stroke-linejoin="round"/>
+<path d="M13.2 44.3c4.2-.1 8.4.6 12.8 2.2M13.2 49.6c3.4 0 6.7.5 9.8 1.5M50.8 44.3c-4.2-.1-8.4.6-12.8 2.2M50.8 49.6c-3.4 0-6.7.5-9.8 1.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".9"/>
+<ellipse cx="11.4" cy="37.4" rx="4.6" ry="4.1" fill="#1f2430"/><ellipse cx="52.6" cy="37.4" rx="4.6" ry="4.1" fill="#1f2430"/>
+</svg>

@@ -1,0 +1,2157 @@
+openapi: 3.1.0
+info:
+  title: Pandocs API
+  version: 0.1.0
+  description: >-
+    Pandocs' HTTP API. Most of it is in @pandocs/core, and paths marked x-served-by: server are in @pandocs/server.
+    Identity comes from a signed-in session or an API token (with the scope read or write).
+    A success is {version:1,data}, and a failure is {version:1,error:{code,message,details?}}.
+    Messages meant for people follow the Accept-Language header, in English or Chinese, and are in English without one.
+servers:
+  - url: /api/v1
+security:
+  - sessionCookie: []
+  - apiToken: []
+tags:
+  - name: catalog
+    description: 'The tool catalog, which the CLI and MCP call dynamically'
+  - name: site
+    description: Site settings and the data the app starts from
+  - name: spaces
+  - name: documents
+  - name: threads
+  - name: proposals
+  - name: imports
+  - name: sync
+    description: 'Change feed, live events and syncing by file'
+  - name: account
+    description: 'Accounts, tokens and user management'
+  - name: embed
+    description: Embedding pages in other systems
+  - name: insights
+    description: 'Asking the documents, what readers say about them, and how much they are read'
+paths:
+  /tools:
+    get:
+      tags: [catalog]
+      operationId: listTools
+      summary: 'The tool catalog: names, descriptions and JSON Schemas'
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '401': {$ref: '#/components/responses/Error'}, '403': {$ref: '#/components/responses/Error'}}
+  /tools/{name}:
+    post:
+      tags: [catalog]
+      operationId: callTool
+      summary: Call a tool. Its input is checked against the inputSchema in the catalog
+      parameters: [{name: name, in: path, required: true, schema: {type: string}}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '404': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}}
+  /blocks:
+    get:
+      tags: [catalog]
+      operationId: listBlocks
+      summary: 'The custom blocks available, how to write them, and their attributes'
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /me:
+    get:
+      tags: [catalog]
+      operationId: getMe
+      summary: The current identity and what its credentials allow
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/Me'}}}}}}, '401': {$ref: '#/components/responses/Error'}, '403': {$ref: '#/components/responses/Error'}}
+  /me/inbox:
+    get:
+      tags: [catalog]
+      operationId: getInbox
+      summary: 'What concerns me: mentions, replies, feedback on what I wrote, and proposals waiting for my decision'
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /me/inbox/read:
+    post:
+      tags: [catalog]
+      operationId: markInboxRead
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [ids], properties: {ids: {oneOf: [{type: array, items: {type: string, format: uuid}, maxItems: 200}, {const: all}]}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /git-hooks/{token}:
+    x-served-by: server
+    post:
+      tags: [spaces]
+      operationId: notifyGitSync
+      summary: A repository saying that someone has pushed
+      description: For a repository's own webhook, so it takes no login. The address is the secret, and all it can do is make the next sync come sooner.
+      security: []
+      parameters:
+        - {name: token, in: path, required: true, schema: {type: string}}
+      responses:
+        '202': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: object, required: [queued], properties: {queued: {type: boolean}}}}}}}}
+        '404': {$ref: '#/components/responses/Error'}
+  /openapi.yaml:
+    x-served-by: server
+    get:
+      tags: [catalog]
+      operationId: getOpenApiDocument
+      summary: This description of the API
+      security: []
+      responses:
+        '200': {description: The document, content: {application/yaml: {schema: {type: string}}}}
+  /me/subscriptions:
+    get:
+      tags: [catalog]
+      operationId: listMySubscriptions
+      summary: The pages and spaces I follow, leaving out what I can no longer read
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: array, items: {$ref: '#/components/schemas/Subscription'}}}}}}}
+  /directory:
+    get:
+      tags: [catalog]
+      operationId: searchDirectory
+      summary: 'Look up users, for @ mentions'
+      parameters: [{name: q, in: query, schema: {type: string}}]
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /ask:
+    post:
+      tags: [insights]
+      operationId: askDocuments
+      summary: 'Ask the documents a question, answered from what the caller can read'
+      description: >-
+        For people, on sites with a model configured. Someone with no login can ask on a site that allows it (askForVisitors in the site settings). Agents should use their own model, with the tools the API already has.
+        Being over the limit is an ordinary error. Otherwise the answer is server-sent events with JSON in each data line, and type says which: step (what is being looked up), sources (pages it can cite, each with a number), text (a piece of the answer), restart (what was said so far is not part of the answer), then done or error.
+        done has the final text, in which [1] refers to citations, the id to rate it with if questions are being kept, and answered, which is whether it could point at a page.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              additionalProperties: false
+              properties:
+                question: {type: string, minLength: 1, maxLength: 2000}
+                space: {type: string, description: The slug of the space the person is in}
+                document: {type: string, format: uuid, description: The page the person is reading}
+                lang: {type: string, description: 'The language of the pages being read, for links that stay in it'}
+                history:
+                  type: array
+                  maxItems: 6
+                  description: Earlier questions in this conversation
+                  items: {type: object, required: [question, answer], additionalProperties: false, properties: {question: {type: string}, answer: {type: string}}}
+      responses: {'200': {description: 'Server-sent events, as above', content: {text/event-stream: {schema: {type: string}}}}, '403': {$ref: '#/components/responses/Error'}, '429': {$ref: '#/components/responses/Error'}, '503': {$ref: '#/components/responses/Error'}}
+  /ask/{id}/rating:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [insights]
+      operationId: rateAnswer
+      summary: Say whether an answer helped
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [helpful], additionalProperties: false, properties: {helpful: {type: boolean}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /stats/views:
+    post:
+      tags: [insights]
+      operationId: countPageView
+      summary: Count someone reading a page in a browser
+      description: 'Programs reading through the API, MCP or a page''s Markdown are counted without asking.'
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [document], additionalProperties: false, properties: {document: {type: string, format: uuid}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '404': {$ref: '#/components/responses/Error'}}
+  /stats/searches:
+    post:
+      tags: [insights]
+      operationId: countSearch
+      summary: Count a search made in a browser, and how many results it found
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [term, results], additionalProperties: false, properties: {term: {type: string, minLength: 1, maxLength: 200}, results: {type: integer, minimum: 0}, space: {type: string}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /insights:
+    get:
+      tags: [insights]
+      operationId: getSiteInsights
+      summary: 'How much the whole site is read, what is searched for and asked (administrators)'
+      parameters: [{$ref: '#/components/parameters/Days'}]
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/Insights'}}}}}}, '403': {$ref: '#/components/responses/Error'}}
+  /spaces/{space}/insights:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [insights]
+      operationId: getSpaceInsights
+      summary: 'How much a space is read, what is searched for and asked in it (editors)'
+      parameters: [{$ref: '#/components/parameters/Days'}]
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/Insights'}}}}}}, '403': {$ref: '#/components/responses/Error'}}
+  /feedback:
+    get:
+      tags: [insights]
+      operationId: listSiteFeedback
+      summary: What readers and agents have said about pages on the whole site (administrators)
+      parameters: [{$ref: '#/components/parameters/FeedbackStatus'}]
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {type: array, items: {$ref: '#/components/schemas/PageFeedback'}}}}}}}, '403': {$ref: '#/components/responses/Error'}}
+  /spaces/{space}/feedback:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [insights]
+      operationId: listSpaceFeedback
+      summary: What readers and agents have said about pages in a space (editors)
+      parameters: [{$ref: '#/components/parameters/FeedbackStatus'}]
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {type: array, items: {$ref: '#/components/schemas/PageFeedback'}}}}}}}, '403': {$ref: '#/components/responses/Error'}}
+  /feedback/{id}/resolve:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [insights]
+      operationId: resolveFeedback
+      summary: Mark feedback as dealt with, or open it again (editors of the page)
+      requestBody: {content: {application/json: {schema: {type: object, additionalProperties: false, properties: {resolved: {type: boolean, default: true}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '404': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/feedback:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [insights]
+      operationId: leaveFeedback
+      summary: 'Say whether a page helped, or report something wrong with it'
+      description: Anyone who can read the page can do this, including someone with no login on a public page. Agents can use this to report a mistake they find. Words on a report or an unhelpful vote go to whoever saved the current version.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [kind], additionalProperties: false, properties: {kind: {type: string, enum: [helpful, unhelpful, report]}, body: {type: string, maxLength: 2000, description: 'What to say. A report needs this.'}, quote: {type: string, maxLength: 500, description: The words on the page this is about}}}}}}
+      responses: {'201': {description: Created, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {type: object, required: [id], properties: {id: {type: string, format: uuid}}}}}}}}, '404': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/feedback/{feedback}:
+    parameters: [{$ref: '#/components/parameters/Id'}, {name: feedback, in: path, required: true, schema: {type: string, format: uuid}}]
+    patch:
+      tags: [insights]
+      operationId: explainFeedback
+      summary: Add words to a vote already given
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [body], additionalProperties: false, properties: {body: {type: string, minLength: 1, maxLength: 2000}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '404': {$ref: '#/components/responses/Error'}}
+  /search:
+    get:
+      tags: [documents]
+      operationId: searchDocuments
+      summary: 'Search titles and text by keyword, or list the pages with a label, filtered by what the caller can read'
+      parameters: [{name: q, in: query, schema: {type: string}}, {name: label, in: query, description: Only pages with this label in any letter case, schema: {type: string}}, {name: space, in: query, schema: {type: string}}, {name: lang, in: query, description: 'One of the site''s other languages: pages translated into it are searched and named as their translation, the rest as written', schema: {type: string}}]
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {type: array, items: {$ref: '#/components/schemas/SearchHit'}}}}}}}}
+  /bootstrap:
+    get:
+      tags: [site]
+      operationId: getBootstrap
+      summary: The data the app needs to start
+      description: 'The current identity, site settings, the spaces visible and their page trees, and the version of the search index. The app builds its routes and sidebars from this.'
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /static/{file}:
+    get:
+      tags: [site]
+      operationId: getSearchIndex
+      summary: A search index of the documents the current identity can read
+      description: 'The file name looks like search_index.zh.<hash>.json, and without a language it uses the default one. The answer is a bare array with the fields the Rspress theme''s search panel expects, and the browser builds the index.'
+      parameters:
+        - {name: file, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: The search index}
+  /site:
+    get:
+      tags: [site]
+      operationId: getSiteSettings
+      summary: Read the site settings
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+    patch:
+      tags: [site]
+      operationId: updateSiteSettings
+      summary: Change the site settings (administrators)
+      description: 'Only changes the fields given. Fields never stored take the host''s defaults.'
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /spaces:
+    get:
+      tags: [spaces]
+      operationId: listSpaces
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {type: array, items: {$ref: '#/components/schemas/Space'}}}}}}}}
+    post:
+      tags: [spaces]
+      operationId: createSpace
+      summary: Create a space (administrators)
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [slug, name], properties: {slug: {type: string}, name: {type: string}, description: {type: string}, defaultRole: {$ref: '#/components/schemas/SpaceDefaultRole'}}}}}}
+      responses: {'201': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/Space'}}}}}}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}}
+  /spaces/{space}:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: getSpace
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/Space'}}}}}}, '404': {$ref: '#/components/responses/Error'}}
+    patch:
+      tags: [spaces]
+      operationId: updateSpace
+      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {name: {type: string}, description: {type: string}, defaultRole: {$ref: '#/components/schemas/SpaceDefaultRole'}, mergeRules: {$ref: '#/components/schemas/MergeRules'}, publicRead: {type: boolean, description: Opens the space to anyone with no login. Refused on a site with PANDOCS_PUBLIC_SPACES=false}, glossary: {type: array, maxItems: 500, items: {type: object, required: [term, definition], properties: {term: {type: string}, definition: {type: string}}}}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+    delete:
+      tags: [spaces]
+      operationId: deleteSpace
+      summary: 'Delete a space (administrators). Its content is kept, and can be restored from /deleted-spaces'
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '404': {$ref: '#/components/responses/Error'}}
+  /llms.txt:
+    get:
+      tags: [documents]
+      operationId: llmsIndex
+      summary: An index of the pages the current identity can read (the llmstxt.org convention)
+      responses: {'200': {description: Text, content: {text/plain: {schema: {type: string}}}}}
+  /llms-full.txt:
+    get:
+      tags: [documents]
+      operationId: llmsFull
+      summary: The full text of every page the current identity can read
+      responses: {'200': {description: Text, content: {text/plain: {schema: {type: string}}}}}
+  /spaces/{space}/llms.txt:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: spaceLlmsIndex
+      responses: {'200': {description: Text, content: {text/plain: {schema: {type: string}}}}, '404': {$ref: '#/components/responses/Error'}}
+  /spaces/{space}/llms-full.txt:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: spaceLlmsFull
+      responses: {'200': {description: Text, content: {text/plain: {schema: {type: string}}}}, '404': {$ref: '#/components/responses/Error'}}
+  /audit:
+    get:
+      tags: [spaces]
+      operationId: siteAudit
+      summary: 'The site''s audit log (administrators)'
+      parameters: [{$ref: '#/components/parameters/AuditCategory'}, {$ref: '#/components/parameters/AuditBefore'}, {name: limit, in: query, schema: {type: integer}}]
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+  /deleted-spaces:
+    get:
+      tags: [spaces]
+      operationId: listDeletedSpaces
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+  /deleted-spaces/{id}/restore:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [spaces]
+      operationId: restoreSpace
+      description: 'Brings the space back at its address. When a space made since has that address, this answers 409 SPACE_SLUG_TAKEN, and slug gives it another one.'
+      requestBody: {required: false, content: {application/json: {schema: {type: object, additionalProperties: false, properties: {slug: {type: string, pattern: '^[a-z0-9][a-z0-9-]{0,63}$'}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '404': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}}
+  /spaces/{space}/audit:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: spaceAudit
+      summary: 'A space''s audit log (space administrators)'
+      parameters: [{$ref: '#/components/parameters/AuditCategory'}, {$ref: '#/components/parameters/AuditBefore'}, {name: limit, in: query, schema: {type: integer}}]
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '404': {$ref: '#/components/responses/Error'}}
+  /spaces/{space}/trash:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: spaceTrash
+      summary: The trash. Subpages deleted along with their parent are not listed separately
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '404': {$ref: '#/components/responses/Error'}}
+    delete:
+      tags: [spaces]
+      operationId: emptySpaceTrash
+      summary: 'Empty the trash (space administrators). Version history and discussions go too, for good'
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+  /spaces/{space}/export:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: exportSpace
+      summary: 'Export every page the current identity can read, as a zip of Markdown, images and manifest.json'
+      responses: {'200': {description: A zip file, content: {application/zip: {schema: {type: string, format: binary}}}}, '404': {$ref: '#/components/responses/Error'}}
+  /spaces/{space}/members:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: listSpaceMembers
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+    put:
+      tags: [spaces]
+      operationId: setSpaceMember
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MemberInput'}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+  /account:
+    x-served-by: server
+    get:
+      tags: [account]
+      operationId: getAccount
+      summary: The current account
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '401': {$ref: '#/components/responses/Error'}
+  /account/tokens:
+    x-served-by: server
+    get:
+      tags: [account]
+      operationId: listAccountTokens
+      summary: 'My API tokens. A token itself is only given once, when created'
+      security: [{sessionCookie: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '403': {$ref: '#/components/responses/Error'}
+    post:
+      tags: [account]
+      operationId: createAccountToken
+      summary: 'Create a token. An agent token acts for you, but can only read, comment and propose. Only available when signed in on the website, as a token cannot make another token'
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string}
+                kind: {type: string, enum: [user, agent], default: user}
+                scopes: {type: array, items: {type: string, enum: [read, write]}, default: [read]}
+                expiresInDays: {type: integer, minimum: 1, maximum: 3650}
+      responses:
+        '201': {$ref: '#/components/responses/Ok'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /account/tokens/{id}:
+    x-served-by: server
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    delete:
+      tags: [account]
+      operationId: revokeAccountToken
+      security: [{sessionCookie: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '404': {$ref: '#/components/responses/Error'}
+  /account/connected-apps:
+    x-served-by: server
+    get:
+      tags: [account]
+      operationId: listConnectedApps
+      summary: The apps I approved on an authorization page. Only available when signed in on the website
+      security: [{sessionCookie: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '403': {$ref: '#/components/responses/Error'}
+  /account/connected-apps/{id}:
+    x-served-by: server
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    delete:
+      tags: [account]
+      operationId: disconnectApp
+      summary: Disconnect an app. Its access ends right away
+      security: [{sessionCookie: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '404': {$ref: '#/components/responses/Error'}
+  /account/password:
+    x-served-by: server
+    post:
+      tags: [account]
+      operationId: changeAccountPassword
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [next]
+              properties:
+                current: {type: string}
+                next: {type: string}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /admin/users:
+    x-served-by: server
+    get:
+      tags: [account]
+      operationId: listUsers
+      summary: The list of users (administrators)
+      parameters: [{name: q, in: query, schema: {type: string}}]
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '403': {$ref: '#/components/responses/Error'}
+    post:
+      tags: [account]
+      operationId: createUser
+      summary: 'Add a person. Without a password, the answer has a passwordLink for them to choose one, also mailed to them where mail is set up.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, displayName]
+              properties:
+                email: {type: string, format: email}
+                displayName: {type: string}
+                password: {type: string}
+                isAdmin: {type: boolean}
+      responses:
+        '201': {$ref: '#/components/responses/Ok'}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /admin/users/{id}/password-link:
+    x-served-by: server
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [account]
+      operationId: createPasswordLink
+      summary: 'A link for this person to choose a new password. It works once, within 7 days, and replaces any link before it. Also mailed to them where mail is set up.'
+      responses:
+        '201': {$ref: '#/components/responses/Ok'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /admin/users/{id}:
+    x-served-by: server
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    patch:
+      tags: [account]
+      operationId: updateUser
+      description: Disabling someone signs them out everywhere and revokes the share links they made, which enabling them again does not bring back.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName: {type: string}
+                isAdmin: {type: boolean}
+                status: {type: string, enum: [active, disabled]}
+                password: {type: string}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /embed/sessions:
+    x-served-by: server
+    post:
+      tags: [embed]
+      operationId: createEmbedSession
+      summary: 'The other system''s server trades the app''s secret for a short-lived token for one of its users. The secret must never reach a browser'
+      security: [{embedSecret: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user]
+              properties:
+                user:
+                  type: object
+                  required: [id, displayName]
+                  properties:
+                    id: {type: string, description: 'This person''s identifier in the other system'}
+                    displayName: {type: string, description: The name shown on comments and versions}
+                    groups: {type: array, maxItems: 50, items: {type: string}, description: 'Groups in the other system. Here they are group:embed:<app>:<group>, and never become groups of this site'}
+                ttlSeconds: {type: integer, minimum: 60, maximum: 43200, default: 3600}
+      responses:
+        '201':
+          description: The token
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [version, data]
+                properties:
+                  version: {type: integer, const: 1}
+                  data:
+                    type: object
+                    required: [token, expiresAt, app]
+                    properties:
+                      token: {type: string}
+                      expiresAt: {type: string, format: date-time}
+                      app: {type: string}
+        '401': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /embed/ticket:
+    x-served-by: server
+    get:
+      tags: [embed]
+      operationId: getEmbedTicket
+      summary: 'An embedded page trades its token for a read-only ticket, to put in the addresses of images and event streams, which cannot carry a header. It opens only uploads and event streams, passed as the ticket parameter'
+      security: [{embedToken: []}]
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '401': {$ref: '#/components/responses/Error'}
+  /admin/embed-apps:
+    x-served-by: server
+    get:
+      tags: [embed]
+      operationId: listEmbedApps
+      summary: 'The systems that can embed this site''s pages (administrators)'
+      responses:
+        '200':
+          description: The list
+          content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {type: array, items: {$ref: '#/components/schemas/EmbedApp'}}}}}}
+        '403': {$ref: '#/components/responses/Error'}
+    post:
+      tags: [embed]
+      operationId: createEmbedApp
+      summary: Add one. Its secret is only returned this once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug, name, allowedOrigins]
+              properties:
+                slug: {type: string, pattern: '^[a-z0-9][a-z0-9-]{0,63}$'}
+                name: {type: string}
+                allowedOrigins: {type: array, maxItems: 50, items: {type: string}, description: 'https://app.example.com or https://*.example.com'}
+      responses:
+        '201':
+          description: The app and its secret
+          content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {type: object, required: [app, secret], properties: {app: {$ref: '#/components/schemas/EmbedApp'}, secret: {type: string}}}}}}}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /admin/embed-apps/{slug}:
+    x-served-by: server
+    parameters: [{name: slug, in: path, required: true, schema: {type: string}}]
+    patch:
+      tags: [embed]
+      operationId: updateEmbedApp
+      summary: 'Change the name or allowed sites, or disable it. Disabling stops tokens already issued right away'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: {type: string}
+                allowedOrigins: {type: array, items: {type: string}}
+                status: {type: string, enum: [active, disabled]}
+      responses:
+        '200':
+          description: The app
+          content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/EmbedApp'}}}}}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [embed]
+      operationId: deleteEmbedApp
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /admin/embed-apps/{slug}/secret:
+    x-served-by: server
+    parameters: [{name: slug, in: path, required: true, schema: {type: string}}]
+    post:
+      tags: [embed]
+      operationId: rotateEmbedAppSecret
+      summary: 'Replace the secret. The old one stops working right away, and tokens already issued work until they expire'
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /changes:
+    get:
+      tags: [sync]
+      operationId: listChanges
+      summary: 'The change feed. It says what changed, not what to do about it: a reader compares against the current state, so seeing a row twice costs nothing. Restricted pages only appear for people who can read them'
+      parameters:
+        - {name: since, in: query, schema: {type: string, default: '0'}, description: 'The next value from the last answer, sent back as it is. Do not parse it'}
+        - {name: space, in: query, schema: {type: string}}
+        - {name: limit, in: query, schema: {type: integer, maximum: 500}}
+      responses:
+        '200':
+          description: 'changes, next and reset. A reset of true means records that were cleaned up may have been missed, so compare against the manifest again'
+          content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/ChangePage'}}}}}
+        '422': {$ref: '#/components/responses/Error'}
+  /events:
+    x-served-by: server
+    get:
+      tags: [sync]
+      operationId: streamEvents
+      summary: 'Live changes, as Server-Sent Events. Reconnecting with Last-Event-ID misses nothing'
+      parameters:
+        - {name: space, in: query, schema: {type: string}}
+        - {name: document, in: query, schema: {type: string, format: uuid}}
+        - {name: since, in: query, schema: {type: string}, description: 'Send what came after this position. When reconnecting, use the Last-Event-ID header'}
+      responses:
+        '200':
+          description: 'event: ready comes once on connecting, with the current position as its id. event: change has a Change as its data and its cursor as its id. event: reset means compare against the manifest again'
+          content: {text/event-stream: {schema: {type: string}}}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+  /spaces/{space}/manifest:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [sync]
+      operationId: getSpaceManifest
+      summary: 'The files this person can read: <path>.md for each page, and the uploads those pages use, all with a sha256'
+      responses:
+        '200':
+          description: The manifest
+          content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/SpaceManifest'}}}}}
+        '404': {$ref: '#/components/responses/Error'}
+  /spaces/{space}/snapshot:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [sync]
+      operationId: getSpaceSnapshot
+      summary: 'Every page this person can read, as a gzipped tar with .pandocs/MANIFEST.json inside. Uploads are not included, and are fetched by sha256'
+      responses:
+        '200':
+          description: The archive. The X-Pandocs-Cursor header gives the position it corresponds to
+          content: {application/gzip: {schema: {type: string, format: binary}}}
+        '404': {$ref: '#/components/responses/Error'}
+  /spaces/{space}/tree:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: getSpaceTree
+      summary: 'The page tree, with restricted pages filtered by what the caller can read'
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {type: array, items: {$ref: '#/components/schemas/TreeNode'}}}}}}}}
+  /spaces/{space}/resolve:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: resolveDocumentPath
+      parameters: [{name: path, in: query, required: true, schema: {type: string}}]
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '404': {$ref: '#/components/responses/Error'}}
+  /spaces/{space}/git-sync:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: getGitSync
+      summary: Whether this space is kept the same as a Git repository, and how that is going. For the space's administrators
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/GitSyncStateEnvelope'}}}}
+        '403': {$ref: '#/components/responses/Error'}
+    put:
+      tags: [spaces]
+      operationId: setGitSync
+      summary: Connect this space to a Git repository, or change how it is connected
+      description: Pointing it at another repository, branch or folder starts by comparing again and deletes nothing. A new repository needs its token given again, as a token only goes where it was given for.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/GitSyncInput'}}}}
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/GitSyncEnvelope'}}}}
+        '403': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [spaces]
+      operationId: removeGitSync
+      summary: Stop keeping this space the same as a repository. The pages and the repository stay as they are
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: object, required: [removed], properties: {removed: {type: boolean}}}}}}}}
+        '403': {$ref: '#/components/responses/Error'}
+  /spaces/{space}/git-sync/run:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    post:
+      tags: [spaces]
+      operationId: runGitSync
+      summary: Sync as soon as possible, rather than at the next regular look
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: object, required: [queued], properties: {queued: {type: boolean}}}}}}}}
+        '404': {$ref: '#/components/responses/Error'}
+  /spaces/{space}/git-sync/runs:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: listGitSyncRuns
+      summary: The latest syncs that did something or had something to say, newest first
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: array, items: {$ref: '#/components/schemas/GitSyncRun'}}}}}}}
+        '403': {$ref: '#/components/responses/Error'}
+  /spaces/{space}/webhooks:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: listSpaceWebhooks
+      summary: What tells other systems about this space. For the space's administrators
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: array, items: {$ref: '#/components/schemas/Webhook'}}}}}}}
+    post:
+      tags: [spaces]
+      operationId: createSpaceWebhook
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WebhookInput'}}}}
+      responses:
+        '201': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/WebhookEnvelope'}}}}
+  /webhooks:
+    get:
+      tags: [site]
+      operationId: listSiteWebhooks
+      summary: What tells other systems about the whole site. For site administrators
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: array, items: {$ref: '#/components/schemas/Webhook'}}}}}}}
+    post:
+      tags: [site]
+      operationId: createSiteWebhook
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WebhookInput'}}}}
+      responses:
+        '201': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/WebhookEnvelope'}}}}
+  /webhooks/{id}:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    patch:
+      tags: [site]
+      operationId: updateWebhook
+      summary: 'Change a webhook. What is left out stays as it is, which is how to keep an address and secret that cannot be read back'
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WebhookPatch'}}}}
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/WebhookEnvelope'}}}}
+    delete:
+      tags: [site]
+      operationId: deleteWebhook
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /webhooks/{id}/test:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    post:
+      tags: [site]
+      operationId: testWebhook
+      summary: 'Send a ping event right now, and say how it went. It leaves no record'
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: object, required: [ok, status, error], properties: {ok: {type: boolean}, status: {type: [integer, 'null']}, error: {type: [string, 'null']}}}}}}}}
+  /webhooks/{id}/deliveries:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    get:
+      tags: [site]
+      operationId: listWebhookDeliveries
+      summary: What a webhook has sent or is waiting to send, latest first. Kept for 30 days
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: array, items: {$ref: '#/components/schemas/WebhookDelivery'}}}}}}}
+  /webhooks/{id}/deliveries/{delivery}/retry:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: delivery, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [site]
+      operationId: retryWebhookDelivery
+      summary: Send again something that gave up
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {$ref: '#/components/schemas/WebhookDelivery'}}}}}}
+  /spaces/{space}/change-sets:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [proposals]
+      operationId: listChangeSets
+      summary: A space's change sets, latest first
+      parameters: [{name: status, in: query, schema: {type: string, enum: [open, merged, closed]}}]
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: array, items: {$ref: '#/components/schemas/ChangeSetSummary'}}}}}}}
+    post:
+      tags: [proposals]
+      operationId: createChangeSet
+      summary: 'Start a change set: changes to several pages, reviewed together, that land together or not at all. For anyone who can comment'
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ChangeSetInput'}}}}
+      responses:
+        '201': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {$ref: '#/components/schemas/ChangeSet'}}}}}}
+  /change-sets/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [proposals]
+      operationId: getChangeSet
+      summary: 'What a change set does to each page, its reviews, and what still stands in the way of merging it. Pages the caller cannot read are only counted'
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {$ref: '#/components/schemas/ChangeSetDetail'}}}}}}
+    patch:
+      tags: [proposals]
+      operationId: updateChangeSet
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: false, properties: {title: {type: string, minLength: 1, maxLength: 200}, description: {type: string, maxLength: 4000}}}}}}
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {$ref: '#/components/schemas/ChangeSet'}}}}}}
+    delete:
+      tags: [proposals]
+      operationId: deleteChangeSet
+      summary: 'Delete a change set that was never merged, with its pages and reviews. For whoever made it, the person an agent made it for, and administrators of its space. A merged one is part of its pages'' history and stays'
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}}
+  /change-sets/{id}/pages:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [proposals]
+      operationId: putChangeSetPage
+      summary: 'Say what a change set does to one page, replacing anything it said about that page before. Earlier reviews stop counting'
+      description: 'To change a page give document and baseRevision, the revision you started from, with its full new markdown. To delete one give document, baseRevision and delete. To add one give path, title and markdown. To bring one back from the trash give document, its id or the path it had, and restore.'
+      requestBody: {required: true, content: {application/json: {schema: {oneOf: [{type: object, required: [document, baseRevision, markdown], additionalProperties: false, properties: {document: {type: string, description: An id or a path in the space}, baseRevision: {type: integer}, markdown: {type: string}, title: {type: string}}}, {type: object, required: [document, baseRevision, delete], additionalProperties: false, properties: {document: {type: string}, baseRevision: {type: integer}, delete: {const: true}}}, {type: object, required: [path, title, markdown], additionalProperties: false, properties: {path: {type: string}, title: {type: string}, markdown: {type: string}}}, {type: object, required: [document, restore], additionalProperties: false, properties: {document: {type: string, description: An id, or the path it had}, restore: {const: true}}}]}}}}
+      responses:
+        '201': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: object, required: [id, kind, path], properties: {id: {type: string, format: uuid}, kind: {type: string, enum: [edit, create, delete, restore]}, path: {type: string}}}}}}}}
+  /change-sets/{id}/pages/{page}:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+      - {name: page, in: path, required: true, schema: {type: string, format: uuid}}
+    delete:
+      tags: [proposals]
+      operationId: removeChangeSetPage
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /change-sets/{id}/reviews:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [proposals]
+      operationId: reviewChangeSet
+      summary: Approve a change set or ask for changes. For people who can edit the space, on someone else's change set
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [verdict], additionalProperties: false, properties: {verdict: {type: string, enum: [approved, changes_requested]}, note: {type: string, maxLength: 2000}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /change-sets/{id}/merge:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [proposals]
+      operationId: mergeChangeSet
+      summary: 'Make its changes real, every page in one go. If any page cannot land, nothing changes and the answer says why'
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '409': {$ref: '#/components/responses/Error'}}
+  /change-sets/{id}/close:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [proposals]
+      operationId: closeChangeSet
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {$ref: '#/components/schemas/ChangeSet'}}}}}}
+  /change-sets/{id}/reopen:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [proposals]
+      operationId: reopenChangeSet
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {$ref: '#/components/schemas/ChangeSet'}}}}}}
+  /bulk-imports/sources:
+    get:
+      tags: [imports]
+      operationId: listBulkImportSources
+      summary: What this server can import whole sets of pages from
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: array, items: {type: object, required: [source, input], properties: {source: {type: string, description: 'notion, confluence, or feishu where an app has been set up'}, input: {type: string, enum: [file, url]}}}}}}}}}
+  /spaces/{space}/bulk-imports:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [imports]
+      operationId: listBulkImports
+      summary: Imports of whole sets of pages into this space, latest first
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: array, items: {$ref: '#/components/schemas/BulkImport'}}}}}}}
+    post:
+      tags: [imports]
+      operationId: startBulkImport
+      summary: 'Import a whole set of pages, in the background, as the caller'
+      description: 'An exported zip for a source that takes a file, or an address for one that takes that. Pages at the same address get a new version when their text differs, so doing it again only changes what has changed.'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data: {schema: {type: object, required: [source, file], properties: {source: {type: string}, file: {type: string, format: binary}, parentPath: {type: string}}}}
+          application/json: {schema: {type: object, required: [source, url], additionalProperties: false, properties: {source: {type: string}, url: {type: string}, includeChildren: {type: boolean}, parentPath: {type: string}}}}
+      responses:
+        '201': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/BulkImportEnvelope'}}}}
+  /bulk-imports/{id}:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    get:
+      tags: [imports]
+      operationId: getBulkImport
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/BulkImportEnvelope'}}}}
+  /bulk-imports/{id}/cancel:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    post:
+      tags: [imports]
+      operationId: cancelBulkImport
+      summary: Stop an import. What has come in stays
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/BulkImportEnvelope'}}}}
+  /bulk-imports/{id}/retry:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    post:
+      tags: [imports]
+      operationId: retryBulkImport
+      summary: Run a failed import again
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/BulkImportEnvelope'}}}}
+  /spaces/{space}/labels:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: listSpaceLabels
+      summary: The labels in use in a space, counted by the pages the caller can read
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: array, items: {type: object, required: [label, pages], properties: {label: {type: string}, pages: {type: integer}}}}}}}}}
+  /spaces/{space}/subscription:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    put:
+      tags: [spaces]
+      operationId: followSpace
+      summary: Be told when any page in this space changes
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/FollowingEnvelope'}}}}
+    delete:
+      tags: [spaces]
+      operationId: unfollowSpace
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/FollowingEnvelope'}}}}
+  /spaces/{space}/templates:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [spaces]
+      operationId: listTemplates
+      summary: 'What new pages in this space can start from: its own templates and the built-in ones. Needs edit access'
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: array, items: {$ref: '#/components/schemas/PageTemplate'}}}}}}}
+    post:
+      tags: [spaces]
+      operationId: createTemplate
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TemplateInput'}}}}
+      responses:
+        '201': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/PageTemplateEnvelope'}}}}
+  /templates/{id}:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    patch:
+      tags: [spaces]
+      operationId: updateTemplate
+      summary: Change a template. Pages already made from it stay as they are
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: false, properties: {name: {type: string, minLength: 1, maxLength: 80}, description: {type: string, maxLength: 300}, markdown: {type: string, maxLength: 200000}}}}}}
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/PageTemplateEnvelope'}}}}
+    delete:
+      tags: [spaces]
+      operationId: deleteTemplate
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /documents/{id}/share-links:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    get:
+      tags: [documents]
+      operationId: listShareLinks
+      summary: 'Links that let someone read this page with no login, and still work. Needs edit access'
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: array, items: {$ref: '#/components/schemas/ShareLink'}}}}}}}
+    post:
+      tags: [documents]
+      operationId: createShareLink
+      summary: 'Make a link. A page only some people can read cannot be shared this way'
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: false, properties: {includeChildren: {type: boolean, description: 'Also its subpages, now and later, except those only some people can read'}, expiresInDays: {type: [integer, 'null'], minimum: 1, maximum: 365, description: 'Null never expires. 30 when left out'}}}}}}
+      responses:
+        '201': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {$ref: '#/components/schemas/ShareLink'}}}}}}
+  /share-links/{id}:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    delete:
+      tags: [documents]
+      operationId: revokeShareLink
+      summary: Stop a link working, at once
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /documents/{id}/labels:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    put:
+      tags: [documents]
+      operationId: setDocumentLabels
+      summary: 'Set a page''s labels, replacing the ones it has. They count as the same in any letter case, and changing them makes no new revision'
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [labels], additionalProperties: false, properties: {labels: {type: array, maxItems: 20, items: {type: string, minLength: 1, maxLength: 40}}}}}}}
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: object, required: [labels], properties: {labels: {type: array, items: {type: string}}}}}}}}}
+  /documents/{id}/subscription:
+    parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+    get:
+      tags: [documents]
+      operationId: getDocumentSubscription
+      summary: Whether the caller is told about changes to this page, directly and through its space
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: object, required: [document, space], properties: {document: {type: boolean}, space: {type: boolean}}}}}}}}
+    put:
+      tags: [documents]
+      operationId: followDocument
+      summary: 'Be told when this page changes, in the inbox and by mail on sites that send it'
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/FollowingEnvelope'}}}}
+    delete:
+      tags: [documents]
+      operationId: unfollowDocument
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/FollowingEnvelope'}}}}
+  /spaces/{space}/documents:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    post:
+      tags: [documents]
+      operationId: createDocument
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [title], properties: {title: {type: string}, markdown: {type: string}, template: {type: string, description: The id of a template to start from. It takes the place of markdown},  parentPath: {type: string}, slug: {type: string}, sortOrder: {type: integer}, restricted: {type: boolean}, message: {type: string}, strict: {type: boolean}}}}}}
+      responses: {'201': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/CommitResult'}}}}}}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}}
+  /spaces/{space}/assets:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    post:
+      tags: [spaces]
+      operationId: uploadAsset
+      summary: 'Upload an asset, stored by the hash of its content. Its type comes from the content, not the extension'
+      parameters: [{name: filename, in: query, schema: {type: string}}]
+      requestBody: {required: true, content: {application/octet-stream: {schema: {type: string, format: binary}}}}
+      responses: {'201': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/Asset'}}}}}}, '403': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}, '503': {$ref: '#/components/responses/Error'}}
+  /spaces/{space}/assets/{asset}:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}, {name: asset, in: path, required: true, description: '<sha256>, with or without an extension', schema: {type: string}}]
+    get:
+      tags: [spaces]
+      operationId: getAsset
+      summary: 'An asset, for those allowed to see it. Its content never changes, so it can be cached privately for a long time'
+      responses:
+        '200': {description: 'The asset''s content', headers: {Cache-Control: {schema: {const: 'private, max-age=31536000, immutable'}}}, content: {'*/*': {schema: {type: string, format: binary}}}}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /spaces/{space}/imports:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    get:
+      tags: [imports]
+      operationId: listImports
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+    post:
+      tags: [imports]
+      operationId: createImport
+      summary: 'Submit an import: a multipart file upload, or JSON with markdown or contentBase64. It is routed by channel and content type'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data: {schema: {type: object, required: [file], properties: {file: {type: string, format: binary}, target: {type: string, description: 'A JSON string, the same as ImportTarget'}}}}
+          application/json: {schema: {type: object, properties: {target: {$ref: '#/components/schemas/ImportTarget'}, contentType: {type: string}, filename: {type: string}, markdown: {type: string}, contentBase64: {type: string}, metadata: {type: object}, channel: {const: migration, description: Administrators only}}}}
+      responses: {'201': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}}
+  /documents/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [documents]
+      operationId: getDocument
+      summary: 'Read a document. scope sets how much comes back, and revision.no is the expectedRevision to send when writing'
+      parameters:
+        - {name: scope, in: query, schema: {type: string, enum: [full, outline, section, range, keyword]}}
+        - {name: section, in: query, schema: {type: string}}
+        - {name: start, in: query, schema: {type: string}}
+        - {name: end, in: query, schema: {type: string}}
+        - {name: keyword, in: query, schema: {type: string}}
+        - {name: context, in: query, description: How many blocks to include either side of a keyword match, schema: {type: integer, minimum: 0, maximum: 5}}
+        - {name: revision, in: query, schema: {type: integer}}
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/DocumentView'}}}}}}, '404': {$ref: '#/components/responses/Error'}}
+    patch:
+      tags: [documents]
+      operationId: updateDocumentMeta
+      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {title: {type: string}, sortOrder: {type: integer}, restricted: {type: boolean}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+    delete:
+      tags: [documents]
+      operationId: deleteDocument
+      summary: 'Put a page in the trash. A page with subpages needs recursive=true, and they go with it'
+      parameters: [{name: recursive, in: query, schema: {type: boolean}}]
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/move:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [documents]
+      operationId: moveDocument
+      summary: 'Move a page, reorder it or change its address. Subpages move with it, and old addresses keep working through resolve'
+      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {parentId: {type: string, format: uuid, nullable: true}, beforeId: {type: string, format: uuid, nullable: true, description: Go ahead of this page. null means last}, slug: {type: string}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '404': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/restore:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [documents]
+      operationId: restoreDocument
+      summary: 'Restore from the trash. With its parent gone it goes to the top level, and with its address taken it gets another'
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '404': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/purge:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    delete:
+      tags: [documents]
+      operationId: purgeDocument
+      summary: 'Delete from the trash for good (space administrators), with its versions and discussions'
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '404': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/content:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [documents]
+      operationId: getDocumentContent
+      summary: The Markdown
+      parameters: [{name: revision, in: query, schema: {type: integer}}]
+      responses:
+        '200': {description: Markdown, headers: {X-Pandocs-Revision: {schema: {type: integer}}, ETag: {schema: {type: string}}}, content: {text/markdown: {schema: {type: string}}}}
+        '404': {$ref: '#/components/responses/Error'}
+    put:
+      tags: [documents]
+      operationId: saveDocumentContent
+      summary: 'Save the whole page. If it is behind and merge=true, it is merged three ways by block'
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [markdown, expectedRevision], properties: {markdown: {type: string}, fromLiveDraft: {type: boolean, description: 'What is saved came from the shared draft, so the version credits who else wrote it'}, expectedRevision: {type: integer}, message: {type: string}, merge: {type: boolean}, strict: {type: boolean}}}}}}
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/CommitResult'}}}}}}, '400': {$ref: '#/components/responses/Error'}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/ops:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [documents]
+      operationId: applyDocumentOps
+      summary: Change a document with edit operations
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [ops, expectedRevision], properties: {ops: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/EditOp'}}, expectedRevision: {type: integer}, message: {type: string}, strict: {type: boolean}}}}}}
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/CommitResult'}}}}}}, '400': {$ref: '#/components/responses/Error'}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/rollback:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [documents]
+      operationId: rollbackDocument
+      summary: 'Restore an earlier version, which makes a new version'
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [to, expectedRevision], properties: {to: {type: integer}, expectedRevision: {type: integer}}}}}}
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/CommitResult'}}}}}}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/revisions:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [documents]
+      operationId: listRevisions
+      summary: 'Version history, with authors, channels, and the proposals and import jobs versions came from'
+      description: 'Newest first, 50 at a time unless limit says otherwise (at most 200). To go further back, pass the number of the oldest version shown as before.'
+      parameters: [{name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200}}, {name: before, in: query, description: Only versions older than this one, schema: {type: integer, minimum: 1}}]
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {type: array, items: {$ref: '#/components/schemas/RevisionMeta'}}}}}}}}
+  /documents/{id}/revisions/{no}:
+    parameters: [{$ref: '#/components/parameters/Id'}, {name: no, in: path, required: true, schema: {type: integer}}]
+    get:
+      tags: [documents]
+      operationId: getRevision
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '404': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/diff:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [documents]
+      operationId: diffRevisions
+      parameters: [{name: from, in: query, required: true, schema: {type: integer}}, {name: to, in: query, required: true, schema: {type: integer}}]
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /me/drafts:
+    get:
+      tags: [documents]
+      operationId: listMyDrafts
+      summary: My unsaved drafts
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /spaces/{space}/archive:
+    parameters: [{$ref: '#/components/parameters/SpaceSlug'}]
+    post:
+      tags: [spaces]
+      operationId: importArchive
+      summary: 'Import an archive exported from a space. A page at the same address with different content gets a new version, and importing again changes nothing'
+      requestBody:
+        required: true
+        content: {application/zip: {schema: {type: string, format: binary}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /documents/{id}/draft/assist:
+    parameters: [{$ref: '#/components/parameters/Id'}, {name: lang, in: query, description: 'The translation''s language. Without it, the draft of the original', schema: {type: string}}]
+    post:
+      tags: [documents]
+      operationId: assistOnDraft
+      summary: 'Work on text selected in a draft. The text has to be in this person''s draft, and the result goes only to them'
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [action, quote], properties: {action: {type: string}, quote: {type: string}, markdown: {type: string, maxLength: 2097152, description: 'The text being worked on, for a shared draft someone may have typed into a moment ago. The selection has to be in it. Without a shared draft it is not used'}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /documents/{id}/draft:
+    parameters: [{$ref: '#/components/parameters/Id'}, {name: lang, in: query, description: 'The translation''s language. Without it, the draft of the original', schema: {type: string}}]
+    get:
+      tags: [documents]
+      operationId: getDraft
+      summary: 'The current identity''s draft of this document, or null'
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+    put:
+      tags: [documents]
+      operationId: saveDraft
+      summary: 'Autosave a draft, which makes no version'
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [markdown, baseRevision], properties: {markdown: {type: string}, baseRevision: {type: integer}, title: {type: string, description: The title in the draft}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+    delete:
+      tags: [documents]
+      operationId: deleteDraft
+      summary: Discard the draft
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /documents/{id}/live:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [documents]
+      operationId: getLiveDraft
+      summary: Whether the draft everyone editing this page shares has anything in it that is not saved
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/LiveDraftStatusEnvelope'}}}}
+        '403': {$ref: '#/components/responses/Error'}
+    post:
+      tags: [documents]
+      operationId: openLiveDraft
+      summary: Where to connect to edit this page with whoever else is, starting the shared draft if there is none
+      description: The connection is a WebSocket at /api/v1/live, speaking the Hocuspocus protocol, with name as the document's name. On a server that does not offer this, available is false and people edit alone.
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {$ref: '#/components/schemas/LiveDraftEnvelope'}}}}
+        '403': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [documents]
+      operationId: discardLiveDraft
+      summary: Take the shared draft back to the saved page, for everyone in it
+      responses:
+        '200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer}, data: {type: object, required: [discarded], properties: {discarded: {type: boolean}}}}}}}}
+        '403': {$ref: '#/components/responses/Error'}
+  /documents/{id}/editing:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [documents]
+      operationId: setEditing
+      summary: 'A heartbeat while editing, answering with who else is editing'
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [editing], properties: {editing: {type: boolean}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /documents/{id}/members:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [documents]
+      operationId: listDocumentMembers
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+    put:
+      tags: [documents]
+      operationId: setDocumentMember
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MemberInput'}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/threads:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [threads]
+      operationId: listThreads
+      parameters: [{name: status, in: query, schema: {type: string, enum: [open, resolved]}}]
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {type: array, items: {$ref: '#/components/schemas/Thread'}}}}}}}}
+    post:
+      tags: [threads]
+      operationId: createThread
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [anchor, body], properties: {anchor: {$ref: '#/components/schemas/AnchorInput'}, body: {type: string, maxLength: 20000}, mentions: {$ref: '#/components/schemas/Mentions'}}}}}}
+      responses: {'201': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/Thread'}}}}}}, '403': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/translations:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [documents]
+      operationId: listTranslations
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '404': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/translations/{lang}:
+    parameters: [{$ref: '#/components/parameters/Id'}, {name: lang, in: path, required: true, schema: {type: string}}]
+    get:
+      tags: [documents]
+      operationId: getTranslation
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '404': {$ref: '#/components/responses/Error'}}
+    put:
+      tags: [documents]
+      operationId: saveTranslation
+      summary: 'Save a translation. Translations have no versions or discussions of their own, and stale becomes true once the original changes'
+      description: 'With base, the translation as the writer started from it, a save by someone else since is merged with this one, and a change to the same place answers 409 MERGE_CONFLICT. Without it, this replaces what is there.'
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [title, markdown, sourceRevision], properties: {title: {type: string}, markdown: {type: string}, sourceRevision: {type: integer}, machine: {type: boolean}, base: {type: object, required: [updatedAt, markdown], additionalProperties: false, properties: {updatedAt: {type: string, format: date-time}, markdown: {type: string}, title: {type: string}}}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}}
+    delete:
+      tags: [documents]
+      operationId: deleteTranslation
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/translations/{lang}/generate:
+    parameters: [{$ref: '#/components/parameters/Id'}, {name: lang, in: path, required: true, schema: {type: string}}]
+    post:
+      tags: [documents]
+      operationId: generateTranslation
+      summary: 'Translate a run of blocks or a title with AI, in one model call. The result goes back to the caller and is not saved'
+      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {from: {type: string}, to: {type: string}, title: {type: boolean}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}, '429': {$ref: '#/components/responses/Error'}, '503': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/assist:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [documents]
+      operationId: assistSelection
+      summary: 'Explain, rewrite, translate or summarize selected text, in one model call. The result is not written to the document'
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [action, start, end], properties: {action: {type: string, enum: [explain, rewrite, translate, summarize]}, start: {type: integer, minimum: 0}, end: {type: integer, minimum: 1}, revision: {type: integer, minimum: 1}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}, '429': {$ref: '#/components/responses/Error'}, '503': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/threads/summary:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [threads]
+      operationId: summarizeDocumentThreads
+      summary: 'Summarize a document''s open discussions, in one model call'
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '429': {$ref: '#/components/responses/Error'}, '503': {$ref: '#/components/responses/Error'}}
+  /documents/{id}/proposals:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [proposals]
+      operationId: listProposals
+      parameters: [{name: status, in: query, schema: {type: string, enum: [pending, accepted, rejected]}}]
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {type: array, items: {$ref: '#/components/schemas/Proposal'}}}}}}}}
+    post:
+      tags: [proposals]
+      operationId: createProposal
+      summary: 'Send a proposal. Give ops, or the full edited markdown for the server to work out the differences by block'
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [baseRevision], properties: {baseRevision: {type: integer}, markdown: {type: string}, ops: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/EditOp'}}, rationale: {type: string}, threadIds: {type: array, items: {type: string, format: uuid}}}}}}}
+      responses: {'201': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/Proposal'}}}}}}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}, '422': {$ref: '#/components/responses/Error'}}
+  /threads/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [threads]
+      operationId: getThread
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/Thread'}}}}}}, '404': {$ref: '#/components/responses/Error'}}
+  /threads/{id}/comments:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [threads]
+      operationId: replyThread
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [body], properties: {body: {type: string, maxLength: 20000}, mentions: {$ref: '#/components/schemas/Mentions'}}}}}}
+      responses: {'201': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/Comment'}}}}}}, '403': {$ref: '#/components/responses/Error'}}
+  /threads/{id}/resolve:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [threads]
+      operationId: resolveThread
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+  /threads/{id}/reopen:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [threads]
+      operationId: reopenThread
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+  /threads/{id}/suggestion:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [threads]
+      operationId: suggestFromThread
+      summary: 'Draft a change from a discussion, which goes only to whoever asked. Getting it into the page takes sending a proposal'
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /threads/{id}/summary:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [threads]
+      operationId: summarizeThread
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '429': {$ref: '#/components/responses/Error'}, '503': {$ref: '#/components/responses/Error'}}
+  /comments/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    delete:
+      tags: [threads]
+      operationId: deleteComment
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+    patch:
+      tags: [threads]
+      operationId: updateComment
+      summary: Edit your own comment
+      description: 'Only its author can. New @ mentions send notifications.'
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [body], properties: {body: {type: string}, mentions: {type: array, items: {type: object}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /comments/{id}/reactions:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [threads]
+      operationId: reactToComment
+      summary: Add or remove a reaction on a comment
+      description: 'Answers with the comment''s current reactions.'
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [emoji, active], properties: {emoji: {type: string}, active: {type: boolean}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}}
+  /proposals/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [proposals]
+      operationId: getProposal
+      responses: {'200': {description: Success, content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {$ref: '#/components/schemas/Proposal'}}}}}}, '404': {$ref: '#/components/responses/Error'}}
+  /proposals/{id}/decide:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [proposals]
+      operationId: decideProposal
+      summary: Accept or reject (needs edit access). opIndexes accepts only some of its changes
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [decision], properties: {decision: {type: string, enum: [accept, reject]}, opIndexes: {type: array, items: {type: integer}}, note: {type: string}, resolveThreads: {type: boolean}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}}
+  /imports/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      tags: [imports]
+      operationId: getImport
+      summary: 'A job''s status, quality report and draft'
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '404': {$ref: '#/components/responses/Error'}}
+  /imports/{id}/retry:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [imports]
+      operationId: retryImport
+      summary: 'Run it again, optionally with other processors'
+      requestBody: {content: {application/json: {schema: {type: object, properties: {processors: {type: array, items: {type: string}}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '409': {$ref: '#/components/responses/Error'}}
+  /imports/{id}/publish:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [imports]
+      operationId: publishImport
+      summary: Publish the draft as a document or a new version
+      requestBody: {content: {application/json: {schema: {type: object, properties: {title: {type: string}, parentPath: {type: string}, slug: {type: string}, markdown: {type: string}, documentId: {type: string, format: uuid}}}}}}
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '409': {$ref: '#/components/responses/Error'}}
+  /imports/{id}/discard:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      tags: [imports]
+      operationId: discardImport
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '409': {$ref: '#/components/responses/Error'}}
+components:
+  securitySchemes:
+    sessionCookie: {type: apiKey, in: cookie, name: pandocs_session}
+    embedSecret: {type: http, scheme: bearer, description: 'An embed app''s secret, kept only on the other system''s server'}
+    embedToken: {type: http, scheme: bearer, description: A short-lived token traded for the secret}
+    apiToken:
+      type: http
+      scheme: bearer
+      description: 'A personal API token, starting with pd_. X-Pandocs-Channel can declare cli or mcp, which only goes in the version record and has no effect on permissions.'
+  parameters:
+    Days: {name: days, in: query, description: 'How many days back to look, up to 365', schema: {type: integer, minimum: 1, maximum: 365, default: 30}}
+    FeedbackStatus: {name: status, in: query, schema: {type: string, enum: [open, resolved, all], default: open}}
+    SpaceSlug: {name: space, in: path, required: true, schema: {type: string}}
+    Id: {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    AuditCategory: {name: category, in: query, schema: {type: string, enum: [document, discussion, proposal, member, space]}}
+    AuditBefore: {name: before, in: query, description: The id of the last entry on the previous page, schema: {type: string}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, description: 'A replay answers with the first result. The same key on a different request answers 409, as does one sent while the first is still being handled', schema: {type: string, minLength: 8, maxLength: 200}}
+  responses:
+    Ok:
+      description: Success
+      content: {application/json: {schema: {type: object, required: [version, data], properties: {version: {type: integer, const: 1}, data: {}}}}}
+    Error:
+      description: Failure
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+  schemas:
+    Insights:
+      type: object
+      required: [collecting, days, totals, daily, pages, searches, emptySearches, questions]
+      properties:
+        collecting: {type: boolean, description: False on a site set to keep no numbers}
+        days: {type: integer}
+        totals:
+          type: object
+          required: [people, agents, searches, emptySearches, questions, unanswered, helpfulAnswers, unhelpfulAnswers, helpful, unhelpful]
+          properties:
+            people: {type: integer, description: Pages read in a browser}
+            agents: {type: integer, description: 'Pages read by programs: tokens, the CLI, MCP, Markdown addresses and AI crawlers'}
+            searches: {type: integer}
+            emptySearches: {type: integer, description: Searches that found nothing}
+            questions: {type: integer}
+            unanswered: {type: integer, description: Questions whose answer could not point at a page}
+            helpfulAnswers: {type: integer}
+            unhelpfulAnswers: {type: integer}
+            helpful: {type: integer, description: Votes that a page helped}
+            unhelpful: {type: integer}
+        daily:
+          type: array
+          items: {type: object, required: [day, people, agents], properties: {day: {type: string, format: date}, people: {type: integer}, agents: {type: integer}}}
+        pages:
+          type: array
+          items:
+            type: object
+            required: [documentId, space, path, title, people, agents, helpful, unhelpful, reports]
+            properties:
+              documentId: {type: string, format: uuid}
+              space: {type: string}
+              path: {type: string}
+              title: {type: string}
+              people: {type: integer}
+              agents: {type: integer}
+              helpful: {type: integer}
+              unhelpful: {type: integer}
+              reports: {type: integer}
+        searches: {type: array, items: {$ref: '#/components/schemas/SearchTerm'}}
+        emptySearches: {type: array, items: {$ref: '#/components/schemas/SearchTerm'}}
+        questions:
+          type: array
+          items:
+            type: object
+            required: [id, space, question, answer, citations, answered, helpful, createdAt]
+            properties:
+              id: {type: string, format: uuid}
+              space: {type: string, description: 'The space the person was in, empty for none'}
+              question: {type: string}
+              answer: {type: string}
+              citations: {type: array, items: {type: object, required: [title, url], properties: {title: {type: string}, url: {type: string}}}}
+              answered: {type: boolean}
+              helpful: {type: [boolean, 'null']}
+              createdAt: {type: string, format: date-time}
+    SearchTerm:
+      type: object
+      required: [term, people, agents, empty]
+      properties:
+        term: {type: string}
+        people: {type: integer}
+        agents: {type: integer}
+        empty: {type: integer, description: How many of them found nothing}
+    PageFeedback:
+      type: object
+      required: [id, documentId, space, path, title, revision, kind, audience, reporter, body, quote, createdAt, resolvedAt, resolvedBy]
+      properties:
+        id: {type: string, format: uuid}
+        documentId: {type: string, format: uuid}
+        space: {type: string}
+        path: {type: string}
+        title: {type: string}
+        revision: {type: integer, description: The version of the page it was about}
+        kind: {type: string, enum: [helpful, unhelpful, report]}
+        audience: {type: string, enum: [person, agent]}
+        reporter: {type: [string, 'null'], description: Empty for someone with no login}
+        body: {type: string}
+        quote: {type: string}
+        createdAt: {type: string, format: date-time}
+        resolvedAt: {type: [string, 'null'], format: date-time}
+        resolvedBy: {type: [string, 'null']}
+    Error:
+      type: object
+      required: [version, error]
+      properties:
+        version: {type: integer, const: 1}
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: {type: string, description: 'Such as REVISION_CONFLICT, MERGE_CONFLICT, FORBIDDEN, LLM_UNAVAILABLE or CLI_DOC_ACCESS_REQUIRED'}
+            message: {type: string}
+            details: {}
+    SpaceDefaultRole: {type: string, enum: [none, viewer, commenter, editor, admin]}
+    MemberInput:
+      type: object
+      required: [subject, role]
+      properties:
+        subject: {type: string, description: 'user:<id>, group:<name> or everyone'}
+        role: {enum: [viewer, commenter, editor, admin, null], description: null removes it}
+    Mentions:
+      type: array
+      maxItems: 50
+      items: {type: object, required: [id, name], properties: {id: {type: string}, name: {type: string}}}
+    ImportTarget:
+      type: object
+      properties: {documentId: {type: string, format: uuid}, parentPath: {type: string}, slug: {type: string}, title: {type: string}, sortOrder: {type: integer}, restricted: {type: boolean}}
+    AnchorInput:
+      oneOf:
+        - {type: object, required: [kind, start, end], properties: {kind: {const: text}, start: {type: integer, description: The position among the non-whitespace characters of the visible text}, end: {type: integer}, exact: {type: string}, revision: {type: integer}}}
+        - {type: object, required: [kind, quote], properties: {kind: {const: quote}, quote: {type: string}, occurrence: {type: integer}, revision: {type: integer}}}
+        - {type: object, required: [kind, section], properties: {kind: {const: section}, section: {type: string}}}
+        - {type: object, required: [kind, ref], properties: {kind: {const: block}, ref: {type: string}, revision: {type: integer}}}
+        - {type: object, required: [kind], properties: {kind: {const: document}}}
+    Space:
+      type: object
+      required: [id, slug, name, description, defaultRole, publicRead, glossary, mergeRules, role]
+      properties:
+        mergeRules: {$ref: '#/components/schemas/MergeRules'}
+        id: {type: string, format: uuid}
+        slug: {type: string}
+        name: {type: string}
+        description: {type: string}
+        defaultRole: {$ref: '#/components/schemas/SpaceDefaultRole'}
+        publicRead: {type: boolean, description: Anyone can read this space without logging in. Comments, suggestions, history and restricted pages stay closed}
+        glossary: {type: array, items: {type: object, required: [term, definition], properties: {term: {type: string}, definition: {type: string}}}}
+        role: {$ref: '#/components/schemas/SpaceDefaultRole', description: 'This person''s role in this space'}
+    TreeNode:
+      type: object
+      required: [id, parentId, slug, path, title, sortOrder, restricted, currentRevisionNo, updatedAt, hasContent, titles]
+      properties:
+        id: {type: string, format: uuid}
+        parentId: {type: [string, 'null'], format: uuid}
+        slug: {type: string}
+        path: {type: string}
+        title: {type: string}
+        sortOrder: {type: integer}
+        restricted: {type: boolean}
+        currentRevisionNo: {type: integer}
+        updatedAt: {type: string, format: date-time}
+        hasContent: {type: boolean, description: false means this page only holds its subpages}
+        titles: {type: object, additionalProperties: {type: string}, description: Titles by language}
+        labels: {type: array, items: {type: string}}
+    GitSync:
+      type: object
+      required: [repository, branch, folder, hasToken, hookPath, firstSource, includeRestricted, enabled, running, lastCommit, lastRunAt, lastSuccessAt, lastError]
+      properties:
+        repository: {type: string}
+        branch: {type: string}
+        folder: {type: string, description: Empty for the whole repository}
+        hasToken: {type: boolean, description: The token itself is never shown again}
+        hookPath: {type: string, description: Where a repository's webhook can say someone has pushed}
+        firstSource: {type: string, enum: [space, repository], description: Which side's text a page and a file at the same address keep the first time}
+        includeRestricted: {type: boolean}
+        enabled: {type: boolean}
+        running: {type: boolean}
+        lastCommit: {type: [string, 'null']}
+        lastRunAt: {type: [string, 'null'], format: date-time}
+        lastSuccessAt: {type: [string, 'null'], format: date-time}
+        lastError: {type: [string, 'null']}
+    GitSyncEnvelope:
+      type: object
+      required: [version, data]
+      properties:
+        version: {type: integer}
+        data: {$ref: '#/components/schemas/GitSync'}
+    GitSyncStateEnvelope:
+      type: object
+      required: [version, data]
+      properties:
+        version: {type: integer}
+        data:
+          type: object
+          required: [available, sync]
+          properties:
+            available: {type: boolean, description: Whether this server can run Git at all}
+            sync:
+              oneOf:
+                - {$ref: '#/components/schemas/GitSync'}
+                - {type: 'null'}
+    GitSyncInput:
+      type: object
+      additionalProperties: false
+      required: [repository]
+      properties:
+        repository: {type: string, description: 'The HTTPS address to clone it from, without credentials'}
+        branch: {type: string, description: Defaults to main}
+        folder: {type: string, description: Defaults to the whole repository}
+        token: {type: string, description: 'Left out, the one already there stays, as long as the repository does. To give a user name as well, write name:token'}
+        firstSource: {type: string, enum: [space, repository], description: Defaults to space}
+        includeRestricted: {type: boolean, description: Defaults to false}
+        enabled: {type: boolean, description: Defaults to true}
+    GitSyncRun:
+      type: object
+      required: [startedAt, head, pulled, pushed, notes, error]
+      properties:
+        startedAt: {type: string, format: date-time}
+        head: {type: [string, 'null']}
+        pulled: {type: integer, description: Pages changed from the repository}
+        pushed: {type: integer, description: Pages written to the repository}
+        notes:
+          type: array
+          items:
+            type: object
+            required: [file, reason]
+            properties:
+              file: {type: string}
+              reason: {type: string}
+        error: {type: [string, 'null']}
+    LiveDraftEnvelope:
+      type: object
+      required: [version, data]
+      properties:
+        version: {type: integer}
+        data:
+          type: object
+          required: [available]
+          properties:
+            available: {type: boolean}
+            name: {type: string, description: What to connect to. There when available is true}
+            baseRevision: {type: integer, description: The version the draft has taken in. There when available is true}
+    LiveDraftStatusEnvelope:
+      type: object
+      required: [version, data]
+      properties:
+        version: {type: integer}
+        data:
+          type: object
+          required: [available, unsaved]
+          properties:
+            available: {type: boolean}
+            unsaved:
+              oneOf:
+                - type: object
+                  required: [contributors, updatedAt]
+                  properties:
+                    contributors: {type: array, items: {type: string}, description: Who has written what is not saved}
+                    updatedAt: {type: string, format: date-time}
+                - {type: 'null'}
+    Webhook:
+      type: object
+      required: [id, spaceSlug, name, kind, url, hasSecret, events, includeRestricted, enabled, consecutiveFailures, lastStatus, lastDeliveredAt, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        spaceSlug: {type: [string, 'null'], description: Null for one that covers the whole site}
+        name: {type: string}
+        kind: {$ref: '#/components/schemas/WebhookKind'}
+        url: {type: string, description: 'Only where it points, such as https://hooks.example.com/…. The rest of an address is as good as a password'}
+        hasSecret: {type: boolean}
+        events: {type: array, items: {$ref: '#/components/schemas/WebhookEventName'}}
+        includeRestricted: {type: boolean}
+        enabled: {type: boolean, description: Turns itself off after 50 failures in a row}
+        consecutiveFailures: {type: integer}
+        lastStatus: {type: [string, 'null'], enum: [delivered, failed, null]}
+        lastDeliveredAt: {type: [string, 'null'], format: date-time}
+        createdAt: {type: string, format: date-time}
+    WebhookEnvelope:
+      type: object
+      required: [version, data]
+      properties:
+        version: {type: integer}
+        data: {$ref: '#/components/schemas/Webhook'}
+    WebhookKind: {type: string, enum: [generic, slack, feishu, wecom, dingtalk, teams]}
+    WebhookEventName: {type: string, enum: [page.created, page.updated, page.moved, page.deleted, page.restored, comment.created, thread.resolved, proposal.created, proposal.decided, feedback.created, change_set.created, change_set.reviewed, change_set.merged, change_set.closed]}
+    WebhookInput:
+      type: object
+      required: [name, kind, url]
+      additionalProperties: false
+      properties:
+        name: {type: string, minLength: 1, maxLength: 80}
+        kind: {$ref: '#/components/schemas/WebhookKind'}
+        url: {type: string, maxLength: 2000}
+        secret: {type: string, maxLength: 500, description: 'What the other side gave out for signing, or for generic hooks anything to verify the signature with'}
+        events: {type: array, minItems: 1, items: {$ref: '#/components/schemas/WebhookEventName'}, description: Everything when left out}
+        includeRestricted: {type: boolean, description: 'Also tell it about pages only some people can read. Off by default'}
+        enabled: {type: boolean}
+    WebhookPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        name: {type: string, minLength: 1, maxLength: 80}
+        kind: {$ref: '#/components/schemas/WebhookKind'}
+        url: {type: string, maxLength: 2000}
+        secret: {type: string, maxLength: 500}
+        events: {type: array, minItems: 1, items: {$ref: '#/components/schemas/WebhookEventName'}}
+        includeRestricted: {type: boolean}
+        enabled: {type: boolean}
+    WebhookDelivery:
+      type: object
+      required: [id, event, status, attempts, responseStatus, error, createdAt, deliveredAt, nextAttemptAt]
+      properties:
+        id: {type: string, format: uuid}
+        event: {type: string}
+        status: {type: string, enum: [pending, delivered, failed]}
+        attempts: {type: integer}
+        responseStatus: {type: [integer, 'null']}
+        error: {type: [string, 'null']}
+        createdAt: {type: string, format: date-time}
+        deliveredAt: {type: [string, 'null'], format: date-time}
+        nextAttemptAt: {type: [string, 'null'], format: date-time}
+    ShareLink:
+      type: object
+      required: [id, token, path, includeChildren, createdName, createdAt, expiresAt, lastUsedAt]
+      properties:
+        id: {type: string, format: uuid}
+        token: {type: string}
+        path: {type: string, description: 'Where it leads on this site, such as /s/pds_…'}
+        includeChildren: {type: boolean}
+        createdName: {type: string}
+        createdAt: {type: string, format: date-time}
+        expiresAt: {type: [string, 'null'], format: date-time}
+        lastUsedAt: {type: [string, 'null'], format: date-time}
+    ChangeSetInput:
+      type: object
+      required: [title]
+      additionalProperties: false
+      properties:
+        title: {type: string, minLength: 1, maxLength: 200}
+        description: {type: string, maxLength: 4000}
+    ChangeSet:
+      type: object
+      required: [id, spaceSlug, title, description, status, authorId, authorName, authorKind, decidedName, decidedAt, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        spaceSlug: {type: string}
+        title: {type: string}
+        description: {type: string}
+        status: {type: string, enum: [open, merged, closed]}
+        authorId: {type: string}
+        authorName: {type: string}
+        authorKind: {type: string, enum: [user, agent]}
+        decidedName: {type: [string, 'null']}
+        decidedAt: {type: [string, 'null'], format: date-time}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    ChangeSetSummary:
+      allOf:
+        - {$ref: '#/components/schemas/ChangeSet'}
+        - {type: object, required: [pages, approvals], properties: {pages: {type: integer}, approvals: {type: integer}}}
+    ChangeSetDetail:
+      allOf:
+        - {$ref: '#/components/schemas/ChangeSet'}
+        - type: object
+          required: [pages, hiddenPages, reviews, rules, blockers, canReview, canChange, canMerge, canDelete]
+          properties:
+            pages:
+              type: array
+              items:
+                type: object
+                required: [id, kind, documentId, path, title, baseRevisionNo, currentRevisionNo, baseMarkdown, proposedMarkdown]
+                properties:
+                  id: {type: string, format: uuid}
+                  kind: {type: string, enum: [edit, create, delete, restore]}
+                  documentId: {type: [string, 'null'], format: uuid}
+                  path: {type: string}
+                  title: {type: string}
+                  baseRevisionNo: {type: [integer, 'null']}
+                  currentRevisionNo: {type: [integer, 'null']}
+                  baseMarkdown: {type: string}
+                  proposedMarkdown: {type: string}
+            hiddenPages: {type: integer, description: Pages it changes that the caller cannot read}
+            reviews:
+              type: array
+              items:
+                type: object
+                required: [reviewerName, verdict, note, stale, createdAt]
+                properties:
+                  reviewerName: {type: string}
+                  verdict: {type: string, enum: [approved, changes_requested]}
+                  note: {type: string}
+                  stale: {type: boolean, description: What they looked at has changed since}
+                  createdAt: {type: string, format: date-time}
+            rules: {$ref: '#/components/schemas/MergeRules'}
+            blockers:
+              type: array
+              description: What stands in the way of merging it
+              items: {type: object, required: [code, message], properties: {code: {type: string}, message: {type: string}, path: {type: string}}}
+            canReview: {type: boolean}
+            canChange: {type: boolean}
+            canMerge: {type: boolean}
+            canDelete: {type: boolean}
+    MergeRules:
+      type: object
+      required: [requiredApprovals, requireChangeSets]
+      additionalProperties: false
+      properties:
+        requiredApprovals: {type: integer, minimum: 0, maximum: 10, description: 'How many people have to approve a change set, other than whoever wrote it'}
+        requireChangeSets: {type: boolean, description: 'Nobody saves, moves or deletes a page directly'}
+    BulkImport:
+      type: object
+      required: [id, source, filename, url, includeChildren, parentPath, status, progress, report, error, createdName, createdAt, finishedAt]
+      properties:
+        id: {type: string, format: uuid}
+        source: {type: string}
+        filename: {type: string}
+        url: {type: [string, 'null']}
+        includeChildren: {type: boolean}
+        parentPath: {type: [string, 'null']}
+        status: {type: string, enum: [queued, running, succeeded, failed, cancelled]}
+        progress: {type: object, required: [done, total], properties: {done: {type: integer}, total: {type: [integer, 'null']}}}
+        report:
+          type: [object, 'null']
+          required: [created, updated, unchanged, assets, notes, notesLeftOut]
+          properties:
+            created: {type: integer}
+            updated: {type: integer}
+            unchanged: {type: integer}
+            assets: {type: integer}
+            notes: {type: array, description: 'What did not come over, or not all of it', items: {type: object, required: [file, reason], properties: {file: {type: string}, reason: {type: string}}}}
+            notesLeftOut: {type: integer}
+        error: {type: [string, 'null']}
+        createdName: {type: string}
+        createdAt: {type: string, format: date-time}
+        finishedAt: {type: [string, 'null'], format: date-time}
+    BulkImportEnvelope:
+      type: object
+      required: [version, data]
+      properties:
+        version: {type: integer}
+        data: {$ref: '#/components/schemas/BulkImport'}
+    Subscription:
+      type: object
+      required: [kind, documentId, title, path, spaceSlug, spaceName, createdAt]
+      properties:
+        kind: {type: string, enum: [document, space]}
+        documentId: {type: [string, 'null'], format: uuid}
+        title: {type: [string, 'null']}
+        path: {type: [string, 'null']}
+        spaceSlug: {type: string}
+        spaceName: {type: string}
+        createdAt: {type: string, format: date-time}
+    FollowingEnvelope:
+      type: object
+      required: [version, data]
+      properties:
+        version: {type: integer}
+        data: {type: object, required: [following], properties: {following: {type: boolean}}}
+    PageTemplate:
+      type: object
+      required: [id, name, description, markdown, builtIn]
+      properties:
+        id: {type: string, description: 'A UUID, or builtin:<name> for those that come with the product'}
+        name: {type: string}
+        description: {type: string}
+        markdown: {type: string, description: '{{title}} and {{date}} become the page''s title and the day it is made'}
+        builtIn: {type: boolean}
+    PageTemplateEnvelope:
+      type: object
+      required: [version, data]
+      properties:
+        version: {type: integer}
+        data: {$ref: '#/components/schemas/PageTemplate'}
+    TemplateInput:
+      type: object
+      required: [name, markdown]
+      additionalProperties: false
+      properties:
+        name: {type: string, minLength: 1, maxLength: 80}
+        description: {type: string, maxLength: 300}
+        markdown: {type: string, maxLength: 200000}
+    Document:
+      type: object
+      required: [id, spaceId, parentId, slug, path, title, sortOrder, restricted, currentRevisionNo, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        spaceId: {type: string, format: uuid}
+        parentId: {type: [string, 'null'], format: uuid}
+        slug: {type: string}
+        path: {type: string}
+        title: {type: string}
+        sortOrder: {type: integer}
+        restricted: {type: boolean}
+        currentRevisionNo: {type: integer}
+        editingBy: {type: [string, 'null']}
+        editingName: {type: [string, 'null']}
+        editingUntil: {type: [string, 'null'], format: date-time}
+        updatedAt: {type: string, format: date-time}
+    RevisionMeta:
+      type: object
+      required: [no, sha256, actorId, actorName, actorKind, channel, message, createdAt]
+      properties:
+        no: {type: integer}
+        sha256: {type: string}
+        actorId: {type: string}
+        actorName: {type: string}
+        actorKind: {type: string, enum: [user, agent]}
+        channel: {type: string}
+        onBehalfOf: {type: [string, 'null']}
+        proposalId: {type: [string, 'null'], format: uuid}
+        ingestJobId: {type: [string, 'null'], format: uuid}
+        changeSetId: {type: [string, 'null'], format: uuid, description: The change set this came in with}
+        message: {type: string}
+        createdAt: {type: string, format: date-time}
+    Diagnostic:
+      type: object
+      required: [message]
+      properties:
+        message: {type: string}
+        line: {type: integer}
+    DocumentView:
+      type: object
+      required: [document, spaceSlug, role, revision, outline, blocks, diagnostics, editing, labels]
+      properties:
+        labels: {type: array, items: {type: string}}
+        document: {$ref: '#/components/schemas/Document'}
+        spaceSlug: {type: string}
+        role: {$ref: '#/components/schemas/SpaceDefaultRole'}
+        revision: {$ref: '#/components/schemas/RevisionMeta'}
+        markdown: {type: string}
+        outline: {type: array, items: {type: object}}
+        blocks: {type: array, items: {type: object}}
+        diagnostics: {type: array, items: {$ref: '#/components/schemas/Diagnostic'}}
+        editing:
+          oneOf:
+            - {type: 'null'}
+            - {type: object, required: [name, until], properties: {name: {type: string}, until: {type: string, format: date-time}}}
+    CommitResult:
+      type: object
+      required: [document, revision, changed, merged, diagnostics]
+      properties:
+        document: {$ref: '#/components/schemas/Document'}
+        revision: {$ref: '#/components/schemas/RevisionMeta'}
+        changed: {type: boolean, description: 'false means the content matched the current version, so no new version was made'}
+        merged: {type: boolean, description: 'true means it was merged with someone else''s changes, so the result may differ from what was sent'}
+        diagnostics: {type: array, items: {$ref: '#/components/schemas/Diagnostic'}}
+    Comment:
+      type: object
+      required: [id, threadId, authorId, authorName, authorKind, channel, body, mentions, createdAt, editedAt]
+      properties:
+        id: {type: string, format: uuid}
+        threadId: {type: string, format: uuid}
+        authorId: {type: string}
+        authorName: {type: string}
+        authorKind: {type: string, enum: [user, agent]}
+        channel: {type: string}
+        body: {type: string}
+        mentions: {$ref: '#/components/schemas/Mentions'}
+        createdAt: {type: string, format: date-time}
+        editedAt: {type: [string, 'null'], format: date-time}
+        reactions: {type: array, items: {type: object, required: [emoji, count, mine], properties: {emoji: {type: string}, count: {type: integer}, mine: {type: boolean}}}}
+    Thread:
+      type: object
+      required: [id, documentId, anchor, anchorState, anchoredRevisionNo, status, createdBy, createdName, createdKind, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        documentId: {type: string, format: uuid}
+        anchor: {type: object}
+        anchorState: {type: string, enum: [exact, fuzzy, orphaned]}
+        anchoredRevisionNo: {type: integer}
+        status: {type: string, enum: [open, resolved]}
+        summary: {type: [string, 'null']}
+        summaryAt: {type: [string, 'null'], format: date-time}
+        createdBy: {type: string}
+        createdName: {type: string}
+        createdKind: {type: string, enum: [user, agent]}
+        resolvedName: {type: [string, 'null']}
+        resolvedAt: {type: [string, 'null'], format: date-time}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        comments: {type: array, items: {$ref: '#/components/schemas/Comment'}}
+    Proposal:
+      type: object
+      required: [id, documentId, baseRevisionNo, ops, rationale, threadIds, authorId, authorName, authorKind, channel, status, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        documentId: {type: string, format: uuid}
+        baseRevisionNo: {type: integer}
+        ops: {type: array, items: {$ref: '#/components/schemas/EditOp'}}
+        rationale: {type: string}
+        threadIds: {type: array, items: {type: string, format: uuid}}
+        authorId: {type: string}
+        authorName: {type: string}
+        authorKind: {type: string, enum: [user, agent]}
+        onBehalfOf: {type: [string, 'null']}
+        channel: {type: string}
+        status: {type: string, enum: [pending, accepted, rejected]}
+        decidedName: {type: [string, 'null']}
+        decidedAt: {type: [string, 'null'], format: date-time}
+        decisionNote: {type: [string, 'null']}
+        acceptedOps: {type: [array, 'null'], items: {type: integer}}
+        appliedRevisionNo: {type: [integer, 'null']}
+        createdAt: {type: string, format: date-time}
+    Me:
+      type: object
+      required: [id, displayName, kind, isAdmin, scopes]
+      properties:
+        id: {type: string}
+        displayName: {type: string}
+        kind: {type: string, enum: [user, agent]}
+        isAdmin: {type: boolean}
+        scopes: {type: array, items: {type: string, enum: [read, write]}}
+    SearchHit:
+      type: object
+      required: [id, spaceSlug, path, title]
+      properties:
+        id: {type: string, format: uuid}
+        spaceSlug: {type: string}
+        spaceName: {type: string}
+        path: {type: string}
+        title: {type: string}
+        snippet: {type: string}
+        updatedAt: {type: string, format: date-time}
+    Asset:
+      type: object
+      required: [spaceId, sha256, mime, sizeBytes, filename, path]
+      properties:
+        spaceId: {type: string, format: uuid}
+        sha256: {type: string}
+        mime: {type: string}
+        sizeBytes: {type: integer}
+        filename: {type: string}
+        path: {type: string, description: 'The path for using it in a page, such as assets/<sha256>.png'}
+    EmbedApp:
+      type: object
+      required: [slug, name, allowedOrigins, status, createdAt, lastUsedAt, group]
+      properties:
+        slug: {type: string}
+        name: {type: string}
+        allowedOrigins: {type: array, items: {type: string}}
+        status: {type: string, enum: [active, disabled]}
+        createdAt: {type: string, format: date-time}
+        lastUsedAt: {type: [string, 'null'], format: date-time}
+        group: {type: string, description: 'Give group:<this value> a role among a space''s members for this system''s users to see that space'}
+    Change:
+      type: object
+      required: [cursor, spaceId, spaceSlug, kind, deleted, at]
+      properties:
+        cursor: {type: string, description: 'This row''s position in the change feed. Send it back as it is, and do not parse it'}
+        spaceId: {type: string, format: uuid}
+        spaceSlug: {type: string}
+        kind: {type: string, enum: [document, discussion, space], description: 'document means a page''s content or position changed, discussion a comment, discussion or proposal, and space the space itself'}
+        documentId: {type: [string, 'null'], format: uuid}
+        revision: {type: [integer, 'null']}
+        path: {type: [string, 'null']}
+        deleted: {type: boolean}
+        at: {type: string, format: date-time}
+    ChangePage:
+      type: object
+      required: [changes, next, reset]
+      properties:
+        changes: {type: array, items: {$ref: '#/components/schemas/Change'}}
+        next: {type: string}
+        reset: {type: boolean}
+    ManifestFile:
+      type: object
+      required: [path, kind, sha256, size]
+      properties:
+        path: {type: string, description: 'The path relative to the space''s directory, with forward slashes'}
+        kind: {type: string, enum: [document, asset]}
+        sha256: {type: string}
+        size: {type: integer}
+        documentId: {type: string, format: uuid}
+        title: {type: string}
+        revision: {type: integer}
+        restricted: {type: boolean}
+    SpaceManifest:
+      type: object
+      required: [space, cursor, files]
+      properties:
+        space: {type: object, required: [id, slug, name], properties: {id: {type: string, format: uuid}, slug: {type: string}, name: {type: string}}}
+        cursor: {type: string, description: This manifest is no older than this position}
+        files: {type: array, items: {$ref: '#/components/schemas/ManifestFile'}}
+    EditOp:
+      oneOf:
+        - {type: object, required: [op, pattern, content], properties: {op: {const: str_replace}, pattern: {type: string}, content: {type: string}, all: {type: boolean}}}
+        - {type: object, required: [op, ref, content], properties: {op: {const: block_replace}, ref: {type: string}, end: {type: string}, content: {type: string}}}
+        - {type: object, required: [op, ref, content], properties: {op: {const: block_insert_after}, ref: {type: string, description: 'b1…bn, start or end'}, content: {type: string}}}
+        - {type: object, required: [op, ref], properties: {op: {const: block_delete}, ref: {type: string}, end: {type: string}}}
+        - {type: object, required: [op, ref, after], properties: {op: {const: block_move_after}, ref: {type: string}, after: {type: string, description: 'b1…bn or start'}}}

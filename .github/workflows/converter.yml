@@ -1,0 +1,47 @@
+name: Converter
+
+# The converter in deploy/converter, and Pandocs' side of talking to it. Its image takes a few minutes to build, so
+# this runs only when either side changes.
+on:
+  push:
+    branches: [main]
+    paths: ["deploy/converter/**", "packages/server/src/extract/**", "packages/server/test/converter.test.ts", ".github/workflows/converter.yml"]
+  pull_request:
+    paths: ["deploy/converter/**", "packages/server/src/extract/**", "packages/server/test/converter.test.ts", ".github/workflows/converter.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: converter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - run: docker build -f deploy/converter/Dockerfile -t pandocs-converter:ci .
+      - name: Its own tests, with LibreOffice making the old files to read
+        run: docker run --rm -v "$PWD/deploy/converter/tests:/tests:ro" pandocs-converter:ci python -m unittest discover -s /tests -v
+      - name: Started the way it is run
+        run: |
+          docker run -d --name converter -p 127.0.0.1:8090:8090 -e CONVERTER_TOKEN=ci-token pandocs-converter:ci
+          for attempt in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8090/healthz && exit 0
+            sleep 1
+          done
+          docker logs converter
+          exit 1
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: What Pandocs gets from it
+        env:
+          PANDOCS_CONVERTER_URL: http://127.0.0.1:8090/convert
+          PANDOCS_CONVERTER_TOKEN: ci-token
+        run: pnpm exec vitest run packages/server/test/converter.test.ts

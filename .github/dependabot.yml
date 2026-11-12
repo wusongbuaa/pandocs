@@ -1,0 +1,14 @@
+# Actions are pinned to commits, so that a tag moved upstream cannot change what runs here. This keeps the pins current.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: docker
+    directories: [/, /deploy/converter]
+    schedule:
+      interval: weekly

@@ -1,0 +1,103 @@
+image:
+  repository: ghcr.io/wusongbuaa/pandocs
+  # Defaults to the chart's appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# The address people reach the site at. It decides cookie security and what sign-in providers send people back to. Required.
+url: ""
+
+# A Secret you create, holding at least DATABASE_URL. Whatever else in it is passed on too, so it is the place for
+# PANDOCS_DATABASE_LISTEN_URL, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, sign-in secrets and model keys. Required.
+existingSecret: ""
+
+# Pods serving pages and the API. Keep at least two for updates without downtime.
+replicaCount: 2
+
+# Anything else from .env.example that is not secret, such as how people sign in.
+env: {}
+  # PANDOCS_OIDC_ISSUER: https://login.example.com
+  # PANDOCS_OIDC_CLIENT_ID: pandocs
+
+# Where uploads go. More than one replica needs S3 or anything speaking its API.
+storage:
+  s3:
+    bucket: ""
+    region: us-east-1
+    # Leave empty for AWS. For example https://cos.ap-guangzhou.myqcloud.com or https://oss-cn-hangzhou.aliyuncs.com.
+    endpoint: ""
+    prefix: pandocs/
+    # Only for services that need it, such as a self-hosted one without a wildcard domain. COS and OSS refuse it.
+    forcePathStyle: false
+  # Without a bucket: a volume on one replica, for trying things out.
+  local:
+    size: 10Gi
+    storageClass: ""
+
+# Background work: imports, sweeping and so on. Runs in the pods above unless given pods of its own.
+worker:
+  separate: false
+  replicaCount: 2
+  resources: {}
+
+# A read-only copy of chosen spaces on a shared file system, for agents to mount. See docs/files-and-agents.md.
+publish:
+  enabled: false
+  # A PersistentVolumeClaim on something shared, such as CFS, EFS or NAS, that you create. Required when enabled.
+  existingClaim: ""
+  # A subdirectory of it to use.
+  subPath: ""
+  # Anyone with the mount can read what is published, so these are named on purpose. "*" means all of them.
+  spaces: ""
+  # A lock lets one publish at a time, and the other takes over within seconds.
+  replicaCount: 2
+  packSeconds: 300
+  resources: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  # With type NodePort, the port on every node. Left empty, Kubernetes picks one.
+  nodePort: null
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  # Live events need responses not to be buffered, and to stay open, as does the connection for editing together. For ingress-nginx:
+  #   nginx.ingress.kubernetes.io/proxy-buffering: "off"
+  #   nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+  hosts: []
+    # - host: docs.example.com
+  tls: []
+    # - secretName: docs-tls
+    #   hosts: [docs.example.com]
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+serviceAccount:
+  create: true
+  name: ""
+  # For example, to let the pods reach S3 without keys: eks.amazonaws.com/role-arn
+  annotations: {}
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

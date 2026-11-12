@@ -1,0 +1,292 @@
+name: Release
+
+# See docs/releasing.md.
+on:
+  push:
+    tags: ["v*"]
+  # A rehearsal: everything is built and tried, and nothing is published.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version to rehearse, such as 0.2.0. It has to be the one the files say.
+        required: true
+
+permissions:
+  contents: read
+
+# One release at a time for a tag, and never one cut short: half of one published is worse than either.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      version: ${{ steps.what.outputs.version }}
+      publish: ${{ steps.what.outputs.publish }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .node-version
+          # Installs nothing here, so it has no use for pnpm.
+          package-manager-cache: false
+      - id: what
+        env:
+          NAME: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+          PUBLISH: ${{ github.event_name == 'push' }}
+        run: |
+          echo "version=${NAME#v}" >> "$GITHUB_OUTPUT"
+          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
+          echo "rehearsal=$([ "$PUBLISH" = true ] || echo --rehearsal)" >> "$GITHUB_OUTPUT"
+      - run: node scripts/release.mjs check "${{ steps.what.outputs.version }}" ${{ steps.what.outputs.rehearsal }}
+      - name: The commit passed CI
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          passed="$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --status success --json databaseId --jq length)"
+          if [ "$passed" = 0 ]; then echo "CI has not passed on $GITHUB_SHA"; exit 1; fi
+      - run: node scripts/release.mjs notes "${{ steps.what.outputs.version }}" ${{ steps.what.outputs.rehearsal }} > notes.md
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: notes
+          path: notes.md
+
+  cli:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+      - run: go test ./...
+      - name: Build for every platform
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          mkdir -p dist
+          for target in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            extension=""
+            if [ "$os" = windows ]; then extension=.exe; fi
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "dist/pandocs-$os-$arch$extension" .
+          done
+      - name: The licenses of what is built in
+        run: |
+          {
+            # The standard library is built in too, and is no module of its own.
+            printf '%s\n%s\n\n' "------------------------------------------------------------------------" "The Go standard library, $(go env GOVERSION)"
+            cat "$(go env GOROOT)/LICENSE"
+            for module in $(go list -deps -f '{{with .Module}}{{if not .Main}}{{.Path}}@{{.Version}}={{.Dir}}{{end}}{{end}}' . | sort -u); do
+              printf '\n%s\n%s\n\n' "------------------------------------------------------------------------" "${module%%=*}"
+              cat "${module#*=}/LICENSE"
+            done
+          } > dist/THIRD-PARTY-NOTICES-cli.txt
+      - run: (cd dist && sha256sum * > SHA256SUMS)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cli
+          path: cli/dist
+
+  # On the systems it is for, as far as there are machines to try them on.
+  cli-tried:
+    needs: [check, cli]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, file: pandocs-linux-amd64 }
+          - { os: macos-15, file: pandocs-darwin-arm64 }
+          - { os: windows-2025, file: pandocs-windows-amd64.exe }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: cli
+      - name: It starts, and knows what it is
+        shell: bash
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+          FILE: ${{ matrix.file }}
+        run: |
+          sha256sum --check --ignore-missing SHA256SUMS 2>/dev/null || shasum -a 256 --check --ignore-missing SHA256SUMS
+          chmod +x "$FILE"
+          said="$("./$FILE" version)"
+          echo "$said"
+          case "$said" in *"$VERSION"*) ;; *) echo "it says it is something else"; exit 1 ;; esac
+
+  packages:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: sdks/go/go.sum
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - run: pnpm install --frozen-lockfile
+      - run: scripts/try-packages.sh "${{ needs.check.outputs.version }}" "$RUNNER_TEMP/out"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: packages
+          path: ${{ runner.temp }}/out
+
+  image:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Build for trying
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          load: true
+          tags: pandocs:try
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - run: scripts/try-image.sh pandocs:try "${{ needs.check.outputs.version }}"
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        if: needs.check.outputs.publish == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.check.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.check.outputs.version }}
+      - name: Build for every platform
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ needs.check.outputs.publish == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+
+  # The converter for what the built-in conversion cannot read, as an image of its own.
+  converter:
+    needs: check
+    runs-on: ubuntu-24.04
+    # LibreOffice and the Python packages take a while to install for arm64 under emulation.
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Build for trying
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: deploy/converter/Dockerfile
+          load: true
+          tags: pandocs-converter:try
+          cache-from: type=gha,scope=converter
+          cache-to: type=gha,mode=max,scope=converter
+      - run: docker run --rm -v "$PWD/deploy/converter/tests:/tests:ro" pandocs-converter:try python -m unittest discover -s /tests
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        if: needs.check.outputs.publish == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}-converter
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.check.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.check.outputs.version }}
+      - name: Build for every platform
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: deploy/converter/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ needs.check.outputs.publish == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=converter
+
+  # Only what was tried above goes out. Each step leaves alone what a run before it already did, so a failed run can be run again.
+  publish:
+    if: needs.check.outputs.publish == 'true'
+    needs: [check, cli, cli-tried, packages, image, converter]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      packages: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      TAG: v${{ needs.check.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      # Not among the repository's own files, which have folders of the same names.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/made
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - name: The chart
+        run: |
+          echo "$GH_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          helm push "$RUNNER_TEMP/made/packages/chart/pandocs-$VERSION.tgz" "oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts"
+      - name: The Go client
+        run: |
+          if ! git ls-remote --exit-code --tags origin "sdks/go/$TAG" >/dev/null; then
+            git tag "sdks/go/$TAG" "$GITHUB_SHA"
+            git push origin "sdks/go/$TAG"
+          fi
+      - name: npm
+        if: vars.PUBLISH_NPM == 'true'
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > "$HOME/.npmrc"
+          case "$VERSION" in *-*) channel=next ;; *) channel=latest ;; esac
+          for name in client embed; do
+            if ! npm view "@pandocs/$name@$VERSION" version >/dev/null 2>&1; then
+              npm publish "$RUNNER_TEMP/made/packages/npm/pandocs-$name-$VERSION.tgz" --access public --tag "$channel"
+            fi
+          done
+      - name: The GitHub release
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            case "$VERSION" in *-*) marked=--prerelease ;; *) marked= ;; esac
+            gh release create "$TAG" "$RUNNER_TEMP"/made/cli/* "$RUNNER_TEMP/made/packages/chart/pandocs-$VERSION.tgz" --verify-tag --notes-file "$RUNNER_TEMP/made/notes/notes.md" --title "$TAG" $marked
+          fi

@@ -1,0 +1,33 @@
+{{- if .Values.publish.enabled }}
+{{- $mount := dict "name" "shared" "mountPath" "/mnt/shared" -}}
+{{- if .Values.publish.subPath -}}
+{{- $_ := set $mount "subPath" .Values.publish.subPath -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pandocs.fullname" . }}-publisher
+  labels:
+    {{- include "pandocs.labels" . | nindent 4 }}
+    app.kubernetes.io/component: publisher
+spec:
+  replicas: {{ .Values.publish.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "pandocs.selector" (dict "root" . "component" "publisher") | nindent 6 }}
+  template:
+    {{- include "pandocs.pod" (dict
+      "root" .
+      "component" "publisher"
+      "roles" "publisher"
+      "resources" (.Values.publish.resources | default .Values.resources)
+      "extraEnv" (list
+        (dict "name" "PANDOCS_PUBLISH_DIR" "value" "/mnt/shared")
+        (dict "name" "PANDOCS_PUBLISH_SPACES" "value" (.Values.publish.spaces | toString))
+        (dict "name" "PANDOCS_PUBLISH_PACK_SECONDS" "value" (.Values.publish.packSeconds | toString))
+        (dict "name" "UV_THREADPOOL_SIZE" "value" "16")
+      )
+      "mounts" (list $mount)
+      "volumes" (list (dict "name" "shared" "persistentVolumeClaim" (dict "claimName" .Values.publish.existingClaim)))
+    ) | nindent 4 }}
+{{- end }}

@@ -1,0 +1,74 @@
+[
+  {
+    "file": "index.md",
+    "path": "index",
+    "title": "青石书店员工手册",
+    "restricted": false
+  },
+  {
+    "file": "入门.md",
+    "path": "入门",
+    "title": "入门",
+    "restricted": false
+  },
+  {
+    "file": "入门__店里的分区.md",
+    "path": "入门/店里的分区",
+    "title": "店里的分区",
+    "restricted": false
+  },
+  {
+    "file": "入门__排班与打卡.md",
+    "path": "入门/排班与打卡",
+    "title": "排班与打卡",
+    "restricted": false
+  },
+  {
+    "file": "入门__一个班次.md",
+    "path": "入门/一个班次",
+    "title": "一个班次怎么过",
+    "restricted": false
+  },
+  {
+    "file": "日常.md",
+    "path": "日常",
+    "title": "日常",
+    "restricted": false
+  },
+  {
+    "file": "日常__收银与退换.md",
+    "path": "日常/收银与退换",
+    "title": "收银与退换",
+    "restricted": false
+  },
+  {
+    "file": "日常__上架与盘点.md",
+    "path": "日常/上架与盘点",
+    "title": "上架与盘点",
+    "restricted": false
+  },
+  {
+    "file": "日常__读者活动.md",
+    "path": "日常/读者活动",
+    "title": "读者活动",
+    "restricted": false
+  },
+  {
+    "file": "进阶.md",
+    "path": "进阶",
+    "title": "进阶",
+    "restricted": false
+  },
+  {
+    "file": "进阶__门店管理.md",
+    "path": "进阶/门店管理",
+    "title": "门店管理（仅店长）",
+    "restricted": true
+  },
+  {
+    "file": "问答.md",
+    "path": "问答",
+    "title": "问答",
+    "restricted": false
+  }
+]

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><title>Pandocs</title>
+<rect width="64" height="64" rx="14" fill="#22b573"/><g transform="translate(5 5) scale(.84375)">
+<circle cx="16.5" cy="14.5" r="8" fill="#1f2430"/><circle cx="47.5" cy="14.5" r="8" fill="#1f2430"/>
+<path d="M9 45V36.5C9 22 19 11 32 11s23 11 23 25.5V45z" fill="#fff" stroke="#1f2430" stroke-width="4.4" stroke-linejoin="round"/>
+<ellipse cx="23.3" cy="28.2" rx="6.5" ry="8.1" transform="rotate(32 23.3 28.2)" fill="#1f2430"/>
+<ellipse cx="40.7" cy="28.2" rx="6.5" ry="8.1" transform="rotate(-32 40.7 28.2)" fill="#1f2430"/>
+<circle cx="24.6" cy="27" r="2.7" fill="#fff"/><circle cx="39.4" cy="27" r="2.7" fill="#fff"/>
+<path d="M32 41.5 9.6 36.7Q6.5 36.1 6.5 39.3V54.3Q6.5 56.7 9 57L32 61.8z" fill="#fff" stroke="#1f2430" stroke-width="4.2" stroke-linejoin="round"/>
+<path d="M32 41.5l22.4-4.8q3.1-.6 3.1 2.6V54.3q0 2.4-2.5 2.7L32 61.8z" fill="#e6f7ee" stroke="#1f2430" stroke-width="4.2" stroke-linejoin="round"/>
+<ellipse cx="10.8" cy="38" rx="5.4" ry="4.8" fill="#1f2430"/><ellipse cx="53.2" cy="38" rx="5.4" ry="4.8" fill="#1f2430"/></g></svg>

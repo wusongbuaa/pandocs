@@ -1,0 +1,64 @@
+# A complete site on one machine: `docker compose up`, then open http://localhost:8080 and create the administrator.
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: pandocs
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pandocs}
+      POSTGRES_DB: pandocs
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pandocs -d pandocs"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # A network of its own with Pandocs, so the converter and Docling, which read whatever files people bring, cannot
+    # reach the database, whatever its password.
+    networks: [database]
+    restart: unless-stopped
+
+  pandocs:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://pandocs:${POSTGRES_PASSWORD:-pandocs}@postgres:5432/pandocs
+      PANDOCS_URL: ${PANDOCS_URL:-http://localhost:8080}
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - data:/data
+    ports:
+      - "${PANDOCS_PORT:-8080}:8080"
+    networks: [database, default]
+    restart: unless-stopped
+
+  # Converting what the built-in conversion cannot: old Office formats, and with Docling, scans. Off unless asked for,
+  # with COMPOSE_PROFILES=converter, or converter,docling, in .env. See docs/importing-files.md.
+  converter:
+    build:
+      context: .
+      dockerfile: deploy/converter/Dockerfile
+    profiles: [converter]
+    environment:
+      CONVERTER_TOKEN: ${PANDOCS_EXTRACT_TOKEN:-}
+      # It publishes no port, so only what is on this network can reach it. A token makes sure, if one is set.
+      CONVERTER_REQUIRE_TOKEN: "false"
+      DOCLING_URL: ${DOCLING_URL:-}
+    restart: unless-stopped
+
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu:v1.38.2
+    profiles: [docling]
+    restart: unless-stopped
+
+networks:
+  database:
+    internal: true
+
+volumes:
+  postgres:
+  data:

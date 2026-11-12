@@ -1,0 +1,86 @@
+import {
+  addLeadingSlash,
+  addTrailingSlash,
+  isDataUrl,
+  isExternalUrl,
+  isProduction,
+  normalizeHref,
+  removeBase as rawRemoveBase,
+  withBase as rawWithBase,
+  withSiteOrigin as rawWithSiteOrigin,
+  removeHash,
+  removeTrailingSlash,
+} from '@rspress/shared';
+import { siteData } from './hooks/useSite';
+
+function withBase(url = '/'): string {
+  return rawWithBase(url, siteData.base);
+}
+
+function withSiteOrigin(url: string): string {
+  return rawWithSiteOrigin(url, siteData.siteOrigin);
+}
+
+function removeBase(url: string): string {
+  return rawRemoveBase(url, siteData.base);
+}
+
+function isEqualPath(a: string, b: string) {
+  return (
+    removeBase(normalizeHref(removeHash(a), true)) ===
+    removeBase(normalizeHref(removeHash(b), true))
+  );
+}
+
+function normalizeHrefInRuntime(link: string) {
+  const cleanUrls = Boolean(siteData?.route?.cleanUrls);
+  return normalizeHref(link, cleanUrls);
+}
+
+/**
+ * we do cleanUrls in runtime side
+ */
+function cleanUrlByConfig(link: string) {
+  if (siteData?.route?.cleanUrls) {
+    return normalizeHref(link, true);
+  }
+  return link;
+}
+
+function normalizeImagePath(imagePath: string) {
+  if (isAbsoluteUrl(imagePath)) {
+    return imagePath;
+  }
+  // only append base to internal non-relative urls
+  if (!imagePath.startsWith('/')) {
+    return imagePath;
+  }
+
+  return withBase(imagePath);
+}
+
+function routePathToMdPath(routePath: string): string {
+  let url: string = routePath;
+  url = normalizeHref(url, false);
+  url = url.replace(/\.html(?=#|\?|$)/, '.md');
+  return withBase(url);
+}
+
+function isAbsoluteUrl(path: string) {
+  return isExternalUrl(path) || isDataUrl(path) || path.startsWith('//');
+}
+
+export {
+  addLeadingSlash,
+  addTrailingSlash,
+  cleanUrlByConfig,
+  isEqualPath,
+  isProduction,
+  normalizeHrefInRuntime,
+  normalizeImagePath,
+  removeBase,
+  removeTrailingSlash,
+  routePathToMdPath,
+  withBase,
+  withSiteOrigin,
+};

@@ -1,0 +1,151 @@
+import { useFrontmatter, useI18n, useLocation } from '@rspress/core/runtime';
+import {
+  IconArrowRight,
+  IconMenu,
+  ReadPercent,
+  renderInlineMarkdown,
+  SvgWrapper,
+  useActiveAnchor,
+  useDynamicToc,
+} from '@rspress/core/theme';
+import { forwardRef, type ReactNode, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import './index.scss';
+
+/* Top Menu, only displayed on <1280px screen width */
+export const SidebarMenu = forwardRef(
+  (
+    {
+      isSidebarOpen,
+      onIsSidebarOpenChange,
+      isOutlineOpen,
+      onIsOutlineOpenChange,
+      beforeOutline,
+      afterOutline,
+    }: {
+      isSidebarOpen: boolean;
+      onIsSidebarOpenChange: (isOpen: boolean) => void;
+      isOutlineOpen: boolean;
+      onIsOutlineOpenChange: (isOpen: boolean) => void;
+      beforeOutline?: ReactNode;
+      afterOutline?: ReactNode;
+    },
+    forwardedRef,
+  ) => {
+    const sidebarMenuRef = useRef<HTMLDivElement>(null);
+    const t = useI18n();
+
+    const { pathname, hash } = useLocation();
+
+    const headers = useDynamicToc();
+    const { scrolledHeader } = useActiveAnchor(headers);
+
+    const outlineDisabled =
+      !beforeOutline && !afterOutline && headers.length === 0;
+
+    const {
+      frontmatter: {
+        sidebar: sidebarConfig = true,
+        outline: showOutline = true,
+      },
+    } = useFrontmatter();
+    const showSidebar = sidebarConfig === true;
+
+    function openSidebar() {
+      onIsSidebarOpenChange(true);
+    }
+
+    function closeSidebar() {
+      onIsSidebarOpenChange(false);
+    }
+
+    function openOutline() {
+      onIsOutlineOpenChange(!isOutlineOpen);
+    }
+
+    function closeOutline() {
+      onIsOutlineOpenChange(false);
+    }
+
+    useEffect(() => {
+      closeSidebar();
+    }, [pathname]);
+
+    useEffect(() => {
+      if (hash) {
+        closeOutline();
+      }
+    }, [hash]);
+
+    return (
+      <>
+        <div
+          className="rp-sidebar-menu"
+          ref={ref => {
+            sidebarMenuRef.current = ref;
+            if (typeof forwardedRef === 'function') {
+              forwardedRef(sidebarMenuRef.current);
+            } else if (forwardedRef) {
+              forwardedRef.current = sidebarMenuRef.current;
+            }
+          }}
+        >
+          {showSidebar ? (
+            <button
+              type="button"
+              onClick={openSidebar}
+              className="rp-sidebar-menu__left"
+            >
+              <SvgWrapper icon={IconMenu} />
+              <span>{t('menuTitle')}</span>
+            </button>
+          ) : (
+            <div className="rp-sidebar-menu__left" />
+          )}
+          {showOutline ? (
+            <button
+              type="button"
+              disabled={outlineDisabled}
+              onClick={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                openOutline();
+              }}
+              className="rp-sidebar-menu__right"
+            >
+              {scrolledHeader?.text ? (
+                <span
+                  className="rp-sidebar-menu__right__text rp-doc"
+                  {...renderInlineMarkdown(scrolledHeader.text)}
+                />
+              ) : (
+                <span className="rp-sidebar-menu__right__text">
+                  {t('outlineTitle')}
+                </span>
+              )}
+              <ReadPercent size={14} strokeWidth={2} />
+              {/* TODO: discussion */}
+              {!outlineDisabled && (
+                <SvgWrapper
+                  icon={IconArrowRight}
+                  className="rp-sidebar-menu__right__icon"
+                  style={{
+                    transform: isOutlineOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease-out',
+                  }}
+                />
+              )}
+            </button>
+          ) : (
+            <div className="rp-sidebar-menu__right" />
+          )}
+        </div>
+        {(isSidebarOpen || isOutlineOpen) &&
+          createPortal(
+            <div onClick={closeSidebar} className="rp-sidebar-menu__mask" />,
+            document.getElementById('__rspress_modal_container')!,
+          )}
+      </>
+    );
+  },
+);

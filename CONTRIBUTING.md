@@ -1,0 +1,36 @@
+# Contributing
+
+## Getting set up
+
+You need Node 26, pnpm, Go and a PostgreSQL server.
+
+```bash
+pnpm install
+export TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
+pnpm typecheck && pnpm lint && pnpm test
+```
+
+`pnpm test:e2e` runs real browser flows. It needs Playwright's Chromium, which you have to install with an older Node, since on Node 26 its installer hangs while unpacking. With nvm: `nvm exec 22 npx playwright@1.58.2 install chromium`. `PANDOCS_E2E_ENGINE=firefox` or `PANDOCS_E2E_ENGINE=webkit` runs them in Firefox or in WebKit, Safari's engine, once that browser is installed the same way. CI runs them in Chromium on every push, and in the other two once a week; to run those now, start the "Other browsers" workflow from the Actions tab, or with `gh workflow run browsers.yml`.
+
+## Changing things
+
+- **Fixing a bug?** Write a test that fails first.
+- **Changing the HTTP API?** Update `docs/api/openapi.yaml`, which tests hold against the routes and what they answer, then run `scripts/generate-sdks.sh`.
+- **`packages/web/vendor` is a copy of the Rspress theme.** A test checks it stays unchanged. Change behaviour through its slots and CSS variables.
+- **Adding something to a page?** Its first render also runs on the server, and has to come out the same in the browser. Read `location`, `document`, storage and the time in an effect, or use `useLocation`. Something that only works with a page around it goes in `NoSSR`. A mismatch shows up as a console error, which the browser tests fail on where they look for those.
+- **Adding text people read?** Write the English in `t("...")`, with `{0}` for arguments and `{0|page|pages}` for a word that depends on a count, and add the Chinese to that package's `src/i18n/zh.ts`. A test fails if you forget. Anything an agent or a developer reads, such as tool and API descriptions, is only in English. In the web app, code in the first chunk cannot call `t` while it loads, because translations arrive after it.
+- **Changing something people will notice?** Add a line under *Unreleased* in the [changelog](./CHANGELOG.md), for someone running or using it.
+- **Touching publishing, or the chart?** `test/nfs/run.sh` and `test/helm/run.sh` try them for real, and take a few minutes.
+- Write comments that say why, not what. Tests should read as what the product promises.
+
+## Releasing
+
+See [docs/releasing.md](./docs/releasing.md).
+
+## Conduct
+
+Everyone taking part follows the [code of conduct](./CODE_OF_CONDUCT.md).
+
+## Layout
+
+See the [README](./README.md). The design and why it is this way are in [docs/design.md](./docs/design.md).

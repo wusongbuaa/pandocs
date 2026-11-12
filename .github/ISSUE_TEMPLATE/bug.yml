@@ -1,0 +1,58 @@
+name: Something went wrong
+description: Pandocs did something it should not, or did not do what it says it does.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead. Screenshots and error messages help.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen again
+      placeholder: |
+        1. Open a page in a space that ...
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The image tag, the release, or the commit you run.
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where it runs
+      options:
+        - docker compose
+        - Helm chart
+        - From source
+        - Embedded in another application
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: way-in
+    attributes:
+      label: Through
+      multiple: true
+      options:
+        - The web app
+        - MCP or an agent
+        - The pandocs command line
+        - The HTTP API or a client library
+        - Git sync
+        - Importing files
+        - A shared directory
+        - Webhooks
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Browser, identity provider, model, logs. Leave out tokens and passwords.

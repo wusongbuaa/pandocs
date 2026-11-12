@@ -1,0 +1,72 @@
+# See test/nfs/run.sh. Needs privileged containers, for the kernel NFS server and for mounting.
+name: pandocs-nfs-test
+
+x-app: &app
+  build:
+    context: .
+    target: app
+  privileged: true
+  entrypoint: ["/bin/sh", "/opt/rig/run-app.sh"]
+  user: root
+  volumes:
+    - .:/opt/rig:ro
+  depends_on:
+    postgres:
+      condition: service_healthy
+    nfs-server:
+      condition: service_started
+  environment: &app-env
+    DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+    PANDOCS_URL: http://proxy:8080
+    PANDOCS_TRUST_PROXY: "true"
+    PANDOCS_PUBLISH_DIR: /mnt/shared
+    PANDOCS_PUBLISH_SPACES: "*"
+    PANDOCS_PUBLISH_PACK_SECONDS: "20"
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+    tmpfs:
+      - /var/lib/postgresql:size=4g
+    command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  nfs-server:
+    build:
+      context: .
+      target: nfs
+    privileged: true
+    entrypoint: ["/bin/sh", "/opt/rig/serve-nfs.sh"]
+    volumes:
+      - .:/opt/rig:ro
+
+  app-1:
+    <<: *app
+  app-2:
+    <<: *app
+
+  proxy:
+    image: caddy:2-alpine
+    command: caddy run --config /opt/rig/Caddyfile --adapter caddyfile
+    volumes:
+      - .:/opt/rig:ro
+    depends_on:
+      - app-1
+      - app-2
+
+  reader:
+    build:
+      context: .
+      target: nfs
+    privileged: true
+    entrypoint: ["/bin/sh", "/opt/rig/run-reader.sh"]
+    depends_on:
+      - nfs-server
+    volumes:
+      - .:/opt/rig:ro

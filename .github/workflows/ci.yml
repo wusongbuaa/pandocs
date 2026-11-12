@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # Playwright's browser dependencies do not cover newer images yet.
+    runs-on: ubuntu-24.04
+    # Runs have taken from 21 to 29 minutes, so 30 was one more test away from cutting them off.
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+      PANDOCS_TEST_S3_ENDPOINT: http://127.0.0.1:9000
+      AWS_ACCESS_KEY_ID: testkey12345
+      AWS_SECRET_ACCESS_KEY: testsecret1234567890
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-1.58.2
+      # Playwright's installer hangs while unpacking on Node 26, so this runs on an older release.
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: npx --yes playwright@1.58.2 install --with-deps chromium
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      # The tests run the real command-line binary against a real server.
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+      - run: pnpm install --frozen-lockfile
+      # Something real to speak the S3 API to.
+      - run: docker run -d -p 9000:9000 -e RUSTFS_ACCESS_KEY=testkey12345 -e RUSTFS_SECRET_KEY=testsecret1234567890 rustfs/rustfs:1.0.4
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm test:e2e
+      # The flows that edit again, with people sharing a draft, which is how most editing happens.
+      - run: pnpm test:e2e test/e2e/flows.spec.ts
+        env:
+          PANDOCS_E2E_LIVE: "1"
+
+  sdks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: sdks/go/go.sum
+      - run: pnpm install --frozen-lockfile
+      - run: scripts/generate-sdks.sh
+      - name: The clients match the API description
+        run: git diff --exit-code
+
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      # The layers the release builds too, so a change to the code does not install every package again.
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          load: true
+          tags: pandocs:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - run: scripts/try-image.sh pandocs:ci "$(node -p "require('./package.json').version")"

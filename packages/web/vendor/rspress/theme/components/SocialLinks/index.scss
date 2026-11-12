@@ -1,0 +1,56 @@
+.rp-social-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 100%;
+  min-height: 40px;
+  position: relative;
+
+  &__item {
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    &__hover-group {
+      width: auto;
+    }
+    &__text {
+      word-break: keep-all;
+      white-space: nowrap;
+    }
+  }
+  &__icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    color: var(--rp-c-text-2);
+
+    &:hover {
+      color: var(--rp-c-text-1);
+    }
+  }
+  &__hidden {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1rem;
+  }
+  &__github-stars {
+    flex-direction: row;
+    gap: 6px;
+    text-decoration: none;
+    color: var(--rp-c-text-2);
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: var(--rp-c-text-1);
+    }
+  }
+  &__github-stars-count {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+}

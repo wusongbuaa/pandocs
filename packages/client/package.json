@@ -1,0 +1,44 @@
+{
+  "name": "@pandocs/client",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Typed client for the Pandocs API, generated from its OpenAPI description.",
+  "keywords": [
+    "pandocs",
+    "docs",
+    "api",
+    "client",
+    "openapi"
+  ],
+  "homepage": "https://github.com/wusongbuaa/pandocs#readme",
+  "bugs": "https://github.com/wusongbuaa/pandocs/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wusongbuaa/pandocs.git",
+    "directory": "packages/client"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "generate": "pnpm dlx --package=openapi-typescript@7.13.0 --package=typescript@5.9.3 openapi-typescript ../../docs/api/openapi.yaml -o src/schema.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "tsc -p tsconfig.build.json && cp ../../LICENSE LICENSE",
+    "postpack": "rm -f LICENSE"
+  },
+  "dependencies": {
+    "openapi-fetch": "0.17.0"
+  }
+}

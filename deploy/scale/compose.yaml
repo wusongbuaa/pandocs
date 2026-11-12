@@ -1,0 +1,16 @@
+# Several replicas behind one address: `docker compose -f compose.yaml -f deploy/scale/compose.yaml up --scale pandocs=3`.
+# Replicas share nothing in memory. Here they share the file volume; with more than one machine, use S3 storage instead.
+services:
+  pandocs:
+    ports: !override []
+    environment:
+      PANDOCS_TRUST_PROXY: "true"
+
+  proxy:
+    image: caddy:2-alpine
+    depends_on:
+      - pandocs
+    command: caddy reverse-proxy --from :8080 --to pandocs:8080
+    ports:
+      - "${PANDOCS_PORT:-8080}:8080"
+    restart: unless-stopped

@@ -1,0 +1,180 @@
+import { useFrontmatter } from '@rspress/core/runtime';
+import {
+  DocContent,
+  DocFooter,
+  Outline,
+  Overview,
+  Sidebar,
+  useWatchToc,
+} from '@rspress/core/theme';
+import clsx from 'clsx';
+// eslint-disable-next-line no-restricted-imports -- Existing cross-directory dependency; retained until this component is eject-safe.
+import { useSidebarMenu } from '../../components/SidebarMenu/useSidebarMenu';
+import './index.scss';
+
+export interface DocLayoutProps {
+  beforeSidebar?: React.ReactNode;
+  afterSidebar?: React.ReactNode;
+  beforeDocFooter?: React.ReactNode;
+  afterDocFooter?: React.ReactNode;
+  beforeDoc?: React.ReactNode;
+  afterDoc?: React.ReactNode;
+  beforeDocContent?: React.ReactNode;
+  afterDocContent?: React.ReactNode;
+  beforeOutline?: React.ReactNode;
+  afterOutline?: React.ReactNode;
+  navTitle?: React.ReactNode;
+  components?: Record<string, React.FC>;
+}
+
+export function DocLayout(props: DocLayoutProps) {
+  const {
+    beforeDocFooter,
+    afterDocFooter,
+    beforeDoc,
+    afterDoc,
+    beforeDocContent,
+    afterDocContent,
+    beforeOutline,
+    afterOutline,
+    beforeSidebar,
+    afterSidebar,
+    components,
+  } = props;
+  const { frontmatter } = useFrontmatter();
+
+  const {
+    isOutlineOpen,
+    isSidebarOpen,
+    sidebarMenu,
+    asideLayoutRef,
+    sidebarLayoutRef,
+  } = useSidebarMenu(beforeOutline, afterOutline);
+
+  const { rspressDocRef } = useWatchToc();
+
+  const isOverviewPage = frontmatter?.overview ?? false;
+
+  const sidebar = frontmatter?.sidebar ?? true;
+  const showSidebar = sidebar === true;
+  const showSidebarPlaceholder = sidebar === false || sidebar === 'placeholder';
+  const isLegacyPlaceholder = sidebar === 'placeholder';
+
+  const {
+    outline: showOutline = true,
+    footer: showDocFooter = true,
+    pageType,
+  } = frontmatter;
+
+  const showSidebarMenu = showSidebar || (!isOverviewPage && showOutline);
+
+  if (import.meta.env.SSG_MD) {
+    return (
+      <>
+        {isOverviewPage ? (
+          <Overview
+            content={<DocContent components={components} isOverviewPage />}
+          />
+        ) : (
+          <DocContent components={components} />
+        )}
+      </>
+    );
+  }
+
+  const isDocWide = pageType === 'doc-wide';
+
+  return (
+    <>
+      {showSidebarMenu && (
+        <div className="rp-doc-layout__menu">{sidebarMenu}</div>
+      )}
+      {beforeDoc}
+      <div
+        className={clsx(
+          'rp-doc-layout__container',
+          !showSidebarMenu && 'rp-doc-layout__container--no-menu',
+        )}
+      >
+        {/* Sidebar */}
+        {showSidebar ? (
+          <aside
+            className={clsx(
+              'rp-doc-layout__sidebar',
+              isSidebarOpen && 'rp-doc-layout__sidebar--open',
+              'rp-scrollbar',
+            )}
+            ref={sidebarLayoutRef}
+          >
+            {beforeSidebar}
+            <Sidebar />
+            {afterSidebar}
+          </aside>
+        ) : showSidebarPlaceholder ? (
+          <aside
+            className={clsx(
+              'rp-doc-layout__sidebar-placeholder',
+              isLegacyPlaceholder &&
+                'rp-doc-layout__sidebar-placeholder--legacy',
+            )}
+            style={isDocWide ? { width: '0' } : {}}
+          ></aside>
+        ) : null}
+
+        {/* Main document content */}
+        {isOverviewPage ? (
+          <>
+            <main className="rp-doc-layout__overview">
+              {beforeDocContent}
+              <Overview
+                content={<DocContent components={components} isOverviewPage />}
+              />
+              {afterDocContent}
+            </main>
+          </>
+        ) : (
+          <div
+            className={clsx(
+              'rp-doc-layout__doc',
+              isDocWide && 'rp-doc-layout__doc--wide',
+            )}
+          >
+            <main className="rp-doc-layout__doc-container">
+              {beforeDocContent}
+              <div className="rp-doc rspress-doc" ref={rspressDocRef}>
+                <DocContent components={components} />
+              </div>
+              {afterDocContent}
+              {beforeDocFooter}
+              {showDocFooter && <DocFooter />}
+              {afterDocFooter}
+            </main>
+          </div>
+        )}
+
+        {/* Right outline */}
+        {isOverviewPage ? null : showOutline ? (
+          <aside
+            className={clsx(
+              'rp-doc-layout__outline',
+              isOutlineOpen && 'rp-doc-layout__outline--open',
+              'rp-scrollbar',
+            )}
+            ref={asideLayoutRef}
+          >
+            {beforeOutline}
+            <Outline />
+            {afterOutline}
+          </aside>
+        ) : (
+          <aside
+            className="rp-doc-layout__outline-placeholder"
+            style={isDocWide ? { width: '0' } : {}}
+          ></aside>
+        )}
+      </div>
+
+      {afterDoc}
+    </>
+  );
+}
