@@ -2,6 +2,15 @@
 # Run once, when the container is made.
 set -euo pipefail
 
+# The Node feature makes the last version it installed the one on the PATH, through $NVM_DIR/current, and that is 22,
+# which only Playwright's installer needs. Everything else runs on 26.
+set +u
+. "$NVM_DIR/nvm.sh"
+nvm alias default 26 >/dev/null
+ln -sfn "$NVM_DIR/versions/node/$(nvm version 26)" "$NVM_DIR/current"
+nvm use 26 >/dev/null
+set -u
+
 # Node 26 comes without Corepack, so pnpm is installed at the version package.json names.
 npm install --global "pnpm@$(node -p 'require("./package.json").packageManager.split("@")[1]')"
 # A modules folder from another system, such as one the host left, is replaced without asking.
@@ -16,4 +25,5 @@ await client.end();
 '
 # Playwright's installer hangs while unpacking on Node 26, so it runs on 22. See CONTRIBUTING.
 version="$(node -p 'require("./package.json").devDependencies["@playwright/test"]')"
-bash -ic "nvm exec 22 npx --yes playwright@$version install --with-deps chromium"
+# Without the setting, nvm would point $NVM_DIR/current back at 22 as it switches.
+NVM_SYMLINK_CURRENT=false nvm exec 22 npx --yes "playwright@$version" install --with-deps chromium
