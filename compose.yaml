@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
 
   pandocs:
-    image: ghcr.io/wusongbuaa/pandocs:${PANDOCS_VERSION:-0.1.0}
+    image: ghcr.io/wusongbuaa/pandocs:${PANDOCS_VERSION:-0.1.1}
     build: .
     depends_on:
       postgres:
@@ -42,7 +42,7 @@ services:
   # Converting what the built-in conversion cannot: old Office formats, and with Docling, scans. Off unless asked for,
   # with COMPOSE_PROFILES=converter, or converter,docling, in .env. See docs/importing-files.md.
   converter:
-    image: ghcr.io/wusongbuaa/pandocs-converter:${PANDOCS_VERSION:-0.1.0}
+    image: ghcr.io/wusongbuaa/pandocs-converter:${PANDOCS_VERSION:-0.1.1}
     build:
       context: .
       dockerfile: deploy/converter/Dockerfile
