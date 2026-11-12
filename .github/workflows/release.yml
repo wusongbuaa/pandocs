@@ -258,9 +258,11 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       # Not among the repository's own files, which have folders of the same names.
+      # Only what is published: the build records the image jobs upload are not archives, and download-artifact cannot unpack them.
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: ${{ runner.temp }}/made
+          pattern: "{notes,packages,cli}"
       - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: The chart
         run: |
