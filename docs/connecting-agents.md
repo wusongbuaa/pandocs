@@ -61,13 +61,15 @@ It can list spaces and pages, search, read, and report what is wrong with a page
 {
   "mcpServers": {
     "pandocs": {
-      "command": "pandocs",
-      "args": ["mcp"],
+      "command": "npx",
+      "args": ["-y", "@pandocs/cli", "mcp"],
       "env": { "PANDOCS_URL": "https://docs.example.com", "PANDOCS_TOKEN": "pd_your_token" }
     }
   }
 }
 ```
+
+With the command line installed, `"command": "pandocs", "args": ["mcp"]` does the same without asking npm first.
 
 ## Telling people what is wrong
 

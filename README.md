@@ -54,7 +54,8 @@ It runs the released image; `docker compose up --build` runs what is checked out
 | `packages/server` | The server process: accounts, OIDC and OAuth, API tokens, MCP, model calls, serving the web app. |
 | `packages/web` | The web application, built on a verbatim copy of the Rspress theme. |
 | `packages/embed` | The `<pandocs-doc>` web component and its React wrapper. |
-| `cli` | The `pandocs` command line, in Go: a single binary with no runtime to install. |
+| `cli` | The `pandocs` command line, in Go: a single binary with no runtime to install. `npm install -g @pandocs/cli` installs it too. |
+| `packages/cli` | What npm installs as `@pandocs/cli`: a few lines of Node that run the binary for the system, from a package of its own for each. |
 | `packages/client`, `sdks/go` | Typed clients for TypeScript and Go, generated from the API description. |
 | `docs/api/openapi.yaml` | The HTTP API. Tests keep it in step with the routes and with what the server really sends. |
 

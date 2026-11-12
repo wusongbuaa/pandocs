@@ -66,7 +66,15 @@ Measured on a kernel NFS server with two separate clients, 10,000 pages and defa
 
 ## The command line
 
-Single binaries for macOS, Linux and Windows on the releases page. Create a token on your account page, then:
+Install it with npm, which picks the binary for your system:
+
+```bash
+npm install -g @pandocs/cli
+```
+
+Or run it with no install, as `npx @pandocs/cli <command>`. Without Node, take the single binary for macOS, Linux or Windows from the releases page, where each comes with a checksum and signed provenance. Both are the same build.
+
+Create a token on your account page, then:
 
 ```bash
 pandocs login --server https://docs.example.com
