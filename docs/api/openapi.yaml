@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Pandocs API
-  version: 0.1.0
+  version: 0.1.1
   description: >-
     Pandocs' HTTP API. Most of it is in @pandocs/core, and paths marked x-served-by: server are in @pandocs/server.
     Identity comes from a signed-in session or an API token (with the scope read or write).
