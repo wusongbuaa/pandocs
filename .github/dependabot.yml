@@ -12,3 +12,7 @@ updates:
     directories: [/, /deploy/converter]
     schedule:
       interval: weekly
+    ignore:
+      # markitdown, which the converter is built on, does not install on 3.15 yet.
+      - dependency-name: python
+        versions: [">=3.15"]
