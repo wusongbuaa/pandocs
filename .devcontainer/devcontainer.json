@@ -20,7 +20,13 @@
   "forwardPorts": [8080],
   "customizations": {
     "vscode": {
-      "extensions": ["oxc.oxc-vscode", "golang.go", "vitest.explorer", "EditorConfig.EditorConfig"]
+      "extensions": ["oxc.oxc-vscode", "golang.go", "vitest.explorer", "EditorConfig.EditorConfig"],
+      "settings": {
+        "[javascript][typescript][typescriptreact][json][jsonc][css]": {
+          "editor.defaultFormatter": "oxc.oxc-vscode",
+          "editor.formatOnSave": true
+        }
+      }
     }
   }
 }

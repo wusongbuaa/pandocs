@@ -75,7 +75,7 @@ See also [CONTRIBUTING](./CONTRIBUTING.md), and the [changelog](./CHANGELOG.md) 
 ```bash
 pnpm install
 export TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
-pnpm typecheck && pnpm lint && pnpm test
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm test
 pnpm build
 pnpm test:e2e   # real browser flows; needs Playwright's Chromium
                 # install it with an older Node: on Node 26 Playwright's installer hangs while unpacking

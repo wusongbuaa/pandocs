@@ -7,7 +7,7 @@ You need Node 26, pnpm, Go and a PostgreSQL server. Or open the repository in it
 ```bash
 pnpm install
 export TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
-pnpm typecheck && pnpm lint && pnpm test
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm test
 ```
 
 `pnpm test:e2e` runs real browser flows. It needs Playwright's Chromium, which you have to install with an older Node, since on Node 26 its installer hangs while unpacking. With nvm: `nvm exec 22 npx playwright@1.58.2 install chromium`. `PANDOCS_E2E_ENGINE=firefox` or `PANDOCS_E2E_ENGINE=webkit` runs them in Firefox or in WebKit, Safari's engine, once that browser is installed the same way. CI runs them in Chromium on every push, and in the other two once a week; to run those now, start the "Other browsers" workflow from the Actions tab, or with `gh workflow run browsers.yml`.
@@ -22,7 +22,7 @@ pnpm typecheck && pnpm lint && pnpm test
 - **Changing something people will notice?** Add a line under *Unreleased* in the [changelog](./CHANGELOG.md), for someone running or using it.
 - **Touching publishing, or the chart?** `test/nfs/run.sh` and `test/helm/run.sh` try them for real, and take a few minutes.
 - Write comments that say why, not what. Tests should read as what the product promises.
-- Editors that read [.editorconfig](./.editorconfig) keep the whitespace the same. Wrap lines the way the code around them does: there is no formatter yet, because one would rewrite most files at once.
+- `pnpm format` lays out the code, with [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html) and the settings in [.oxfmtrc.json](./.oxfmtrc.json), and CI fails on code it would change. Your editor can do it on save with the oxc extension. Markdown, YAML and HTML are left as written, and so are the Rspress copy and the generated API types. Other files follow [.editorconfig](./.editorconfig).
 
 ## Pull requests
 

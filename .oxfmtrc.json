@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 120,
+  "semi": true,
+  "singleQuote": false,
+  "trailingComma": "none",
+  "arrowParens": "avoid",
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "packages/web/vendor/**",
+    "packages/client/src/schema.ts",
+    "packages/markdown/test/fixtures/**",
+    "**/*.md",
+    "**/*.yaml",
+    "**/*.html",
+    "**/*.yml",
+    "pnpm-lock.yaml",
+    ".devcontainer/devcontainer-lock.json",
+    "**/dist/**"
+  ]
+}
