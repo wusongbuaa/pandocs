@@ -1,7 +1,7 @@
 # The converter Pandocs can send files to. Built from the repository's root, for its license:
 #   docker build -f deploy/converter/Dockerfile -t pandocs-converter .
 # By digest, so that the same build gives the same image; Dependabot moves it on.
-FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
+FROM python:3.14-slim-bookworm@sha256:3fe1a0b6c2d6b2ebb572906cdabeca75aeb558c0c17db5ffefbcf8094871c32b
 
 # For old Office formats. Built with LIBREOFFICE=false, the image is a good deal smaller and refuses them.
 ARG LIBREOFFICE=true
