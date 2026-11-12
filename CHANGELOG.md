@@ -8,6 +8,11 @@ What changes for someone running or using Pandocs. The format follows [Keep a Ch
 
 - Coming back from the Markdown source in a shared draft changes only the blocks that are different, and leaves the rest of the page to the others in it. It used to put the whole page back, which could take away a space someone was typing at the end of a paragraph at that moment.
 
+### Running it
+
+- `docker compose up` runs the released images instead of building them, which makes the first start a download of a few minutes rather than a build. `docker compose up --build` still runs what is checked out, and a version not released yet is built as before. To update, `git pull && docker compose pull && docker compose up -d`.
+- Images, the command line and the Helm chart come with signed build provenance, the images with an SBOM, and the npm packages with npm's provenance. Check one with `gh attestation verify`; see [Releasing](docs/releasing.md).
+
 ## 0.1.0 - 2026-11-12
 
 The first release.

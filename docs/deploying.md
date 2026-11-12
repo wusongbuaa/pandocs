@@ -128,7 +128,7 @@ Use a recent minor version of 14 or newer. Migrations run by themselves at start
 
 ## Updating
 
-Start the new version. It updates the database when it starts, one replica at a time, and replicas still on the old version keep working meanwhile. With the chart that is `helm upgrade`, and on one machine `git pull && docker compose up -d --build`. Read the [changelog](../CHANGELOG.md) first: anything you have to do is under *Upgrading*.
+Start the new version. It updates the database when it starts, one replica at a time, and replicas still on the old version keep working meanwhile. With the chart that is `helm upgrade`, and on one machine `git pull && docker compose pull && docker compose up -d`, or `docker compose up -d --build` to run what is checked out. Read the [changelog](../CHANGELOG.md) first: anything you have to do is under *Upgrading*.
 
 Going back to the version before works the same way, since updates only add to the database. Make a backup first all the same.
 

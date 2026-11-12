@@ -105,7 +105,7 @@ Roughly what to expect from one replica on a laptop, on 10,000 pages (`scripts/b
 
 ## Updating and backups
 
-**Updating.** Start the new version. It updates the database when it starts, one replica at a time, and replicas on the old version keep working meanwhile. With the chart that is `helm upgrade`, and on one machine `git pull && docker compose up -d --build`. Read the changelog first: anything you have to do is under *Upgrading*.
+**Updating.** Start the new version. It updates the database when it starts, one replica at a time, and replicas on the old version keep working meanwhile. With the chart that is `helm upgrade`, and on one machine `git pull && docker compose pull && docker compose up -d`, or `docker compose up -d --build` to run what is checked out. Read the changelog first: anything you have to do is under *Upgrading*.
 
 **Backups.** Back up PostgreSQL and the files, which are in the bucket, or with Docker Compose in the `data` volume. The shared directory rebuilds itself. Dump the database first and copy the files after, so that the copy has everything the dump refers to. With Docker Compose, these have been tried:
 

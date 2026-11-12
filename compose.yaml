@@ -1,4 +1,6 @@
 # A complete site on one machine: `docker compose up`, then open http://localhost:8080 and create the administrator.
+# It runs the released images. A version not released yet, such as one set for the next release, is built from here,
+# and `docker compose up --build` builds what is checked out.
 services:
   postgres:
     image: postgres:18-alpine
@@ -19,6 +21,7 @@ services:
     restart: unless-stopped
 
   pandocs:
+    image: ghcr.io/wusongbuaa/pandocs:${PANDOCS_VERSION:-0.1.0}
     build: .
     depends_on:
       postgres:
@@ -39,6 +42,7 @@ services:
   # Converting what the built-in conversion cannot: old Office formats, and with Docling, scans. Off unless asked for,
   # with COMPOSE_PROFILES=converter, or converter,docling, in .env. See docs/importing-files.md.
   converter:
+    image: ghcr.io/wusongbuaa/pandocs-converter:${PANDOCS_VERSION:-0.1.0}
     build:
       context: .
       dockerfile: deploy/converter/Dockerfile

@@ -159,6 +159,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # To sign where the image came from.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
@@ -186,6 +189,7 @@ jobs:
             type=semver,pattern={{version}},value=${{ needs.check.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.check.outputs.version }}
       - name: Build for every platform
+        id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -194,6 +198,15 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
+          # What it was built from and what is in it, next to the image: `docker buildx imagetools inspect`.
+          provenance: mode=max
+          sbom: true
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: needs.check.outputs.publish == 'true'
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
   # The converter for what the built-in conversion cannot read, as an image of its own.
   converter:
@@ -204,6 +217,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # To sign where the image came from.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
@@ -232,6 +248,7 @@ jobs:
             type=semver,pattern={{version}},value=${{ needs.check.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.check.outputs.version }}
       - name: Build for every platform
+        id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -241,6 +258,14 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=converter
+          provenance: mode=max
+          sbom: true
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: needs.check.outputs.publish == 'true'
+        with:
+          subject-name: ghcr.io/${{ github.repository }}-converter
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
   # Only what was tried above goes out. Each step leaves alone what a run before it already did, so a failed run can be run again.
   publish:
@@ -251,6 +276,9 @@ jobs:
     permissions:
       contents: write
       packages: write
+      # To sign where the command line and the chart came from, and for npm's provenance.
+      id-token: write
+      attestations: write
     env:
       VERSION: ${{ needs.check.outputs.version }}
       TAG: v${{ needs.check.outputs.version }}
@@ -263,6 +291,12 @@ jobs:
         with:
           path: ${{ runner.temp }}/made
           pattern: "{notes,packages,cli}"
+      # Anyone can check a download with `gh attestation verify <file> --repo <owner>/pandocs`.
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ runner.temp }}/made/cli/pandocs-*
+            ${{ runner.temp }}/made/packages/chart/pandocs-${{ needs.check.outputs.version }}.tgz
       - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
       - name: The chart
         run: |
@@ -283,7 +317,7 @@ jobs:
           case "$VERSION" in *-*) channel=next ;; *) channel=latest ;; esac
           for name in client embed; do
             if ! npm view "@pandocs/$name@$VERSION" version >/dev/null 2>&1; then
-              npm publish "$RUNNER_TEMP/made/packages/npm/pandocs-$name-$VERSION.tgz" --access public --tag "$channel"
+              npm publish "$RUNNER_TEMP/made/packages/npm/pandocs-$name-$VERSION.tgz" --access public --tag "$channel" --provenance
             fi
           done
       - name: The GitHub release

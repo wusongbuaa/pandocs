@@ -1,4 +1,5 @@
-# Actions are pinned to commits, so that a tag moved upstream cannot change what runs here. This keeps the pins current.
+# Actions are pinned to commits, so that a tag moved upstream cannot change what runs here. This keeps the pins current,
+# and the rest of what Pandocs is built from with them.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -16,3 +17,31 @@ updates:
       # markitdown, which the converter is built on, does not install on 3.15 yet.
       - dependency-name: python
         versions: [">=3.15"]
+  # The whole pnpm workspace, from the one lockfile at the root.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      # Small updates together, so they are one pull request to review a week rather than dozens.
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # The browser tests install this exact Playwright with an older Node, in ci.yml and browsers.yml, which an
+      # update has to change too.
+      - dependency-name: "@playwright/test"
+      # Copies of the theme's own pins: they move with the Rspress copy in packages/web/vendor, not on their own.
+      - dependency-name: "@rspress/*"
+      # Patched at the version they are, in pnpm-workspace.yaml: moving one means checking its patch. See patches/README.md.
+      - dependency-name: "@tiptap/extension-list"
+      - dependency-name: micromark-util-edit-map
+  - package-ecosystem: gomod
+    directories: [/cli, /sdks/go]
+    schedule:
+      interval: weekly
+    groups:
+      go:
+        patterns: ["*"]
+  # The converter's Python packages are not here: requirements.lock holds each with its hashes, which Dependabot cannot
+  # make again. See deploy/converter/README.md.

@@ -21,3 +21,6 @@ test/helm/.kubeconfig
 /out/
 /packages/client/LICENSE
 /packages/embed/LICENSE
+
+# pnpm keeps its store beside the project when the home folder is on another disk, as in the development container.
+.pnpm-store/

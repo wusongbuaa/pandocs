@@ -13,7 +13,7 @@ A release is a tag, `vX.Y.Z`, on a commit whose CI passed. Everything else follo
 | The Go client | The tag `sdks/go/vX.Y.Z`, which is what Go looks for | Always |
 | `@pandocs/client` and `@pandocs/embed` | npm | The repository variable `PUBLISH_NPM`, and the secret `NPM_TOKEN` |
 
-While the repository is private, leave the variable unset. An image in a private repository's registry needs a login to pull, and nothing outside the repository can see any of this.
+Each image, the command line and the chart carry a signed record of the workflow run that built them, and the images an SBOM too. Anyone can check one with `gh attestation verify <file or oci://image> --repo wusongbuaa/pandocs`. What goes to npm carries npm's provenance, shown on the package's page.
 
 ## Trying it without releasing
 

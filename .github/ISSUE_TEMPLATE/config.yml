@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Ask a question
+    url: https://github.com/wusongbuaa/pandocs/discussions
+    about: How to do something, or whether Pandocs can. See SUPPORT.md.
   - name: Report a vulnerability
     url: https://github.com/wusongbuaa/pandocs/security/advisories/new
     about: Privately, rather than in a public issue. See SECURITY.md.

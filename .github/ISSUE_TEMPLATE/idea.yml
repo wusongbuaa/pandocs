@@ -1,6 +1,6 @@
 name: An idea
 description: Something Pandocs could do, or do differently.
-labels: [enhancement]
+labels: [enhancement, needs-triage]
 body:
   - type: textarea
     id: problem

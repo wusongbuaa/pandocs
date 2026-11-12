@@ -1,10 +1,21 @@
 <p align="center"><img src="packages/web/public/logo.svg" width="96" height="96" alt=""></p>
 
+<p align="center">
+  <a href="https://github.com/wusongbuaa/pandocs/actions/workflows/ci.yml"><img src="https://github.com/wusongbuaa/pandocs/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/wusongbuaa/pandocs/releases/latest"><img src="https://img.shields.io/github/v/release/wusongbuaa/pandocs?sort=semver" alt="Release"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/wusongbuaa/pandocs" alt="License: Apache-2.0"></a>
+  <a href="https://www.npmjs.com/package/@pandocs/client"><img src="https://img.shields.io/npm/v/@pandocs/client?label=%40pandocs%2Fclient" alt="npm"></a>
+  <a href="https://pkg.go.dev/github.com/wusongbuaa/pandocs/sdks/go"><img src="https://pkg.go.dev/badge/github.com/wusongbuaa/pandocs/sdks/go.svg" alt="Go Reference"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/wusongbuaa/pandocs"><img src="https://api.scorecard.dev/projects/github.com/wusongbuaa/pandocs/badge" alt="OpenSSF Scorecard"></a>
+</p>
+
 # Pandocs
 
 Pandocs 让人和智能体在同一页上协作：一个事实源，两个入口。人在网页上协作，智能体通过文件和工具协作，结果都落在同一份带版本的文档里。名字由英文的熊猫（panda）和文档（docs）拼成，徽标是一只扒着书往外看的熊猫。
 
 [English](./README.md)。下面链接到的详细文档目前只有英文版。
+
+![Pandocs 自带文档中的一页：侧边栏、带评论、编辑、历史和关注工具的页面，以及目录](./docs/images/screenshot.png)
 
 - **动态文档站。** 基于 Rspress 主题的 Markdown，支持步骤、标签页、卡片、流程图、图表、公式和幻灯片。改了页面不用重新构建，页面从服务端出来就是完整的，有真正的 404、站点地图和分享卡片。可以按空间一键公开，也可以全部放在登录之后。
 - **从文档里找答案。** 搜索框旁边的“智能问答”按提问人的权限查找和阅读页面，回答都链接到来源页面。不需要向量库，任何支持工具调用的模型都能用。
@@ -31,7 +42,7 @@ Pandocs 让人和智能体在同一页上协作：一个事实源，两个入口
 docker compose up
 ```
 
-打开 <http://localhost:8080>，创建管理员账号。配置项见 [.env.example](./.env.example)。想看看效果，点**导入示例文档**，一键导入 Pandocs 自己的使用文档。
+默认运行发布好的镜像，要运行检出的代码就用 `docker compose up --build`。打开 <http://localhost:8080>，创建管理员账号。配置项见 [.env.example](./.env.example)。想看看效果，点**导入示例文档**，一键导入 Pandocs 自己的使用文档。
 
 ## 目录
 
@@ -59,7 +70,7 @@ docker compose -f compose.yaml -f deploy/scale/compose.yaml up --scale pandocs=3
 
 ## 开发
 
-另见[贡献指南](./CONTRIBUTING.md)。改动记录见[更新记录](./CHANGELOG.md)。需要 Node 26、pnpm、Go 和一个 PostgreSQL。
+另见[贡献指南](./CONTRIBUTING.md)。改动记录见[更新记录](./CHANGELOG.md)。需要 Node 26、pnpm、Go 和一个 PostgreSQL，或者直接用[开发容器](./.devcontainer/devcontainer.json)，里面都装好了。有问题请到 [Discussions](https://github.com/wusongbuaa/pandocs/discussions) 提问，见[获取帮助](./SUPPORT.md)和[项目治理](./GOVERNANCE.md)。
 
 ```bash
 pnpm install

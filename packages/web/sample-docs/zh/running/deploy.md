@@ -105,7 +105,7 @@ autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 10 }
 
 ## 更新和备份
 
-**更新**：启动新版本就行，数据库在启动时一个副本接一个副本地更新，旧版本的副本同时继续工作。Chart 用 `helm upgrade`，单机用 `git pull && docker compose up -d --build`。先读一下更新记录（英文），需要你做的事都写在“Upgrading”一节。
+**更新**：启动新版本就行，数据库在启动时一个副本接一个副本地更新，旧版本的副本同时继续工作。Chart 用 `helm upgrade`，单机用 `git pull && docker compose pull && docker compose up -d`，要运行检出的代码就用 `docker compose up -d --build`。先读一下更新记录（英文），需要你做的事都写在“Upgrading”一节。
 
 **备份**：备份 PostgreSQL 和文件就够了，文件在存储桶里，用 Docker Compose 时在 `data` 卷里；共享目录会自己重建。先导出数据库，再复制文件，这样复制到的文件包含数据库里用到的全部。用 Docker Compose 时，下面这些命令实际试过：
 
