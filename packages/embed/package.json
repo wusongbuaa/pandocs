@@ -1,6 +1,6 @@
 {
   "name": "@pandocs/embed",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "license": "Apache-2.0",
   "description": "Puts a Pandocs page inside another web app, with comments and suggestions, as a web component or a React component.",

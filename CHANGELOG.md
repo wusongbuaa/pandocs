@@ -4,6 +4,12 @@ What changes for someone running or using Pandocs. The format follows [Keep a Ch
 
 ## Unreleased
 
+## 0.1.2 - 2026-11-13
+
+### Connecting other things
+
+- The command line is on npm: `npm install -g @pandocs/cli`, or `npx @pandocs/cli <command>` with no install. npm picks the binary for macOS, Linux or Windows on x64 or arm64 from a package of its own, such as `@pandocs/cli-linux-x64`, and it is the same build as on the releases page. An MCP client that only speaks stdio can start it with `npx -y @pandocs/cli mcp`.
+
 ## 0.1.1 - 2026-11-12
 
 ### Writing together
