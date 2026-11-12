@@ -42,7 +42,7 @@ pods() { kubectl get pods -l "app.kubernetes.io/component=$1" -o jsonpath='{.ite
 
 step "Starting a cluster"
 kind create cluster --name "$CLUSTER" --config kind.yaml --wait 120s >/dev/null 2>&1
-for image in pandocs:local postgres:18-alpine rustfs/rustfs:latest; do
+for image in pandocs:local postgres:18-alpine rustfs/rustfs:1.0.4; do
   # Only this machine's platform: a pulled image may list others that Docker never downloaded.
   docker save --platform "linux/$ARCH" "$image" | docker exec -i "$NODE" ctr --namespace k8s.io images import - >/dev/null
 done
