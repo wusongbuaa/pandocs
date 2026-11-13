@@ -24,6 +24,7 @@ The parts that keep a connection safe:
 - **Answers say who they are from**, in an `iss` parameter (RFC 9207), so an app connected to several servers cannot be handed this one's code by another.
 - **An app can give up its connection itself**, at `/oauth/revoke` with either of its tokens (RFC 7009).
 - **Any app can register, under any name.** The page asking the person says so, and shows where the app returns to.
+- **Only the command line signs in as the person.** `pandocs login` uses this flow too, as a client the server comes with, `pandocs-cli`, which can only return to `127.0.0.1`. Its tokens act as the person, so `pandocs commit` saves. Anything that registers itself, whatever it is called, connects as an agent.
 
 ## An MCP client, with a token
 

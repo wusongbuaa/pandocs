@@ -5,6 +5,8 @@ const escapeHtml = (text: string) => text.replace(/[&<>"']/gu, character => `&#$
 
 export interface ConsentPageInput {
   readonly clientName: string;
+  /** The command line, which acts as the person rather than as an agent. */
+  readonly asPerson?: boolean | undefined;
   readonly redirectUri: string;
   readonly userName: string;
   readonly scopes: readonly ("read" | "write")[];
@@ -20,17 +22,20 @@ export function renderConsentPage(input: ConsentPageInput): { html: string; csp:
   const target = new URL(input.redirectUri);
   const destination = target.protocol === "http:" || target.protocol === "https:" ? target.origin : target.protocol;
   const fields = Object.entries(input.fields).map(([name, value]) => `<input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(value)}">`).join("");
+  const writing = input.asPerson ? t("Save, publish and delete as you, wherever you can") : t("Comment and suggest changes, for someone with edit access to review");
   const abilities = [
     t("Read the documents you can see"),
-    ...(input.scopes.includes("write") ? [t("Comment and suggest changes, for someone with edit access to review")] : [])
+    ...(input.scopes.includes("write") ? [writing] : [])
   ].map(item => `<li>${escapeHtml(item)}</li>`).join("");
-  const html = signInPage(t("Authorize an app"), `<h1 class="pd-sign-in__title">${t("Authorize {0}", escapeHtml(input.clientName))}</h1>
-<p class="pd-sign-in__text">${t("{0}, this app wants to connect to your account as an agent:", escapeHtml(input.userName))}</p>
+  const about = input.asPerson ? `<p class="pd-sign-in__text">${t("{0}, the Pandocs command line on your computer wants to sign in as you:", escapeHtml(input.userName))}</p>
 <ul class="pd-sign-in__list">${abilities}</ul>
-<p class="pd-sign-in__text">${t("It cannot change documents directly, and can never do more than you can. Disconnect it at any time under \"Account and tokens\".")}</p>
+<p class="pd-sign-in__text">${t("Authorize it only if you just ran pandocs login yourself. Sign it out at any time under \"Account and tokens\".")}</p>` : `<p class="pd-sign-in__text">${t("{0}, this app wants to connect to your account as an agent:", escapeHtml(input.userName))}</p>
+<ul class="pd-sign-in__list">${abilities}</ul>
+<p class="pd-sign-in__text">${t("It cannot change documents directly, and can never do more than you can. Disconnect it at any time under \"Account and tokens\".")}</p>`;
+  const html = signInPage(t("Authorize an app"), `<h1 class="pd-sign-in__title">${t("Authorize {0}", escapeHtml(input.clientName))}</h1>
+${about}
 <p class="pd-sign-in__text">${t("Afterwards it returns to:")}<br><span class="pd-sign-in__code">${escapeHtml(input.redirectUri)}</span></p>
-<p class="pd-sign-in__text">${t("Any app can register itself under any name. Authorize it only if you know where it returns to.")}</p>
-<form method="post" action="${input.look?.base ?? ""}/oauth/authorize">
+${input.asPerson ? "" : `<p class="pd-sign-in__text">${t("Any app can register itself under any name. Authorize it only if you know where it returns to.")}</p>\n`}<form method="post" action="${input.look?.base ?? ""}/oauth/authorize">
 ${fields}
 <div class="pd-sign-in__actions">
 <button class="pd-sign-in__secondary" type="submit" name="decision" value="deny">${t("Deny")}</button>

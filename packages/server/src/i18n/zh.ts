@@ -38,6 +38,7 @@ export const zh: Readonly<Record<string, string>> = {
   "Authorize": "授权",
   "Authorize an app": "授权应用",
   "Authorize {0}": "授权 {0}",
+  "Authorize it only if you just ran pandocs login yourself. Sign it out at any time under \"Account and tokens\".": "只有你刚刚自己运行了 pandocs login 时才授权。随时可以在“账号与令牌”里让它退出登录。",
   "Back to sign in": "返回登录",
   "Cannot convert {0}": "转换不了 {0}",
   "Choose a new password for {0}": "为 {0} 设置新密码",
@@ -81,6 +82,7 @@ export const zh: Readonly<Record<string, string>> = {
   "Read the documents you can see": "读取你能看到的文档",
   "Requests from other sites are refused": "拒绝来自其他站点的请求",
   "Save and sign in": "保存并登录",
+  "Save, publish and delete as you, wherever you can": "以你的身份保存、发布和删除，范围和你本人一样",
   "Send the link": "发送链接",
   "Sheet \"{0}\"": "工作表“{0}”",
   "Should be an origin such as https://app.example.com": "应该是 https://app.example.com 这样的来源",
@@ -188,6 +190,7 @@ export const zh: Readonly<Record<string, string>> = {
   "{0} updated a page": "{0} 更新了页面",
   "{0} was left out": "{0}没有导入",
   "{0} {0|image|images} from the conversion service could not be kept": "转换服务返回的 {0} 张图片没能保存",
+  "{0}, the Pandocs command line on your computer wants to sign in as you:": "{0}，你电脑上的 Pandocs 命令行想以你本人的身份登录：",
   "{0}, this app wants to connect to your account as an agent:": "{0}，这个应用想以智能体的身份连接你的账号：",
   "… and {0} more": "……还有 {0} 条"
 };
