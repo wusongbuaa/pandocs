@@ -5,7 +5,7 @@ import { renderConsentPage } from "../auth/consent-page.js";
 import type { Identity } from "../auth/identity.js";
 import type { SiteLook } from "../auth/login-page.js";
 import type { LoginThrottle } from "../auth/throttle.js";
-import { ACCESS_TTL_SECONDS, matchesRedirect, scopesFrom, validRedirectUri, type IssuedTokens, type OAuthClient, type OAuthStore } from "../auth/oauth.js";
+import { ACCESS_TTL_SECONDS, CLI_CLIENT_ID, matchesRedirect, scopesFrom, validRedirectUri, type IssuedTokens, type OAuthClient, type OAuthStore } from "../auth/oauth.js";
 import { clientAddress } from "../client-address.js";
 import type { Config } from "../config.js";
 
@@ -58,7 +58,9 @@ export function registerOAuthRoutes(app: Hono, deps: { config: Pick<Config, "sit
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
     token_endpoint_auth_methods_supported: ["none"],
-    scopes_supported: ["read", "write"]
+    scopes_supported: ["read", "write"],
+    // Not a standard field: it tells the command line this server signs it in through the browser.
+    pandocs_cli_client_id: CLI_CLIENT_ID
   }));
   for (const path of ["/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-authorization-server", "/oauth/register", "/oauth/token", "/oauth/revoke"]) {
     app.options(path, () => new Response(null, { status: 204, headers: CORS }));
@@ -128,6 +130,7 @@ export function registerOAuthRoutes(app: Hono, deps: { config: Pick<Config, "sit
     const page = renderConsentPage({
       look: await deps.siteLook(),
       clientName: request.client.clientName,
+      asPerson: request.client.clientId === CLI_CLIENT_ID,
       redirectUri: request.redirectUri,
       userName: user.displayName,
       scopes: request.scopes,

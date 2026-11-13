@@ -4,6 +4,10 @@ What changes for someone running or using Pandocs. The format follows [Keep a Ch
 
 ## Unreleased
 
+### Connecting other things
+
+- `pandocs login` signs in through the browser. It opens the site, you say yes there, and it comes back signed in as you, renewing itself until you run `pandocs logout`, which ends it on the server too. Over SSH or without a display it prints the address to open instead. A token still works: `pandocs login --token` asks for one, and a token on stdin, `PANDOCS_TOKEN` and `PANDOCS_URL` work as before, so scripts and CI need no change. The command line shows under **Connected apps**, where it can be signed out from.
+
 ## 0.1.2 - 2026-11-13
 
 ### Connecting other things

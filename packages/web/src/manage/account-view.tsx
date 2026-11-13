@@ -113,6 +113,7 @@ function PasswordForm() {
 interface ConnectedApp {
   readonly id: string;
   readonly clientName: string;
+  readonly kind: "user" | "agent";
   readonly scopes: readonly string[];
   readonly createdAt: string;
   readonly lastUsedAt: string;
@@ -141,7 +142,7 @@ function ConnectedApps() {
               {list.map(connected => (
                 <tr key={connected.id}>
                   <td>{connected.clientName}<div className="pd-table__note">{t("Authorized {0}", relativeTime(connected.createdAt))}</div></td>
-                  <td>{connected.scopes.includes("write") ? t("Read, comment and suggest") : t("Read only")}</td>
+                  <td>{!connected.scopes.includes("write") ? t("Read only") : connected.kind === "user" ? t("Read and write") : t("Read, comment and suggest")}</td>
                   <td>{relativeTime(connected.lastUsedAt)}</td>
                   <td className="pd-table__actions"><Button variant="outline" size="sm" onClick={() => void disconnect(connected)}>{t("Disconnect")}</Button></td>
                 </tr>

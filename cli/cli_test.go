@@ -5,12 +5,15 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -1050,5 +1053,284 @@ func TestToolArguments(t *testing.T) {
 	}
 	if _, err := toolArguments(a, []string{"{nope"}, nil); err == nil {
 		t.Fatal("accepted bad JSON")
+	}
+}
+
+// fakeAuth is a server that signs the command line in through the browser, reduced to the parts it uses.
+type fakeAuth struct {
+	t         *testing.T
+	url       string
+	lock      sync.Mutex
+	challenge string
+	redirect  string
+	access    string
+	refresh   string
+	refreshes atomic.Int32
+	revoked   []string
+}
+
+func newFakeAuth(t *testing.T) *fakeAuth {
+	t.Helper()
+	fake := &fakeAuth{t: t, access: "pd_first", refresh: "r1"}
+	server := httptest.NewServer(fake)
+	t.Cleanup(server.Close)
+	fake.url = server.URL
+	return fake
+}
+
+func (f *fakeAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	switch r.URL.Path {
+	case "/.well-known/oauth-authorization-server":
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"issuer": f.url, "authorization_endpoint": f.url + "/oauth/authorize", "token_endpoint": f.url + "/oauth/token",
+			"revocation_endpoint": f.url + "/oauth/revoke", "pandocs_cli_client_id": "pandocs-cli",
+		})
+	case "/oauth/token":
+		_ = r.ParseForm()
+		if r.Form.Get("client_id") != "pandocs-cli" {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid_client"})
+			return
+		}
+		switch r.Form.Get("grant_type") {
+		case "authorization_code":
+			sum := sha256.Sum256([]byte(r.Form.Get("code_verifier")))
+			if r.Form.Get("code") != "the-code" || r.Form.Get("redirect_uri") != f.redirect || base64.RawURLEncoding.EncodeToString(sum[:]) != f.challenge {
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid_grant"})
+				return
+			}
+		case "refresh_token":
+			if r.Form.Get("refresh_token") != f.refresh {
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid_grant"})
+				return
+			}
+			n := f.refreshes.Add(1)
+			f.access, f.refresh = fmt.Sprintf("pd_renewed_%d", n), fmt.Sprintf("r%d", n+1)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": f.access, "refresh_token": f.refresh, "expires_in": 3600, "token_type": "Bearer"})
+	case "/oauth/revoke":
+		_ = r.ParseForm()
+		f.revoked = append(f.revoked, r.Form.Get("token"))
+	case "/api/v1/me":
+		if r.Header.Get("Authorization") != "Bearer "+f.access {
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"code": "TOKEN_INVALID", "message": "no"}})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"id": "u", "displayName": "站长", "kind": "user", "scopes": []string{"read", "write"}}})
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+// approve is the person saying yes: the browser goes to the server, which sends it back to the address it was given.
+func (f *fakeAuth) approve(address string, params map[string]string) {
+	asked, err := url.Parse(address)
+	if err != nil {
+		f.t.Error(err)
+		return
+	}
+	query := asked.Query()
+	if query.Get("client_id") != "pandocs-cli" || query.Get("code_challenge_method") != "S256" || query.Get("response_type") != "code" {
+		f.t.Errorf("asked with %v", query)
+	}
+	f.lock.Lock()
+	f.challenge, f.redirect = query.Get("code_challenge"), query.Get("redirect_uri")
+	f.lock.Unlock()
+	back := url.Values{"code": {"the-code"}, "state": {query.Get("state")}, "iss": {f.url}}
+	for name, value := range params {
+		back.Set(name, value)
+	}
+	go func() {
+		response, err := http.Get(query.Get("redirect_uri") + "?" + back.Encode())
+		if err == nil {
+			response.Body.Close()
+		}
+	}()
+}
+
+func signedInConfig(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "config.json")
+	t.Setenv("PANDOCS_CONFIG", path)
+	t.Setenv("PANDOCS_URL", "")
+	t.Setenv("PANDOCS_TOKEN", "")
+	return path
+}
+
+func TestLoginThroughTheBrowserComesBackWithARenewableToken(t *testing.T) {
+	signedInConfig(t)
+	fake := newFakeAuth(t)
+	a := &app{in: strings.NewReader(""), out: io.Discard, err: io.Discard}
+	shown := ""
+	token, session, err := a.browserLogin(context.Background(), fake.url, func(address string) {
+		shown = address
+		fake.approve(address, nil)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "pd_first" || session.RefreshToken != "r1" || session.ClientID != "pandocs-cli" || session.RevocationURL != fake.url+"/oauth/revoke" {
+		t.Fatalf("%q %+v", token, session)
+	}
+	if !strings.HasPrefix(shown, fake.url+"/oauth/authorize?") || !strings.Contains(fake.redirect, "http://127.0.0.1:") {
+		t.Fatalf("shown %q, back to %q", shown, fake.redirect)
+	}
+	if time.Until(session.AccessExpiresAt) < 59*time.Minute {
+		t.Fatalf("runs out at %v", session.AccessExpiresAt)
+	}
+}
+
+func TestLoginThroughTheBrowserTakesNoForAnAnswer(t *testing.T) {
+	signedInConfig(t)
+	fake := newFakeAuth(t)
+	a := &app{in: strings.NewReader(""), out: io.Discard, err: io.Discard}
+	for name, params := range map[string]map[string]string{
+		"denied":         {"error": "access_denied", "code": ""},
+		"another server": {"iss": "https://elsewhere.example"},
+	} {
+		_, _, err := a.browserLogin(context.Background(), fake.url, func(address string) { fake.approve(address, params) })
+		if err == nil {
+			t.Errorf("%s: logged in", name)
+		}
+	}
+}
+
+func TestLoginThroughTheBrowserIgnoresAnAnswerToSomethingElse(t *testing.T) {
+	signedInConfig(t)
+	fake := newFakeAuth(t)
+	a := &app{in: strings.NewReader(""), out: io.Discard, err: io.Discard}
+	saved := browserWait
+	browserWait = 300 * time.Millisecond
+	t.Cleanup(func() { browserWait = saved })
+	_, _, err := a.browserLogin(context.Background(), fake.url, func(address string) {
+		asked, _ := url.Parse(address)
+		response, err := http.Get(asked.Query().Get("redirect_uri") + "?code=stolen&state=guessed")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		response.Body.Close()
+		if response.StatusCode != http.StatusBadRequest {
+			t.Errorf("answered %d", response.StatusCode)
+		}
+	})
+	if err == nil || !strings.Contains(err.Error(), "gave up waiting") {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestAServerThatCannotSignInThroughTheBrowserSaysToUseAToken(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(server.Close)
+	a := &app{in: strings.NewReader(""), out: io.Discard, err: io.Discard}
+	_, _, err := a.browserLogin(context.Background(), server.URL, func(string) { t.Error("sent someone to the browser") })
+	if !errors.Is(err, errNoBrowserLogin) {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestATokenFromTheBrowserIsRenewedWhenTurnedDownAndSaved(t *testing.T) {
+	path := signedInConfig(t)
+	fake := newFakeAuth(t)
+	expired := Config{Server: fake.url, Token: "pd_first", Session: &Session{ClientID: "pandocs-cli", TokenURL: fake.url + "/oauth/token", RefreshToken: "r1", AccessExpiresAt: time.Now().Add(-time.Minute)}}
+	if _, err := saveConfig(expired); err != nil {
+		t.Fatal(err)
+	}
+	fake.lock.Lock()
+	fake.access = "pd_server_moved_on"
+	fake.lock.Unlock()
+	a := &app{in: strings.NewReader(""), out: io.Discard, err: io.Discard}
+	client, err := a.connect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	me, err := client.me(context.Background())
+	if err != nil || me.DisplayName != "站长" {
+		t.Fatalf("%+v %v", me, err)
+	}
+	saved, _ := savedConfig()
+	if saved.Token != "pd_renewed_1" || saved.Session.RefreshToken != "r2" || time.Until(saved.Session.AccessExpiresAt) < 59*time.Minute {
+		t.Fatalf("%+v %+v", saved, saved.Session)
+	}
+	if runtime.GOOS != "windows" {
+		if info, _ := os.Stat(path); info.Mode().Perm() != 0o600 {
+			t.Fatalf("mode %v", info.Mode())
+		}
+	}
+	// Another pandocs that still holds the old token takes the new one from the file, and does not spend the refresh again.
+	stale := newClient(fake.url, "pd_first")
+	token, err := renewSession(context.Background(), stale, "pd_first")
+	if err != nil || token != "pd_renewed_1" || fake.refreshes.Load() != 1 {
+		t.Fatalf("%q %v after %d refreshes", token, err, fake.refreshes.Load())
+	}
+}
+
+func TestATokenFromTheEnvironmentIsNeverRenewed(t *testing.T) {
+	signedInConfig(t)
+	fake := newFakeAuth(t)
+	if _, err := saveConfig(Config{Server: fake.url, Token: "pd_first", Session: &Session{ClientID: "pandocs-cli", TokenURL: fake.url + "/oauth/token", RefreshToken: "r1"}}); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PANDOCS_TOKEN", "pd_from_ci")
+	client, err := (&app{}).connect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.me(context.Background()); !isAPIError(err, "TOKEN_INVALID") || fake.refreshes.Load() != 0 {
+		t.Fatalf("%v after %d refreshes", err, fake.refreshes.Load())
+	}
+}
+
+func TestASignInEndedOnTheServerAsksToLogInAgain(t *testing.T) {
+	signedInConfig(t)
+	fake := newFakeAuth(t)
+	if _, err := saveConfig(Config{Server: fake.url, Token: "pd_old", Session: &Session{ClientID: "pandocs-cli", TokenURL: fake.url + "/oauth/token", RefreshToken: "spent"}}); err != nil {
+		t.Fatal(err)
+	}
+	client, err := (&app{}).connect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.me(context.Background()); !errors.Is(err, errSignedOut) {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestLogoutGivesTheSignInBack(t *testing.T) {
+	signedInConfig(t)
+	fake := newFakeAuth(t)
+	if _, err := saveConfig(Config{Server: fake.url, Token: "pd_first", Session: &Session{ClientID: "pandocs-cli", TokenURL: fake.url + "/oauth/token", RevocationURL: fake.url + "/oauth/revoke", RefreshToken: "r1"}}); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := run(context.Background(), &app{in: strings.NewReader(""), out: &out, err: io.Discard}, []string{"logout"}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(fake.revoked, []string{"r1"}) || !strings.Contains(out.String(), "Logged out") {
+		t.Fatalf("revoked %v, said %q", fake.revoked, out.String())
+	}
+	if saved, _ := savedConfig(); saved.Token != "" {
+		t.Fatalf("%+v", saved)
+	}
+}
+
+func TestLoginWithoutATerminalStillReadsAToken(t *testing.T) {
+	signedInConfig(t)
+	fake := newFakeAuth(t)
+	var out bytes.Buffer
+	a := &app{in: strings.NewReader("pd_first\n"), out: &out, err: io.Discard}
+	if err := run(context.Background(), a, []string{"login", "--server", fake.url}); err != nil {
+		t.Fatal(err)
+	}
+	if saved, _ := savedConfig(); saved.Token != "pd_first" || saved.Session != nil {
+		t.Fatalf("%+v", saved)
+	}
+	if err := run(context.Background(), a, []string{"login", "--token", "--web", "--server", fake.url}); err == nil {
+		t.Fatal("took both ways at once")
 	}
 }

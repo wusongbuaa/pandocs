@@ -4,7 +4,7 @@ The `pandocs` command line: read and change a Pandocs site from a terminal, and 
 
 ```bash
 npm install -g @pandocs/cli
-pandocs login --server https://docs.example.com   # with a token from your account page
+pandocs login --server https://docs.example.com   # opens your browser to sign in; --token to paste one instead
 pandocs sync handbook                             # into ./handbook
 cd handbook
 $EDITOR getting-started.md
