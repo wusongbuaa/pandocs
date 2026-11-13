@@ -1319,6 +1319,36 @@ func TestLogoutGivesTheSignInBack(t *testing.T) {
 	}
 }
 
+func TestLoginWaitsForARenewalUnderWayInsteadOfBeingWrittenOver(t *testing.T) {
+	signedInConfig(t)
+	fake := newFakeAuth(t)
+	renewing, err := lockConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		a := &app{in: strings.NewReader("pd_first\n"), out: io.Discard, err: io.Discard}
+		done <- run(context.Background(), a, []string{"login", "--server", fake.url})
+	}()
+	time.Sleep(300 * time.Millisecond)
+	// The renewal writes back the login it read before, as it would have done just as login finished.
+	old := Config{Server: fake.url, Token: "pd_old_renewed", Session: &Session{ClientID: "pandocs-cli", TokenURL: fake.url + "/oauth/token", RevocationURL: fake.url + "/oauth/revoke", RefreshToken: "r_old"}}
+	if _, err := saveConfig(old); err != nil {
+		t.Fatal(err)
+	}
+	renewing()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if saved, _ := savedConfig(); saved.Token != "pd_first" || saved.Session != nil {
+		t.Fatalf("%+v", saved)
+	}
+	if !slices.Equal(fake.revoked, []string{"r_old"}) {
+		t.Fatalf("revoked %v", fake.revoked)
+	}
+}
+
 func TestLoginWithoutATerminalStillReadsAToken(t *testing.T) {
 	signedInConfig(t)
 	fake := newFakeAuth(t)

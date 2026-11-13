@@ -30,6 +30,7 @@ Getting connected
   login [--server URL] [--no-browser]    Sign in through the browser, and stay signed in on this computer.
                                          Without a terminal it reads a token from stdin, unless given --web
   login --token [--server URL]           Use an API token from your account page instead, typed in or from stdin
+  login --token-stdin [--server URL]     Read the token from stdin, even at a terminal
   logout                                 Sign out here, and end that sign-in on the server
   whoami                                 Who this is signed in as
 
@@ -131,6 +132,11 @@ func run(ctx context.Context, a *app, args []string) error {
 	case "login":
 		return a.login(ctx, rest)
 	case "logout":
+		unlock, err := lockConfig()
+		if err != nil {
+			return err
+		}
+		defer unlock()
 		saved, err := savedConfig()
 		if err != nil {
 			return err
@@ -233,6 +239,12 @@ func (a *app) login(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("could not log in to %s: %w", config.Server, err)
 	}
+	// Under the lock a renewal already under way finishes first, rather than writing the old login back over this one.
+	unlock, err := lockConfig()
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	// What a previous login through the browser held is no use any more, so the server can let it go now.
 	if previous, _ := savedConfig(); previous.Session != nil {
 		revokeSession(ctx, previous)

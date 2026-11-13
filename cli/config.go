@@ -97,7 +97,8 @@ func saveConfig(config Config) (string, error) {
 }
 
 // lockConfig keeps two pandocs from renewing the same session at once. A refresh token works once, and the server
-// takes the second use of one as a sign it was stolen, which signs everyone out.
+// takes the second use of one as a sign it was stolen, which signs everyone out. Login and logout take it too, so a
+// renewal cannot write back the login they just replaced.
 func lockConfig() (func(), error) {
 	path, err := configPath()
 	if err != nil {
@@ -108,7 +109,7 @@ func lockConfig() (func(), error) {
 	}
 	unlock, err := lockFile(path + ".lock")
 	if errors.Is(err, errLocked) {
-		return nil, errors.New("another pandocs is renewing the login")
+		return nil, errors.New("another pandocs is renewing or changing the login")
 	}
 	return unlock, err
 }
