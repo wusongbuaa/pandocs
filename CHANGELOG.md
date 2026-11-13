@@ -4,6 +4,10 @@ What changes for someone running or using Pandocs. The format follows [Keep a Ch
 
 ## Unreleased
 
+### Managing documents
+
+- A deleted space can be deleted for good from the list of deleted spaces. Its pages, version history, discussions and uploads go with it, and it cannot be restored. Deleting a space that is still in use stays as it was: it only leaves the site, and an administrator can still bring it back.
+
 ## 0.1.3 - 2026-11-13
 
 ### Connecting other things

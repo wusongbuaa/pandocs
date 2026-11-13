@@ -56,6 +56,20 @@ function SampleDocsDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** Gone for good: the row, its pages and its uploads. Only a space already deleted can get here. */
+function PurgeSpaceDialog({ space, onClose, onPurged }: { space: DeletedSpace; onClose: () => void; onPurged: () => void }) {
+  const [typed, setTyped] = React.useState("");
+  const purge = async () => {
+    await api.send("DELETE", `deleted-spaces/${space.id}`);
+    onPurged();
+  };
+  return (
+    <FormDialog title={t("Permanently delete \"{0}\"?", space.name)} description={t("The space, its pages, version history, discussions and uploads are deleted for good, and cannot be restored.")} onClose={onClose} action={t("Delete permanently")} danger disabled={typed !== space.name} onSubmit={purge}>
+      <TextField label={t("Type the space's name to confirm")} autoFocus value={typed} onChange={event => setTyped(event.target.value)} />
+    </FormDialog>
+  );
+}
+
 /** A space made since has its address, so it comes back at another one. */
 function RestoreElsewhere({ space, onClose }: { space: DeletedSpace; onClose: () => void }) {
   const [slug, setSlug] = React.useState(`${space.slug}-restored`.slice(0, 64));
@@ -73,6 +87,7 @@ function RestoreElsewhere({ space, onClose }: { space: DeletedSpace; onClose: ()
 function DeletedSpaces() {
   const deleted = useLoaded(() => api.get<DeletedSpace[]>("deleted-spaces"), []);
   const [elsewhere, setElsewhere] = React.useState<DeletedSpace | null>(null);
+  const [purging, setPurging] = React.useState<DeletedSpace | null>(null);
   if (deleted.status !== "ready" || deleted.data.length === 0) return null;
   const restore = async (space: DeletedSpace) => {
     if (!await confirm({ title: t("Restore \"{0}\"?", space.name), description: t("Its pages, versions and discussions come back."), action: t("Restore") })) return;
@@ -95,12 +110,16 @@ function DeletedSpaces() {
               <td>{space.name}</td>
               <td><code>{space.slug}</code></td>
               <td>{space.deletedName ?? t("Unknown")} · {relativeTime(space.deletedAt)}</td>
-              <td className="pd-table__actions"><Button variant="outline" size="sm" onClick={() => void restore(space)}>{t("Restore")}</Button></td>
+              <td className="pd-table__actions">
+                <Button variant="outline" size="sm" onClick={() => void restore(space)}>{t("Restore")}</Button>
+                <Button variant="outline" size="sm" onClick={() => setPurging(space)}>{t("Delete permanently")}</Button>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
       {elsewhere ? <RestoreElsewhere space={elsewhere} onClose={() => setElsewhere(null)} /> : null}
+      {purging ? <PurgeSpaceDialog space={purging} onClose={() => setPurging(null)} onPurged={() => { setPurging(null); deleted.reload(); }} /> : null}
     </>
   );
 }

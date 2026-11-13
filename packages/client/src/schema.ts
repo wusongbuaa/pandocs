@@ -602,6 +602,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/deleted-spaces/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a deleted space for good (administrators), with its pages, history, discussions and uploads. It cannot be restored */
+        delete: operations["purgeSpace"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/deleted-spaces/{id}/restore": {
         parameters: {
             query?: never;
@@ -4099,6 +4118,22 @@ export interface operations {
         responses: {
             200: components["responses"]["Ok"];
             403: components["responses"]["Error"];
+        };
+    };
+    purgeSpace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Ok"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     restoreSpace: {
