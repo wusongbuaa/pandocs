@@ -71,6 +71,8 @@ pandocsDescribe("change sets", () => {
     await browserExpect(reviewer.getByText("批准了")).toBeVisible();
     await browserExpect(merge).toBeEnabled();
     await merge.click();
+    // Merging asks for sureness first.
+    await reviewer.getByRole("alertdialog").getByRole("button", { name: "合并", exact: true }).click();
     await browserExpect(reviewer.getByText("已合并").first()).toBeVisible({ timeout: 15_000 });
 
     const read = await app.api("reader", "GET", `documents/${guide}`);

@@ -5,6 +5,7 @@ import { SwitchField, TextField } from "../ui/form";
 import { api, failureMessage } from "../api/client";
 import { app } from "../data/runtime-data";
 import { Dialog, FormDialog } from "../ui/dialog";
+import { confirm } from "../ui/confirm";
 import { relativeTime } from "../ui/time";
 import { toast } from "../ui/toast";
 import { useLoaded } from "../ui/use-loaded";
@@ -126,7 +127,12 @@ export function UsersView() {
       toast(failureMessage(error), "error");
     }
   };
-  const change = async (person: Person, patch: object) => {
+  const change = async (
+    person: Person,
+    patch: object,
+    asks?: { title: string; description: string; action: string }
+  ) => {
+    if (asks && !(await confirm({ ...asks, danger: true }))) return;
     try {
       await api.send("PATCH", `admin/users/${person.id}`, { body: patch });
       people.reload();
@@ -198,7 +204,21 @@ export function UsersView() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => void change(person, { isAdmin: !person.isAdmin })}
+                            onClick={() =>
+                              void change(
+                                person,
+                                { isAdmin: !person.isAdmin },
+                                person.isAdmin
+                                  ? undefined
+                                  : {
+                                      title: t("Make {0} an administrator?", person.displayName),
+                                      description: t(
+                                        "An administrator can change anything on this site, including who else is one."
+                                      ),
+                                      action: t("Make administrator")
+                                    }
+                              )
+                            }
                           >
                             {person.isAdmin ? t("Remove administrator") : t("Make administrator")}
                           </Button>
@@ -206,7 +226,17 @@ export function UsersView() {
                             variant="outline"
                             size="sm"
                             onClick={() =>
-                              void change(person, { status: person.status === "active" ? "disabled" : "active" })
+                              void change(
+                                person,
+                                { status: person.status === "active" ? "disabled" : "active" },
+                                person.status === "active"
+                                  ? {
+                                      title: t("Disable {0}?", person.displayName),
+                                      description: t("They cannot sign in again until they are restored."),
+                                      action: t("Disable")
+                                    }
+                                  : undefined
+                              )
                             }
                           >
                             {person.status === "active" ? t("Disable") : t("Restore")}

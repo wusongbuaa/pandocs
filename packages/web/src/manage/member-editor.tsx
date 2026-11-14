@@ -2,6 +2,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { ChoiceSelect } from "../ui/form";
 import { api, failureMessage } from "../api/client";
+import { confirm } from "../ui/confirm";
 import type { Member, Role } from "../types";
 import { toast } from "../ui/toast";
 import { useLoaded } from "../ui/use-loaded";
@@ -141,7 +142,25 @@ export function MemberEditor({ path }: { path: string }) {
                       />
                     </td>
                     <td className="pd-table__actions">
-                      <Button variant="outline" size="sm" onClick={() => void set(member.subject, null)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          void (async () => {
+                            if (
+                              !(await confirm({
+                                title: t("Remove {0}?", subjectLabel(member)),
+                                // True for a space and for a restricted page alike: only what was granted here goes.
+                                description: t("It takes away what was granted to them here, and nothing else."),
+                                action: t("Remove"),
+                                danger: true
+                              }))
+                            )
+                              return;
+                            set(member.subject, null);
+                          })()
+                        }
+                      >
                         {t("Remove")}
                       </Button>
                     </td>
