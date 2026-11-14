@@ -789,7 +789,7 @@ export const zh: Readonly<Record<string, string>> = {
   Remove: "移除",
   "Remove administrator": "取消管理员",
   "Remove {0}?": "移除 {0}？",
-  "They go back to what the space gives everyone else.": "他们的权限会退回到空间给所有人的默认权限。",
+  "It takes away what was granted to them here, and nothing else.": "只会取消在这里单独授予的权限。",
   'Remove the label "{0}"': "去掉标签“{0}”",
   "Removed an embed app": "删除嵌入应用",
   Rename: "重命名",

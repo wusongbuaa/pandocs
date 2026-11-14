@@ -150,7 +150,8 @@ export function MemberEditor({ path }: { path: string }) {
                             if (
                               !(await confirm({
                                 title: t("Remove {0}?", subjectLabel(member)),
-                                description: t("They go back to what the space gives everyone else."),
+                                // True for a space and for a restricted page alike: only what was granted here goes.
+                                description: t("It takes away what was granted to them here, and nothing else."),
                                 action: t("Remove"),
                                 danger: true
                               }))
