@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Pandocs API
-  version: 0.1.0
+  version: 0.1.3
   description: >-
     Pandocs' HTTP API. Most of it is in @pandocs/core, and paths marked x-served-by: server are in @pandocs/server.
     Identity comes from a signed-in session or an API token (with the scope read or write).
@@ -310,6 +310,13 @@ paths:
       tags: [spaces]
       operationId: listDeletedSpaces
       responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+  /deleted-spaces/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    delete:
+      tags: [spaces]
+      operationId: purgeSpace
+      summary: 'Delete a deleted space for good (administrators), with its pages, history, discussions and uploads. It cannot be restored'
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '404': {$ref: '#/components/responses/Error'}}
   /deleted-spaces/{id}/restore:
     parameters: [{$ref: '#/components/parameters/Id'}]
     post:

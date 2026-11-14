@@ -1,6 +1,7 @@
 import { atLeast, canChangeSite, effectiveRole } from "../domain/access.js";
 import { PandocsError, forbidden, invalid, notFound } from "../domain/errors.js";
 import type { GlossaryEntry, MemberRecord, Principal, Role, SpaceDefaultRole, SpaceRecord, MergeRules } from "../domain/types.js";
+import { storageKey } from "./assets.js";
 import { audit, mapSpace, nameMembers, requireSpace, spaceMembers, UUID, type AppContext, type NamedMember } from "./context.js";
 import { t } from "@pandocs/i18n";
 
@@ -141,5 +142,42 @@ export class SpaceService {
       await audit(tx, principal, "space.restore", "space", id, { slug, ...(slug === rows[0].slug ? {} : { was: rows[0].slug }) });
       return { ...mapSpace(restored[0]!), role: "admin" as const };
     });
+  }
+
+  /**
+   * The end of a deleted space: its pages, history, discussions and uploads go with it, and it cannot come back.
+   * Only one that is already deleted, so deleting a space people still use stays reversible.
+   * Uploads leave the store after the row is gone. A store that fails then leaves files nobody can reach, which is the
+   * direction that can be cleaned up later; the other way would be a space that looks deleted and is not.
+   */
+  async purge(principal: Principal, id: string): Promise<void> {
+    if (!canChangeSite(principal)) throw forbidden(t("Only administrators can delete spaces for good"));
+    if (!UUID.test(id)) throw notFound(t("Space"));
+    const removed = await this.context.db.transaction(async tx => {
+      const { rows } = await tx.query(`SELECT slug, name FROM pandocs.spaces WHERE id = $1 AND deleted_at IS NOT NULL FOR UPDATE`, [id]);
+      if (!rows[0]) throw notFound(t("Space"));
+      const { rows: counted } = await tx.query<{ pages: string; assets: string; hashes: string[] }>(
+        `SELECT (SELECT count(*) FROM pandocs.documents WHERE space_id = $1) AS pages,
+                (SELECT count(*) FROM pandocs.assets WHERE space_id = $1) AS assets,
+                (SELECT coalesce(array_agg(sha256), '{}') FROM pandocs.assets WHERE space_id = $1) AS hashes`,
+        [id]
+      );
+      // A file chosen for import is kept beside the space's uploads until the import finishes, so it goes too.
+      const { rows: imports } = await tx.query<{ id: string }>(`SELECT id FROM pandocs.bulk_imports WHERE space_id = $1`, [id]);
+      await tx.query(`DELETE FROM pandocs.spaces WHERE id = $1`, [id]);
+      await audit(tx, principal, "space.purge", "space", id, {
+        slug: rows[0].slug,
+        name: rows[0].name,
+        pages: Number(counted[0]?.pages ?? 0),
+        assets: Number(counted[0]?.assets ?? 0)
+      });
+      return { hashes: counted[0]?.hashes ?? [], imports: imports.map(row => row.id) };
+    });
+    const { remove } = this.context.ports.assets;
+    if (!remove) return;
+    await Promise.all([
+      ...removed.hashes.map(sha256 => remove(storageKey(id, sha256))),
+      ...removed.imports.map(importId => remove(`imports/${importId}`))
+    ]);
   }
 }

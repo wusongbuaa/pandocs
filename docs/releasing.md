@@ -12,6 +12,7 @@ A release is a tag, `vX.Y.Z`, on a commit whose CI passed. Everything else follo
 | The Helm chart | `oci://ghcr.io/<owner>/charts/pandocs`, and the GitHub release | Always |
 | The Go client | The tag `sdks/go/vX.Y.Z`, which is what Go looks for | Always |
 | `@pandocs/client` and `@pandocs/embed` | npm | The repository variable `PUBLISH_NPM`, and the secret `NPM_TOKEN` |
+| The command line again, as `@pandocs/cli` and a package for each platform such as `@pandocs/cli-linux-x64` | npm | The same |
 
 Each image, the command line and the chart carry a signed record of the workflow run that built them, and the images an SBOM too. Anyone can check one with `gh attestation verify <file or oci://image> --repo wusongbuaa/pandocs`. What goes to npm carries npm's provenance, shown on the package's page.
 
@@ -28,6 +29,8 @@ Parts of it can be tried on your own machine:
 ```bash
 node scripts/release.mjs check 0.2.0 --rehearsal
 scripts/try-packages.sh 0.2.0                 # packs what gets published, and uses it from outside this repository
+node scripts/cli-npm.mjs pack 0.2.0 cli/dist out/cli-npm && node scripts/cli-npm.mjs try 0.2.0 out/cli-npm
+                                              # the command line for npm, from binaries built as the release builds them
 docker build -t pandocs:try . && scripts/try-image.sh pandocs:try 0.2.0
 ```
 

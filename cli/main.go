@@ -27,9 +27,12 @@ var version = "dev"
 const usage = `pandocs reads and changes a Pandocs site, and keeps a space as files on this disk.
 
 Getting connected
-  login [--server URL] [--token-stdin]   Remember a server and an API token (create one on your account page)
-  logout                                 Forget them
-  whoami                                 Who the token belongs to
+  login [--server URL] [--no-browser]    Sign in through the browser, and stay signed in on this computer.
+                                         Without a terminal it reads a token from stdin, unless given --web
+  login --token [--server URL]           Use an API token from your account page instead, typed in or from stdin
+  login --token-stdin [--server URL]     Read the token from stdin, even at a terminal
+  logout                                 Sign out here, and end that sign-in on the server
+  whoami                                 Who this is signed in as
 
 Reading
   spaces                                 List spaces
@@ -106,7 +109,11 @@ func (a *app) connect() (*Client, error) {
 	if err := validServer(config.Server); err != nil {
 		return nil, err
 	}
-	return newClient(config.Server, config.Token), nil
+	client := newClient(config.Server, config.Token)
+	if config.Session != nil {
+		client.renew = func(ctx context.Context, held string) (string, error) { return renewSession(ctx, client, held) }
+	}
+	return client, nil
 }
 
 func run(ctx context.Context, a *app, args []string) error {
@@ -125,6 +132,16 @@ func run(ctx context.Context, a *app, args []string) error {
 	case "login":
 		return a.login(ctx, rest)
 	case "logout":
+		unlock, err := lockConfig()
+		if err != nil {
+			return err
+		}
+		defer unlock()
+		saved, err := savedConfig()
+		if err != nil {
+			return err
+		}
+		revokeSession(ctx, saved)
 		if err := removeConfig(); err != nil {
 			return err
 		}
@@ -163,16 +180,23 @@ func run(ctx context.Context, a *app, args []string) error {
 	return usageError("unknown command %q: run `pandocs help`", command)
 }
 
+// login signs in through the browser unless given --token, or a token on stdin, which is how scripts and agents log in.
 func (a *app) login(ctx context.Context, args []string) error {
 	set := flag.NewFlagSet("login", flag.ContinueOnError)
 	server := set.String("server", "", "")
+	withToken := set.Bool("token", false, "")
 	fromStdin := set.Bool("token-stdin", false, "")
+	noBrowser := set.Bool("no-browser", false, "")
+	web := set.Bool("web", false, "")
 	if _, err := parse(set, args); err != nil {
 		return err
 	}
-	config, err := loadConfig()
+	config, err := savedConfig()
 	if err != nil {
 		return err
+	}
+	if *server == "" {
+		*server = os.Getenv("PANDOCS_URL")
 	}
 	if *server != "" {
 		config.Server = *server
@@ -186,19 +210,46 @@ func (a *app) login(ctx context.Context, args []string) error {
 	if plainTextOverNetwork(config.Server) {
 		fmt.Fprintln(a.err, "warning: this address is not https, so your token would cross the network unencrypted")
 	}
-	token, err := a.readToken(*fromStdin)
-	if err != nil {
-		return err
+	var token string
+	var session *Session
+	if *withToken && *web {
+		return usageError("--token and --web are two ways to log in: choose one")
 	}
-	if token == "" {
-		return usageError("no token given")
+	if *withToken || *fromStdin || !*web && !a.interactive() {
+		if token, err = a.readToken(*fromStdin); err != nil {
+			return err
+		}
+		if token == "" {
+			return usageError("no token given")
+		}
+	} else {
+		token, session, err = a.browserLogin(ctx, config.Server, func(address string) {
+			if !*noBrowser && canOpenBrowser() && openBrowser(address) == nil {
+				fmt.Fprintf(a.err, "Opening your browser to sign in. If it does not open, go to:\n\n  %s\n\n", address)
+				return
+			}
+			fmt.Fprintf(a.err, "To sign in, open this in a browser on this computer:\n\n  %s\n\n", address)
+			fmt.Fprintln(a.err, "It comes back to a port here. From another computer, forward that port over SSH first, or use `pandocs login --token`.")
+		})
+		if err != nil {
+			return fmt.Errorf("could not log in to %s: %w", config.Server, err)
+		}
 	}
-	client := newClient(config.Server, token)
-	me, err := client.me(ctx)
+	me, err := newClient(config.Server, token).me(ctx)
 	if err != nil {
 		return fmt.Errorf("could not log in to %s: %w", config.Server, err)
 	}
-	path, err := saveConfig(Config{Server: config.Server, Token: token})
+	// Under the lock a renewal already under way finishes first, rather than writing the old login back over this one.
+	unlock, err := lockConfig()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	// What a previous login through the browser held is no use any more, so the server can let it go now.
+	if previous, _ := savedConfig(); previous.Session != nil {
+		revokeSession(ctx, previous)
+	}
+	path, err := saveConfig(Config{Server: config.Server, Token: token, Session: session})
 	if err != nil {
 		return err
 	}
@@ -206,11 +257,17 @@ func (a *app) login(ctx context.Context, args []string) error {
 	return nil
 }
 
+// interactive says whether a person is at the keyboard. Without one, login reads a token from stdin, as it always has.
+func (a *app) interactive() bool {
+	file, ok := a.in.(*os.File)
+	return ok && term.IsTerminal(int(file.Fd()))
+}
+
 // readToken never takes the token as an argument, where it would end up in shell history and process lists.
 func (a *app) readToken(fromStdin bool) (string, error) {
-	if file, ok := a.in.(*os.File); ok && !fromStdin && term.IsTerminal(int(file.Fd())) {
+	if !fromStdin && a.interactive() {
 		fmt.Fprint(a.err, "API token (create one on your account page): ")
-		raw, err := term.ReadPassword(int(file.Fd()))
+		raw, err := term.ReadPassword(int(a.in.(*os.File).Fd()))
 		fmt.Fprintln(a.err)
 		if err != nil {
 			return "", err

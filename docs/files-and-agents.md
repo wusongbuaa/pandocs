@@ -66,7 +66,15 @@ Measured on a kernel NFS server with two separate clients, 10,000 pages and defa
 
 ## The command line
 
-Single binaries for macOS, Linux and Windows on the releases page. Create a token on your account page, then:
+Install it with npm, which picks the binary for your system:
+
+```bash
+npm install -g @pandocs/cli
+```
+
+Or run it with no install, as `npx @pandocs/cli <command>`. Without Node, take the single binary for macOS, Linux or Windows from the releases page, where each comes with a checksum and signed provenance. Both are the same build.
+
+Then sign in, which opens the site in your browser for you to say yes:
 
 ```bash
 pandocs login --server https://docs.example.com
@@ -76,6 +84,8 @@ $EDITOR getting-started.md
 pandocs status
 pandocs commit -m "Fix the first step"
 ```
+
+It stays signed in as you on this computer, renewing itself each hour, until `pandocs logout`, which also ends it on the server. **Connected apps** on your account page shows it, and signs it out from there too. The address the browser comes back to is on `127.0.0.1`, so over SSH or in a container `login` prints the page to open, and forwarding its port gets the answer back. Or use a token from your account page: `pandocs login --token` asks for it without showing it, and `pandocs login --server URL < token-file` reads it from stdin. Scripts, CI and agents can skip `login` and set `PANDOCS_URL` and `PANDOCS_TOKEN`.
 
 `sync` never overwrites your work. A file is only replaced if it still matches what the server last gave you. A page that moved on the server moves here too, with your changes in it.
 

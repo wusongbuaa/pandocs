@@ -13,7 +13,7 @@ Agents often want files. But what is true is in the database, and files are **co
 
 ## The command line
 
-A single binary for macOS, Linux and Windows, with no runtime to install. Create a token under **Account and tokens**, then:
+A single binary for macOS, Linux and Windows, with no runtime to install. `login` opens the site in your browser for you to say yes, then stays signed in until `pandocs logout`. For a script or CI, use a token from **Account and tokens** instead, with `pandocs login --token` or `PANDOCS_TOKEN`.
 
 ```bash
 pandocs login --server https://docs.example.com
