@@ -15,7 +15,7 @@
     "start": "node dist/main.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.92.0",
+    "@anthropic-ai/sdk": "^1.8.0",
     "@pandocs/core": "workspace:*",
     "@pandocs/editor-model": "workspace:*",
     "@pandocs/i18n": "workspace:*",
