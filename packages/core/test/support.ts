@@ -99,8 +99,14 @@ export function createHarness(connectionString: string, ports: Partial<PandocsPo
   ) => {
     const init: RequestInit = { method, headers: { ...headers } };
     if (body !== undefined) {
-      init.body = body instanceof FormData || body instanceof Uint8Array ? (body as BodyInit) : JSON.stringify(body);
-      if (!(body instanceof FormData) && !(body instanceof Uint8Array))
+      // A stream has no length to its name, which is exactly the shape of a chunked upload.
+      const asBody = body instanceof ReadableStream ? { body: body as BodyInit, duplex: "half" as const } : {};
+      init.body =
+        body instanceof FormData || body instanceof Uint8Array || body instanceof ReadableStream
+          ? (body as BodyInit)
+          : JSON.stringify(body);
+      Object.assign(init, asBody);
+      if (!(body instanceof FormData) && !(body instanceof Uint8Array) && !(body instanceof ReadableStream))
         (init.headers as Record<string, string>)["content-type"] = "application/json";
     }
     const response = await handler(new Request(`http://pandocs.test${BASE}/${path}`, init), principal);

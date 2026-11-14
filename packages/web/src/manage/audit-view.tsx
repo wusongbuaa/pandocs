@@ -60,6 +60,7 @@ const ACTIONS: Readonly<Record<string, string>> = {
   "space.purge": t("Permanently deleted a space"),
   "space.restore": t("Restored a space"),
   "space.member.set": t("Changed space members"),
+  "space.default_role": t("Changed a space's default role"),
   "site.update": t("Changed site settings"),
   "site.user.create": t("Added a user"),
   "site.user.update": t("Changed a user"),
@@ -101,6 +102,7 @@ function detailOf({ action, detail }: AuditEntry): string {
   if (action === "site.update") return Array.isArray(detail.fields) ? detail.fields.join(t(", ")) : "";
   if (action === "space.create" || action === "space.delete" || action === "space.purge" || action === "space.restore")
     return text("slug");
+  if (action === "space.default_role") return `${text("slug")} · ${String(detail.defaultRole ?? "")}`;
   return "";
 }
 

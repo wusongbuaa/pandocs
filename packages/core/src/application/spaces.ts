@@ -157,6 +157,12 @@ export class SpaceService {
         await audit(tx, principal, patch.publicRead ? "space.public" : "space.private", "space", space.id, {
           slug: space.slug
         });
+      // Opening a space to everyone with an account is as much someone's doing as opening it to the internet.
+      if (patch.defaultRole !== undefined && patch.defaultRole !== space.defaultRole)
+        await audit(tx, principal, "space.default_role", "space", space.id, {
+          slug: space.slug,
+          defaultRole: patch.defaultRole
+        });
       return { ...mapSpace(rows[0]!), role };
     });
   }
@@ -229,6 +235,9 @@ export class SpaceService {
       );
       if (!rows[0]) throw notFound(t("Space"));
       const slug = input.slug ?? String(rows[0].slug);
+      // The addresses a restored space could take are the ones a new one could: next to the server's own routes is not among them.
+      if (RESERVED_SLUGS.has(slug))
+        throw invalid("SPACE_SLUG_RESERVED", t("The address {0} is reserved. Choose another.", slug));
       const taken = await tx.query(`SELECT 1 FROM pandocs.spaces WHERE slug = $1 AND deleted_at IS NULL`, [slug]);
       if (taken.rows[0])
         throw new PandocsError(
@@ -236,13 +245,16 @@ export class SpaceService {
           "SPACE_SLUG_TAKEN",
           t("Another space has the address {0}. Restore this one at another address.", slug)
         );
+      // A site that has since turned public spaces off keeps them off: restoring cannot do what the settings refuse.
+      const publicRead = rows[0].public_read === true && !this.context.ports.publicSpacesDisabled;
       const { rows: restored } = await tx.query(
-        `UPDATE pandocs.spaces SET slug = $2, deleted_at = NULL, deleted_name = NULL, updated_at = now() WHERE id = $1 RETURNING *`,
-        [id, slug]
+        `UPDATE pandocs.spaces SET slug = $2, deleted_at = NULL, deleted_name = NULL, public_read = $3, updated_at = now() WHERE id = $1 RETURNING *`,
+        [id, slug, publicRead]
       );
       await audit(tx, principal, "space.restore", "space", id, {
         slug,
-        ...(slug === rows[0].slug ? {} : { was: rows[0].slug })
+        ...(slug === rows[0].slug ? {} : { was: rows[0].slug }),
+        ...(publicRead === false && rows[0].public_read === true ? { publicRead: false } : {})
       });
       return { ...mapSpace(restored[0]!), role: "admin" as const };
     });

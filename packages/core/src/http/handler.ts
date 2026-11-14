@@ -26,6 +26,52 @@ import { describeTools, pandocsTools, fromTemplate, withoutPeople } from "./tool
 const JSON_LIMIT = 8 * 1024 * 1024;
 const NO_STORE = { "Cache-Control": "no-store" };
 
+/** Reads at most `limit` bytes of a request body. A body that names no length, as a chunked upload does not, cannot be
+ *  refused by its header, so the cap has to bite on the bytes as they arrive rather than after they are all in memory. */
+async function readCappedBody(
+  request: Request,
+  limit: number,
+  refuse: () => PandocsError
+): Promise<Uint8Array<ArrayBuffer>> {
+  const declared = Number(request.headers.get("content-length") ?? 0);
+  if (declared > limit) throw refuse();
+  if (request.body === null) return new Uint8Array(0);
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  for await (const part of request.body) {
+    total += part.byteLength;
+    if (total > limit) throw refuse();
+    parts.push(part);
+  }
+  const bytes = new Uint8Array(total);
+  let at = 0;
+  for (const part of parts) {
+    bytes.set(part, at);
+    at += part.byteLength;
+  }
+  return bytes;
+}
+
+/** A multipart form read under the same cap, so an upload that names no length cannot slip past the header check either. */
+async function readCappedForm(request: Request, limit: number, refuse: () => PandocsError): Promise<FormData> {
+  const bytes = await readCappedBody(request, limit, refuse);
+  return new Request("http://pandocs.test", {
+    method: "POST",
+    headers: new Headers(request.headers),
+    body: bytes
+  }).formData();
+}
+
+/** What the json() helper does for every other route: a body that is not JSON is the caller's mistake to see, not a fault of ours. */
+function parseJsonBody(raw: string): unknown {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw invalid("BODY_INVALID", t("The request body is not valid JSON"));
+  }
+}
+
 interface RouteContext {
   readonly request: Request;
   readonly principal: Principal;
@@ -661,9 +707,10 @@ const routes: readonly Route[] = [
     ok(await services.tree.emptyTrash(principal, params.space!))
   ),
   route("POST", "spaces/:space/archive", async ({ params, request, principal, services }) => {
-    const bytes = new Uint8Array(await request.arrayBuffer());
+    const bytes = await readCappedBody(request, MAX_ASSET_BYTES, () =>
+      invalid("ARCHIVE_TOO_LARGE", t("The archive is larger than 100 MiB"))
+    );
     if (bytes.byteLength === 0) throw invalid("ARCHIVE_INVALID", t("There is no archive to import"));
-    if (bytes.byteLength > MAX_ASSET_BYTES) throw invalid("ARCHIVE_TOO_LARGE", t("The archive is larger than 100 MiB"));
     return ok(await services.archives.import(principal, params.space!, bytes));
   }),
   route("GET", "spaces/:space/export", async ({ params, principal, services }) => {
@@ -813,9 +860,9 @@ const routes: readonly Route[] = [
     );
   }),
   route("POST", "spaces/:space/assets", async ({ params, query, request, principal, services }) => {
-    const declared = Number(request.headers.get("content-length") ?? 0);
-    if (declared > MAX_ASSET_BYTES) throw invalid("ASSET_TOO_LARGE", t("The file is larger than 100 MiB"));
-    const bytes = new Uint8Array(await request.arrayBuffer());
+    const bytes = await readCappedBody(request, MAX_ASSET_BYTES, () =>
+      invalid("ASSET_TOO_LARGE", t("The file is larger than 100 MiB"))
+    );
     return ok(await services.assets.put(principal, params.space!, bytes, query.get("filename") ?? ""), 201);
   }),
   route("GET", "spaces/:space/manifest", async ({ params, principal, services }) =>
@@ -855,9 +902,9 @@ const routes: readonly Route[] = [
   ),
   route("POST", "spaces/:space/bulk-imports", async ({ params, request, principal, services, json }) => {
     if ((request.headers.get("content-type") ?? "").startsWith("multipart/form-data")) {
-      const declared = Number(request.headers.get("content-length") ?? 0);
-      if (declared > MAX_ASSET_BYTES) throw invalid("ASSET_TOO_LARGE", t("The file is larger than 100 MiB"));
-      const form = await request.formData();
+      const form = await readCappedForm(request, MAX_ASSET_BYTES, () =>
+        invalid("ASSET_TOO_LARGE", t("The file is larger than 100 MiB"))
+      );
       const file = form.get("file");
       if (!(file instanceof File)) throw invalid("INGEST_EMPTY", t("There is no file to import"));
       if (file.size > MAX_ASSET_BYTES) throw invalid("ASSET_TOO_LARGE", t("The file is larger than 100 MiB"));
@@ -890,11 +937,13 @@ const routes: readonly Route[] = [
   route("POST", "spaces/:space/imports", async ({ params, request, principal, services, text }) => {
     const contentType = request.headers.get("content-type") ?? "";
     if (contentType.startsWith("multipart/form-data")) {
-      const form = await request.formData();
+      const form = await readCappedForm(request, MAX_ASSET_BYTES, () =>
+        invalid("ASSET_TOO_LARGE", t("The file is larger than 100 MiB"))
+      );
       const file = form.get("file");
       if (!(file instanceof File)) throw invalid("INGEST_EMPTY", t("There is no file to import"));
       if (file.size > MAX_ASSET_BYTES) throw invalid("ASSET_TOO_LARGE", t("The file is larger than 100 MiB"));
-      const target = JSON.parse(String(form.get("target") ?? "{}")) as Record<string, unknown>;
+      const target = parseJsonBody(String(form.get("target") ?? "{}"));
       const job = await services.ingest.submit(principal, {
         space: params.space!,
         bytes: new Uint8Array(await file.arrayBuffer()),
@@ -904,7 +953,7 @@ const routes: readonly Route[] = [
       });
       return ok(withoutSource(job), 201);
     }
-    const input = ingestBody.parse(JSON.parse(await text()));
+    const input = ingestBody.parse(parseJsonBody(await text()));
     const job = await services.ingest.submit(principal, {
       space: params.space!,
       target: input.target,
@@ -1429,10 +1478,10 @@ export function createPandocsHandler(services: PandocsServices, options: Pandocs
       let body: string | undefined;
       const readText = async () => {
         if (body === undefined) {
-          const declared = Number(request.headers.get("content-length") ?? 0);
-          if (declared > JSON_LIMIT) throw invalid("BODY_TOO_LARGE", t("The request body is too large"));
-          body = await request.text();
-          if (body.length > JSON_LIMIT) throw invalid("BODY_TOO_LARGE", t("The request body is too large"));
+          const bytes = await readCappedBody(request, JSON_LIMIT, () =>
+            invalid("BODY_TOO_LARGE", t("The request body is too large"))
+          );
+          body = new TextDecoder().decode(bytes);
         }
         return body;
       };
