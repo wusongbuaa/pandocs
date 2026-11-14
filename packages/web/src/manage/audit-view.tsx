@@ -99,7 +99,8 @@ function detailOf({ action, detail }: AuditEntry): string {
   if (action.startsWith("site.user.")) return text("email");
   if (action.startsWith("site.embed_app.")) return text("slug");
   if (action === "site.update") return Array.isArray(detail.fields) ? detail.fields.join(t(", ")) : "";
-  if (action === "space.create" || action === "space.delete" || action === "space.purge" || action === "space.restore") return text("slug");
+  if (action === "space.create" || action === "space.delete" || action === "space.purge" || action === "space.restore")
+    return text("slug");
   return "";
 }
 

@@ -535,21 +535,40 @@ describe("managing the document tree", () => {
       const asset = await h.call(USERS.editor, "POST", `spaces/${space}/assets?filename=a.png`, image);
       expect(asset.status).toBe(201);
       const hash = asset.data.sha256 as string;
-      const kept = await h.call(USERS.admin, "POST", "spaces", { slug: `${space}-kept`, name: "留下", defaultRole: "viewer" });
-      const keptAsset = await h.call(USERS.admin, "POST", `spaces/${space}-kept/assets?filename=b.png`, new Uint8Array([...image, 1]));
+      const kept = await h.call(USERS.admin, "POST", "spaces", {
+        slug: `${space}-kept`,
+        name: "留下",
+        defaultRole: "viewer"
+      });
+      const keptAsset = await h.call(
+        USERS.admin,
+        "POST",
+        `spaces/${space}-kept/assets?filename=b.png`,
+        new Uint8Array([...image, 1])
+      );
       expect(keptAsset.status).toBe(201);
       const importId = randomUUID();
-      const { rows: here } = await h.pool.query<{ id: string }>(`SELECT id FROM pandocs.spaces WHERE slug = $1`, [space]);
+      const { rows: here } = await h.pool.query<{ id: string }>(`SELECT id FROM pandocs.spaces WHERE slug = $1`, [
+        space
+      ]);
       await h.pool.query(
         `INSERT INTO pandocs.bulk_imports (id, space_id, source, principal, created_by, created_name) VALUES ($1, $2, 'zip', '{}', $3, $4)`,
         [importId, here[0]!.id, USERS.admin.id, USERS.admin.displayName]
       );
       await h.services.context.ports.assets.put(`imports/${importId}`, new Uint8Array([1, 2, 3]), "application/zip");
-      await h.pool.query(`INSERT INTO pandocs.search_terms (day, space, term, audience) VALUES (current_date, $1, '甲', 'person')`, [space]);
-      await h.pool.query(`INSERT INTO pandocs.questions (space, question, answer, answered) VALUES ($1, '这是什么', '一页', false)`, [space]);
+      await h.pool.query(
+        `INSERT INTO pandocs.search_terms (day, space, term, audience) VALUES (current_date, $1, '甲', 'person')`,
+        [space]
+      );
+      await h.pool.query(
+        `INSERT INTO pandocs.questions (space, question, answer, answered) VALUES ($1, '这是什么', '一页', false)`,
+        [space]
+      );
 
       expect((await h.call(USERS.admin, "DELETE", `spaces/${space}`)).status).toBe(200);
-      const deleted = (await h.call(USERS.admin, "GET", "deleted-spaces")).data.find((item: { slug: string }) => item.slug === space);
+      const deleted = (await h.call(USERS.admin, "GET", "deleted-spaces")).data.find(
+        (item: { slug: string }) => item.slug === space
+      );
       const readonly = { ...USERS.admin, scopes: ["read"] as const };
       expect((await h.call(USERS.editor, "DELETE", `deleted-spaces/${deleted.id}`)).status).toBe(403);
       expect((await h.call(readonly, "DELETE", `deleted-spaces/${deleted.id}`)).status).toBe(403);
@@ -557,7 +576,9 @@ describe("managing the document tree", () => {
       expect((await h.call(USERS.admin, "DELETE", "deleted-spaces/not-an-id")).status).toBe(404);
 
       expect((await h.call(USERS.admin, "DELETE", `deleted-spaces/${deleted.id}`)).status).toBe(200);
-      expect((await h.call(USERS.admin, "GET", "deleted-spaces")).data.find((item: { id: string }) => item.id === deleted.id)).toBeUndefined();
+      expect(
+        (await h.call(USERS.admin, "GET", "deleted-spaces")).data.find((item: { id: string }) => item.id === deleted.id)
+      ).toBeUndefined();
       expect((await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`)).status).toBe(404);
       expect((await h.call(USERS.admin, "DELETE", `deleted-spaces/${deleted.id}`)).status).toBe(404);
       expect((await h.call(USERS.admin, "GET", `documents/${page}`)).status).toBe(404);
@@ -569,11 +590,21 @@ describe("managing the document tree", () => {
       expect(left.rows[0]).toMatchObject({ pages: "0", assets: "0", imports: "0" });
       await expect(readFile(join(h.assetRoot, storageKey(deleted.id, hash)))).rejects.toMatchObject({ code: "ENOENT" });
       await expect(readFile(join(h.assetRoot, "imports", importId))).rejects.toMatchObject({ code: "ENOENT" });
-      expect(new Uint8Array(await readFile(join(h.assetRoot, storageKey(kept.data.id, keptAsset.data.sha256 as string))))).toEqual(new Uint8Array([...image, 1]));
-      const remembered = await h.pool.query(`SELECT (SELECT count(*) FROM pandocs.search_terms WHERE space = $1) AS searches, (SELECT count(*) FROM pandocs.questions WHERE space = $1) AS questions`, [space]);
+      expect(
+        new Uint8Array(await readFile(join(h.assetRoot, storageKey(kept.data.id, keptAsset.data.sha256 as string))))
+      ).toEqual(new Uint8Array([...image, 1]));
+      const remembered = await h.pool.query(
+        `SELECT (SELECT count(*) FROM pandocs.search_terms WHERE space = $1) AS searches, (SELECT count(*) FROM pandocs.questions WHERE space = $1) AS questions`,
+        [space]
+      );
       expect(remembered.rows[0]).toMatchObject({ searches: "1", questions: "1" });
-      const record = (await h.call(USERS.admin, "GET", "audit?category=space")).data as { action: string; detail: { slug?: string; pages?: number; assets?: number } }[];
-      expect(record.find(event => event.action === "space.purge" && event.detail.slug === space)?.detail).toMatchObject({ name: `目录 ${counter}`, pages: 1, assets: 1 });
+      const record = (await h.call(USERS.admin, "GET", "audit?category=space")).data as {
+        action: string;
+        detail: { slug?: string; pages?: number; assets?: number };
+      }[];
+      expect(record.find(event => event.action === "space.purge" && event.detail.slug === space)?.detail).toMatchObject(
+        { name: `目录 ${counter}`, pages: 1, assets: 1 }
+      );
       expect(record.some(event => event.action === "space.delete" && event.detail.slug === space)).toBe(true);
     });
 

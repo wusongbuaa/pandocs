@@ -1088,7 +1088,8 @@ export const zh: Readonly<Record<string, string>> = {
   "Turn on": "打开",
   Type: "类型",
   "Type here, or type / to insert a block": "输入内容，或输入 / 插入内容块",
-  "The space, its pages, version history, discussions and uploads are deleted for good, and cannot be restored.": "这个空间和它的页面、版本记录、讨论、上传的文件都会被彻底删除，不能再恢复。",
+  "The space, its pages, version history, discussions and uploads are deleted for good, and cannot be restored.":
+    "这个空间和它的页面、版本记录、讨论、上传的文件都会被彻底删除，不能再恢复。",
   "Type the space's name to confirm": "输入空间名称确认",
   Undo: "撤销",
   Unknown: "未知",

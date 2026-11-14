@@ -630,25 +630,47 @@ describe("connecting an app by signing in", () => {
 
   describe("the command line", () => {
     it("is announced, so it knows it can sign in through the browser here", async () => {
-      const metadata = await (await fetch(`${origin}/.well-known/oauth-authorization-server`)).json() as Record<string, unknown>;
+      const metadata = (await (await fetch(`${origin}/.well-known/oauth-authorization-server`)).json()) as Record<
+        string,
+        unknown
+      >;
       expect(metadata.pandocs_cli_client_id).toBe("pandocs-cli");
     });
 
     it("signs the person in as themselves, so their edits save rather than become suggestions", async () => {
       const granted = await signedIn("pandocs-cli");
       expect(granted).toMatchObject({ token_type: "Bearer", expires_in: 3600, scope: "read write" });
-      const me = await (await whoAmI(granted.access_token)).json() as { data: { kind: string; scopes: string[] } };
+      const me = (await (await whoAmI(granted.access_token)).json()) as { data: { kind: string; scopes: string[] } };
       expect(me.data).toMatchObject({ kind: "user", scopes: ["read", "write"] });
-      const { revision } = (await admin.json("GET", `/api/v1/documents/${pageId}`)).data as { revision: { no: number } };
-      const saved = await fetch(`${origin}/api/v1/documents/${pageId}/content`, { method: "PUT", headers: { authorization: `Bearer ${granted.access_token}`, "content-type": "application/json", "idempotency-key": crypto.randomUUID() }, body: JSON.stringify({ markdown: "# 页面\n\n命令行改的。\n", expectedRevision: revision.no }) });
+      const { revision } = (await admin.json("GET", `/api/v1/documents/${pageId}`)).data as {
+        revision: { no: number };
+      };
+      const saved = await fetch(`${origin}/api/v1/documents/${pageId}/content`, {
+        method: "PUT",
+        headers: {
+          authorization: `Bearer ${granted.access_token}`,
+          "content-type": "application/json",
+          "idempotency-key": crypto.randomUUID()
+        },
+        body: JSON.stringify({ markdown: "# 页面\n\n命令行改的。\n", expectedRevision: revision.no })
+      });
       expect(saved.status).toBe(200);
 
       // Renewed, it stays the person.
-      const renewed = await (await token({ grant_type: "refresh_token", refresh_token: granted.refresh_token, client_id: "pandocs-cli" })).json() as { access_token: string };
-      expect(((await (await whoAmI(renewed.access_token)).json()) as { data: { kind: string } }).data.kind).toBe("user");
-      const apps = (await admin.json("GET", "/api/v1/account/connected-apps")).data as { clientName: string; kind: string }[];
+      const renewed = (await (
+        await token({ grant_type: "refresh_token", refresh_token: granted.refresh_token, client_id: "pandocs-cli" })
+      ).json()) as { access_token: string };
+      expect(((await (await whoAmI(renewed.access_token)).json()) as { data: { kind: string } }).data.kind).toBe(
+        "user"
+      );
+      const apps = (await admin.json("GET", "/api/v1/account/connected-apps")).data as {
+        clientName: string;
+        kind: string;
+      }[];
       expect(apps.find(app => app.clientName === "Pandocs command line")?.kind).toBe("user");
-      expect(apps.filter(app => app.clientName !== "Pandocs command line").every(app => app.kind === "agent")).toBe(true);
+      expect(apps.filter(app => app.clientName !== "Pandocs command line").every(app => app.kind === "agent")).toBe(
+        true
+      );
     });
 
     it("says on the page that it acts as the person, and asks for a yes only from whoever just ran it", async () => {
@@ -662,7 +684,11 @@ describe("connecting an app by signing in", () => {
 
     it("only ever goes back to loopback", async () => {
       const { challenge } = pkce();
-      for (const redirect of ["https://evil.example/callback", "http://localhost:4000/callback", "http://127.0.0.1:4000/elsewhere"]) {
+      for (const redirect of [
+        "https://evil.example/callback",
+        "http://localhost:4000/callback",
+        "http://127.0.0.1:4000/elsewhere"
+      ]) {
         const page = await admin.request(authorizePath("pandocs-cli", challenge, { redirect_uri: redirect }));
         expect(page.status).toBe(400);
       }
@@ -674,23 +700,31 @@ describe("connecting an app by signing in", () => {
       beforeAll(() => {
         home = mkdtempSync(join(tmpdir(), "pandocs-login-"));
         binary = join(home, process.platform === "win32" ? "pandocs.exe" : "pandocs");
-        execFileSync("go", ["build", "-o", binary, "."], { cwd: resolve(import.meta.dirname, "../../../cli"), stdio: "pipe" });
+        execFileSync("go", ["build", "-o", binary, "."], {
+          cwd: resolve(import.meta.dirname, "../../../cli"),
+          stdio: "pipe"
+        });
       }, 180_000);
       afterAll(() => rmSync(home, { recursive: true, force: true }));
       const config = () => join(home, "config.json");
-      const run = (args: readonly string[], onError?: (text: string) => void) => new Promise<{ code: number | null; stdout: string; stderr: string }>((done, fail) => {
-        const child = spawn(binary, args, { env: { PATH: process.env.PATH ?? "", HOME: home, PANDOCS_CONFIG: config() } });
-        let stdout = "";
-        let stderr = "";
-        child.stdout.on("data", chunk => { stdout += String(chunk); });
-        child.stderr.on("data", chunk => {
-          stderr += String(chunk);
-          onError?.(stderr);
+      const run = (args: readonly string[], onError?: (text: string) => void) =>
+        new Promise<{ code: number | null; stdout: string; stderr: string }>((done, fail) => {
+          const child = spawn(binary, args, {
+            env: { PATH: process.env.PATH ?? "", HOME: home, PANDOCS_CONFIG: config() }
+          });
+          let stdout = "";
+          let stderr = "";
+          child.stdout.on("data", chunk => {
+            stdout += String(chunk);
+          });
+          child.stderr.on("data", chunk => {
+            stderr += String(chunk);
+            onError?.(stderr);
+          });
+          child.on("error", fail);
+          child.on("close", code => done({ code, stdout, stderr }));
+          child.stdin.end();
         });
-        child.on("error", fail);
-        child.on("close", code => done({ code, stdout, stderr }));
-        child.stdin.end();
-      });
 
       it("signs in through the browser, renews itself, and gives the sign-in back on logout", async () => {
         let approving: Promise<void> | null = null;
@@ -708,13 +742,18 @@ describe("connecting an app by signing in", () => {
         expect(login.stderr).toContain("open this in a browser");
         expect(login.code).toBe(0);
         expect(login.stdout).toContain("as 站长");
-        const saved = JSON.parse(readFileSync(config(), "utf8")) as { token: string; session: { refreshToken: string; clientId: string } };
+        const saved = JSON.parse(readFileSync(config(), "utf8")) as {
+          token: string;
+          session: { refreshToken: string; clientId: string };
+        };
         expect(saved.session.clientId).toBe("pandocs-cli");
         expect(login.stdout + login.stderr).not.toContain(saved.token);
         expect((await run(["whoami"])).stdout).toContain("user, read+write");
 
         // An hour later the server no longer takes the token. The command line gets the next one by itself.
-        await server.pool.query(`UPDATE pandocs.api_tokens SET expires_at = now() WHERE token_hash = $1`, [createHash("sha256").update(saved.token).digest("hex")]);
+        await server.pool.query(`UPDATE pandocs.api_tokens SET expires_at = now() WHERE token_hash = $1`, [
+          createHash("sha256").update(saved.token).digest("hex")
+        ]);
         const later = await run(["whoami"]);
         expect(later.stderr).toBe("");
         expect(later.stdout).toContain("站长");
@@ -724,12 +763,23 @@ describe("connecting an app by signing in", () => {
 
         expect((await run(["logout"])).stdout).toContain("Logged out");
         expect((await whoAmI(renewed.token)).status).toBe(401);
-        expect((await token({ grant_type: "refresh_token", refresh_token: renewed.session.refreshToken, client_id: "pandocs-cli" })).status).toBe(400);
+        expect(
+          (
+            await token({
+              grant_type: "refresh_token",
+              refresh_token: renewed.session.refreshToken,
+              client_id: "pandocs-cli"
+            })
+          ).status
+        ).toBe(400);
       }, 60_000);
 
       it("still takes a token, for scripts and CI", async () => {
-        const made = (await admin.json("POST", "/api/v1/account/tokens", { name: "CI", scopes: ["read"] })).data.token as string;
-        const child = spawn(binary, ["login", "--server", origin], { env: { PATH: process.env.PATH ?? "", HOME: home, PANDOCS_CONFIG: config() } });
+        const made = (await admin.json("POST", "/api/v1/account/tokens", { name: "CI", scopes: ["read"] })).data
+          .token as string;
+        const child = spawn(binary, ["login", "--server", origin], {
+          env: { PATH: process.env.PATH ?? "", HOME: home, PANDOCS_CONFIG: config() }
+        });
         child.stdin.end(`${made}\n`);
         const code = await new Promise(done => child.on("close", done));
         expect(code).toBe(0);
@@ -738,14 +788,18 @@ describe("connecting an app by signing in", () => {
     });
 
     it("cannot be taken over by registering, and is never cleared out", async () => {
-      await server.pool.query(`UPDATE pandocs.oauth_clients SET created_at = now() - interval '8 days' WHERE client_id = 'pandocs-cli'`);
+      await server.pool.query(
+        `UPDATE pandocs.oauth_clients SET created_at = now() - interval '8 days' WHERE client_id = 'pandocs-cli'`
+      );
       await server.pool.query(`DELETE FROM pandocs.oauth_grants WHERE client_id = 'pandocs-cli'`);
       await server.runtime.oauth.sweep();
       expect((await server.runtime.oauth.client("pandocs-cli"))?.redirectUris).toEqual(["http://127.0.0.1/callback"]);
       const registered = await newClient({ redirect_uris: [REDIRECT], client_name: "Pandocs command line" });
       expect(registered).not.toBe("pandocs-cli");
       const granted = await signedIn(registered);
-      expect(((await (await whoAmI(granted.access_token)).json()) as { data: { kind: string } }).data.kind).toBe("agent");
+      expect(((await (await whoAmI(granted.access_token)).json()) as { data: { kind: string } }).data.kind).toBe(
+        "agent"
+      );
     });
   });
 
