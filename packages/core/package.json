@@ -14,7 +14,7 @@
     "@aws-sdk/client-s3": "3.1116.0",
     "@pandocs/i18n": "workspace:*",
     "@pandocs/markdown": "workspace:*",
-    "diff": "^8.0.2",
+    "diff": "^9.0.0",
     "fflate": "0.8.3",
     "pg": "^8.21.0",
     "zod": "4.6.7"
