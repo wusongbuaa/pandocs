@@ -54,7 +54,8 @@ docker compose up
 | `packages/server` | 服务进程：账号、OIDC 和 OAuth、访问令牌、MCP、模型调用、提供网页应用。 |
 | `packages/web` | 网页应用，基于原样复制的 Rspress 主题。 |
 | `packages/embed` | `<pandocs-doc>` Web Component 和它的 React 封装。 |
-| `cli` | `pandocs` 命令行，用 Go 写的单文件程序，不需要安装运行时。 |
+| `cli` | `pandocs` 命令行，用 Go 写的单文件程序，不需要安装运行时。也可以用 `npm install -g @pandocs/cli` 安装。 |
+| `packages/cli` | npm 上的 `@pandocs/cli`：几行 Node 代码，运行适合当前系统的二进制，每个系统的二进制各在一个包里。 |
 | `packages/client`、`sdks/go` | 从接口描述生成的 TypeScript 和 Go 强类型客户端。 |
 | `docs/api/openapi.yaml` | HTTP 接口。有测试保证它和路由、和服务器实际返回的内容一致。 |
 

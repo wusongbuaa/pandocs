@@ -111,6 +111,6 @@ export class AssetService {
   }
 }
 
-function storageKey(spaceId: string, sha256: string): string {
+export function storageKey(spaceId: string, sha256: string): string {
   return `spaces/${spaceId}/${sha256}`;
 }

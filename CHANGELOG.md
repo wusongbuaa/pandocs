@@ -4,6 +4,24 @@ What changes for someone running or using Pandocs. The format follows [Keep a Ch
 
 ## Unreleased
 
+### Managing documents
+
+- A deleted space can be deleted for good from the list of deleted spaces. Its pages, version history, discussions and uploads go with it, and it cannot be restored. Deleting a space that is still in use stays as it was: it only leaves the site, and an administrator can still bring it back.
+
+## 0.1.3 - 2026-11-13
+
+### Connecting other things
+
+- `pandocs login` signs in through the browser. It opens the site, you say yes there, and it comes back signed in as you, renewing itself until you run `pandocs logout`, which ends it on the server too. Over SSH or without a display it prints the address to open instead. A token still works: `pandocs login --token` asks for one, and a token on stdin, `PANDOCS_TOKEN` and `PANDOCS_URL` work as before, so scripts and CI need no change. The command line shows under **Connected apps**, where it can be signed out from.
+
+## 0.1.2 - 2026-11-13
+
+### Connecting other things
+
+- The command line is on npm: `npm install -g @pandocs/cli`, or `npx @pandocs/cli <command>` with no install. npm picks the binary for macOS, Linux or Windows on x64 or arm64 from a package of its own, such as `@pandocs/cli-linux-x64`, and it is the same build as on the releases page. An MCP client that only speaks stdio can start it with `npx -y @pandocs/cli mcp`.
+
+## 0.1.1 - 2026-11-12
+
 ### Writing together
 
 - Coming back from the Markdown source in a shared draft changes only the blocks that are different, and leaves the rest of the page to the others in it. It used to put the whole page back, which could take away a space someone was typing at the end of a paragraph at that moment.

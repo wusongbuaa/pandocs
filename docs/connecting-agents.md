@@ -24,6 +24,7 @@ The parts that keep a connection safe:
 - **Answers say who they are from**, in an `iss` parameter (RFC 9207), so an app connected to several servers cannot be handed this one's code by another.
 - **An app can give up its connection itself**, at `/oauth/revoke` with either of its tokens (RFC 7009).
 - **Any app can register, under any name.** The page asking the person says so, and shows where the app returns to.
+- **Only the command line signs in as the person.** `pandocs login` uses this flow too, as a client the server comes with, `pandocs-cli`, which can only return to `127.0.0.1`. Its tokens act as the person, so `pandocs commit` saves. Anything that registers itself, whatever it is called, connects as an agent.
 
 ## An MCP client, with a token
 
@@ -61,13 +62,15 @@ It can list spaces and pages, search, read, and report what is wrong with a page
 {
   "mcpServers": {
     "pandocs": {
-      "command": "pandocs",
-      "args": ["mcp"],
+      "command": "npx",
+      "args": ["-y", "@pandocs/cli", "mcp"],
       "env": { "PANDOCS_URL": "https://docs.example.com", "PANDOCS_TOKEN": "pd_your_token" }
     }
   }
 }
 ```
+
+With the command line installed, `"command": "pandocs", "args": ["mcp"]` does the same without asking npm first.
 
 ## Telling people what is wrong
 

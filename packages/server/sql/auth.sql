@@ -135,6 +135,11 @@ CREATE TABLE IF NOT EXISTS pandocs.oauth_spent (
 );
 CREATE INDEX IF NOT EXISTS oauth_spent_grant_idx ON pandocs.oauth_spent (grant_id);
 
+-- The command line, which signs people in from a terminal as themselves. Its name and address are kept to these, so
+-- that nothing else can come to look like it.
+INSERT INTO pandocs.oauth_clients (client_id, client_name, redirect_uris) VALUES ('pandocs-cli', 'Pandocs command line', ARRAY['http://127.0.0.1/callback'])
+ON CONFLICT (client_id) DO UPDATE SET client_name = EXCLUDED.client_name, redirect_uris = EXCLUDED.redirect_uris;
+
 -- What has been run, so that a replica starting up can leave the tables alone when there is nothing to do.
 CREATE TABLE IF NOT EXISTS pandocs.applied_schemas (
   version text PRIMARY KEY,

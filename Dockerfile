@@ -5,6 +5,7 @@ WORKDIR /src
 RUN npm install --global pnpm@11.18.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY patches patches
+COPY packages/cli/package.json packages/cli/package.json
 COPY packages/client/package.json packages/client/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/editor-model/package.json packages/editor-model/package.json

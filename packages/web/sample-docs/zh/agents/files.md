@@ -13,7 +13,7 @@ title: 文件和命令行
 
 ## 命令行
 
-命令行是单文件程序，支持 macOS、Linux 和 Windows，不需要装运行时。先在**账号与令牌**里新建令牌，然后：
+命令行是单文件程序，支持 macOS、Linux 和 Windows，不需要装运行时。`login` 会在浏览器里打开站点，你确认授权后就保持登录，直到 `pandocs logout`。脚本和 CI 改用**账号与令牌**里新建的令牌：`pandocs login --token`，或者设置 `PANDOCS_TOKEN`。
 
 ```bash
 pandocs login --server https://docs.example.com

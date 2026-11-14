@@ -88,6 +88,7 @@ export const zh: Readonly<Record<string, string>> = {
   "Only administrators can change site settings": "只有管理员能修改站点设置",
   "Only administrators can create spaces": "只有管理员能创建空间",
   "Only administrators can delete spaces": "只有管理员能删除空间",
+  "Only administrators can delete spaces for good": "只有管理员能彻底删除空间",
   "Only administrators can restore spaces": "只有管理员能恢复空间",
   "Only administrators can revoke what someone else shared": "只有管理员能撤销别人分享的链接",
   "Only administrators can run migrations": "只有管理员能执行迁移",

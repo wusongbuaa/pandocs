@@ -100,6 +100,18 @@ jobs:
         with:
           name: cli
           path: cli/dist
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      # The same binaries again, as @pandocs/cli and a package for each system.
+      - name: For npm
+        working-directory: .
+        run: node scripts/cli-npm.mjs pack "${{ needs.check.outputs.version }}" cli/dist "$RUNNER_TEMP/cli-npm"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cli-npm
+          path: ${{ runner.temp }}/cli-npm
 
   # On the systems it is for, as far as there are machines to try them on.
   cli-tried:
@@ -112,22 +124,35 @@ jobs:
           - { os: macos-15, file: pandocs-darwin-arm64 }
           - { os: windows-2025, file: pandocs-windows-amd64.exe }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: cli
+          path: ${{ runner.temp }}/cli
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: cli-npm
+          path: ${{ runner.temp }}/cli-npm
       - name: It starts, and knows what it is
         shell: bash
         env:
           VERSION: ${{ needs.check.outputs.version }}
           FILE: ${{ matrix.file }}
         run: |
+          cd "$RUNNER_TEMP/cli"
           sha256sum --check --ignore-missing SHA256SUMS 2>/dev/null || shasum -a 256 --check --ignore-missing SHA256SUMS
           chmod +x "$FILE"
           said="$("./$FILE" version)"
           echo "$said"
           case "$said" in *"$VERSION"*) ;; *) echo "it says it is something else"; exit 1 ;; esac
+      - name: npm installs the one for this system, and it runs
+        run: node scripts/cli-npm.mjs try "${{ needs.check.outputs.version }}" "${{ runner.temp }}/cli-npm"
 
   packages:
     needs: check
@@ -290,7 +315,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: ${{ runner.temp }}/made
-          pattern: "{notes,packages,cli}"
+          pattern: "{notes,packages,cli,cli-npm}"
       # Anyone can check a download with `gh attestation verify <file> --repo <owner>/pandocs`.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
@@ -315,10 +340,18 @@ jobs:
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > "$HOME/.npmrc"
           case "$VERSION" in *-*) channel=next ;; *) channel=latest ;; esac
-          for name in client embed; do
-            if ! npm view "@pandocs/$name@$VERSION" version >/dev/null 2>&1; then
-              npm publish "$RUNNER_TEMP/made/packages/npm/pandocs-$name-$VERSION.tgz" --access public --tag "$channel" --provenance
+          publish() {
+            if ! npm view "@pandocs/$1@$VERSION" version >/dev/null 2>&1; then
+              npm publish "$2" --access public --tag "$channel" --provenance
             fi
+          }
+          # Each system's command line before @pandocs/cli, which asks for them.
+          for target in darwin-arm64 darwin-x64 linux-arm64 linux-x64 win32-arm64 win32-x64; do
+            publish "cli-$target" "$RUNNER_TEMP/made/cli-npm/pandocs-cli-$target-$VERSION.tgz"
+          done
+          publish cli "$RUNNER_TEMP/made/cli-npm/pandocs-cli-$VERSION.tgz"
+          for name in client embed; do
+            publish "$name" "$RUNNER_TEMP/made/packages/npm/pandocs-$name-$VERSION.tgz"
           done
       - name: The GitHub release
         run: |

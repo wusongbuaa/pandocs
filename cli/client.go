@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -21,8 +22,12 @@ const apiBase = "/api/v1/"
 
 // Client talks to one Pandocs server. The token lives only in memory here and in the config file.
 type Client struct {
-	server  string
-	token   string
+	server string
+	// lock guards token, which a login from the browser renews while requests may be going out.
+	lock  sync.Mutex
+	token string
+	// renew gets a token to replace one the server turned down, when there is a way to. It is given the one turned down.
+	renew   func(ctx context.Context, held string) (string, error)
 	http    *http.Client
 	channel string
 	// retryDelay is the pause before the first retry, doubling after that. A replica restarting during an
@@ -107,6 +112,7 @@ func (c *Client) open(ctx context.Context, method, target string, options reques
 	}
 	retryable := method == http.MethodGet || options.idempotent
 	delay := c.retryDelay
+	renewed := false
 	var last error
 	for attempt := 0; attempt < 4; attempt++ {
 		if attempt > 0 {
@@ -121,8 +127,9 @@ func (c *Client) open(ctx context.Context, method, target string, options reques
 		if err != nil {
 			return nil, err
 		}
-		if c.token != "" {
-			request.Header.Set("Authorization", "Bearer "+c.token)
+		token := c.currentToken()
+		if token != "" {
+			request.Header.Set("Authorization", "Bearer "+token)
 		}
 		request.Header.Set("X-Pandocs-Channel", c.channel)
 		if options.contentType != "" {
@@ -148,6 +155,17 @@ func (c *Client) open(ctx context.Context, method, target string, options reques
 		if response.StatusCode >= 200 && response.StatusCode < 300 {
 			return response, nil
 		}
+		// A token from the browser lasts an hour. Turned down, nothing was done, so even a write can go again.
+		if response.StatusCode == http.StatusUnauthorized && c.renew != nil && !renewed {
+			_, _ = io.Copy(io.Discard, response.Body)
+			response.Body.Close()
+			if err := c.renewToken(ctx, token); err != nil {
+				return nil, err
+			}
+			renewed = true
+			attempt--
+			continue
+		}
 		if retryable && (response.StatusCode == 429 || response.StatusCode == 502 || response.StatusCode == 503 || response.StatusCode == 504) {
 			wait, said := retryAfter(response.Header.Get("Retry-After"), time.Now())
 			last = apiErrorFrom(response)
@@ -163,6 +181,27 @@ func (c *Client) open(ctx context.Context, method, target string, options reques
 		return nil, apiErrorFrom(response)
 	}
 	return nil, last
+}
+
+func (c *Client) currentToken() string {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.token
+}
+
+// renewToken replaces the token that was turned down, unless another request here already has.
+func (c *Client) renewToken(ctx context.Context, held string) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.token != held {
+		return nil
+	}
+	token, err := c.renew(ctx, held)
+	if err != nil {
+		return err
+	}
+	c.token = token
+	return nil
 }
 
 // mostRetryAfter is the longest a request waits when the server asks it to come back later.

@@ -119,6 +119,7 @@ export function createHarness(connectionString: string, ports: Partial<PandocsPo
     call,
     write,
     errors,
+    assetRoot,
     async close() {
       await pool.end();
       rmSync(assetRoot, { recursive: true, force: true });

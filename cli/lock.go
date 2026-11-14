@@ -19,7 +19,12 @@ func lockCopy(root string) (func(), error) {
 	if err := os.MkdirAll(filepath.Join(root, metaDir), 0o755); err != nil {
 		return nil, err
 	}
-	file, err := os.OpenFile(filepath.Join(root, metaDir, "lock"), os.O_CREATE|os.O_RDWR, 0o644)
+	return lockFile(filepath.Join(root, metaDir, "lock"))
+}
+
+// lockFile waits, up to lockWait, for the lock on a file only pandocs uses for this.
+func lockFile(path string) (func(), error) {
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,30 @@
+{
+  "name": "@pandocs/cli",
+  "version": "0.1.3",
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "The pandocs command line: read and change a Pandocs site, and keep a space as files on disk.",
+  "keywords": [
+    "pandocs",
+    "docs",
+    "cli",
+    "mcp",
+    "agents"
+  ],
+  "homepage": "https://github.com/wusongbuaa/pandocs/blob/main/docs/files-and-agents.md#the-command-line",
+  "bugs": "https://github.com/wusongbuaa/pandocs/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wusongbuaa/pandocs.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "pandocs": "bin/pandocs.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

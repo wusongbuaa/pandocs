@@ -1349,6 +1349,21 @@ func (e ListDeletedSpaces200JSONResponseBodyVersion) Valid() bool {
 	}
 }
 
+// Defines values for PurgeSpace200JSONResponseBodyVersion.
+const (
+	PurgeSpace200JSONResponseBodyVersionN1 PurgeSpace200JSONResponseBodyVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the PurgeSpace200JSONResponseBodyVersion enum.
+func (e PurgeSpace200JSONResponseBodyVersion) Valid() bool {
+	switch e {
+	case PurgeSpace200JSONResponseBodyVersionN1:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RestoreSpace200JSONResponseBodyVersion.
 const (
 	RestoreSpace200JSONResponseBodyVersionN1 RestoreSpace200JSONResponseBodyVersion = 1
@@ -4089,6 +4104,9 @@ type ReactToComment200JSONResponseBodyVersion int
 // ListDeletedSpaces200JSONResponseBodyVersion defines parameters for ListDeletedSpaces.
 type ListDeletedSpaces200JSONResponseBodyVersion int
 
+// PurgeSpace200JSONResponseBodyVersion defines parameters for PurgeSpace.
+type PurgeSpace200JSONResponseBodyVersion int
+
 // RestoreSpaceJSONBody defines parameters for RestoreSpace.
 type RestoreSpaceJSONBody struct {
 	Slug *string `json:"slug,omitempty"`
@@ -5842,6 +5860,11 @@ type ClientInterface interface {
 
 	// ListDeletedSpaces performs a GET /deleted-spaces (the `ListDeletedSpaces` operationId) request.
 	ListDeletedSpaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PurgeSpace Delete a deleted space for good (administrators), with its pages, history, discussions and uploads. It cannot be restored
+	//
+	// Corresponds with DELETE /deleted-spaces/{id} (the `PurgeSpace` operationId).
+	PurgeSpace(ctx context.Context, id Id, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RestoreSpaceWithBody performs a POST /deleted-spaces/{id}/restore (the `RestoreSpace` operationId) request,
 	// with any type of body and a specified content type.
@@ -7598,6 +7621,21 @@ func (c *Client) ReactToComment(ctx context.Context, id Id, body ReactToCommentJ
 // ListDeletedSpaces performs a GET /deleted-spaces (the `ListDeletedSpaces` operationId) request.
 func (c *Client) ListDeletedSpaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListDeletedSpacesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PurgeSpace Delete a deleted space for good (administrators), with its pages, history, discussions and uploads. It cannot be restored
+//
+// Corresponds with DELETE /deleted-spaces/{id} (the `PurgeSpace` operationId).
+func (c *Client) PurgeSpace(ctx context.Context, id Id, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPurgeSpaceRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -11784,6 +11822,40 @@ func NewListDeletedSpacesRequest(server string) (*http.Request, error) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPurgeSpaceRequest constructs an http.Request for the PurgeSpace method
+func NewPurgeSpaceRequest(server string, id Id) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/deleted-spaces/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -17865,6 +17937,13 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	ListDeletedSpacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeletedSpacesResponse, error)
 
+	// PurgeSpaceWithResponse Delete a deleted space for good (administrators), with its pages, history, discussions and uploads. It cannot be restored
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /deleted-spaces/{id} (the `PurgeSpace` operationId).
+	PurgeSpaceWithResponse(ctx context.Context, id Id, reqEditors ...RequestEditorFn) (*PurgeSpaceResponse, error)
+
 	// RestoreSpaceWithBodyWithResponse performs a POST /deleted-spaces/{id}/restore (the `RestoreSpace` operationId) request,
 	// with any type of body and a specified content type.
 	//
@@ -20949,6 +21028,61 @@ func (r ListDeletedSpacesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListDeletedSpacesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PurgeSpaceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Ok
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PurgeSpaceResponse) GetJSON200() *Ok {
+	return r.JSON200
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PurgeSpaceResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PurgeSpaceResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r PurgeSpaceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PurgeSpaceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PurgeSpaceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PurgeSpaceResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -28130,6 +28264,19 @@ func (c *ClientWithResponses) ListDeletedSpacesWithResponse(ctx context.Context,
 	return ParseListDeletedSpacesResponse(rsp)
 }
 
+// PurgeSpaceWithResponse Delete a deleted space for good (administrators), with its pages, history, discussions and uploads. It cannot be restored
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /deleted-spaces/{id} (the `PurgeSpace` operationId).
+func (c *ClientWithResponses) PurgeSpaceWithResponse(ctx context.Context, id Id, reqEditors ...RequestEditorFn) (*PurgeSpaceResponse, error) {
+	rsp, err := c.PurgeSpace(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePurgeSpaceResponse(rsp)
+}
+
 // RestoreSpaceWithBodyWithResponse performs a POST /deleted-spaces/{id}/restore (the `RestoreSpace` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -31618,6 +31765,46 @@ func ParseListDeletedSpacesResponse(rsp *http.Response) (*ListDeletedSpacesRespo
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePurgeSpaceResponse parses an HTTP response from a PurgeSpaceWithResponse call
+func ParsePurgeSpaceResponse(rsp *http.Response) (*PurgeSpaceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PurgeSpaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Ok
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
