@@ -343,36 +343,57 @@ function openAiCompatibleModel(config: LlmConfig, fetchImpl: typeof fetch): Call
 export function createLlmPort(config: LlmConfig, pool: pg.Pool, fetchImpl: typeof fetch = fetch): LlmPort {
   const call = config.protocol === "anthropic" ? anthropicModel(config) : openAiCompatibleModel(config, fetchImpl);
 
-  /** With a record per person, the limit holds across replicas. Agents bring their own models. Everyone with no login shares one record, and a limit of its own. */
-  const checkLimit = async (actor: Principal) => {
+  /** With a record per person, the limit holds across replicas. Agents bring their own models. Everyone with no login
+   *  shares one record, and a limit of its own. Counting and recording are one transaction behind a lock on the person,
+   *  so two requests at once cannot both pass a limit that is already reached. The record stands even if the model then
+   *  fails, which errs on the side of using up quota rather than handing out extra turns. */
+  const reserve = async (actor: Principal, purpose: string): Promise<string> => {
     if (actor.kind !== "user")
       throw new PandocsError(
         403,
         "LLM_USER_REQUIRED",
         t("AI features need a person's account. Agents should use their own model.")
       );
-    const { rows } = await pool.query<{ count: string }>(
-      `SELECT count(*) FROM pandocs.llm_usage WHERE user_id = $1 AND created_at > now() - make_interval(secs => $2)`,
-      [actor.id, WINDOW_MS / 1000]
-    );
-    if (Number(rows[0]!.count) >= (actor.anonymous ? config.visitorHourlyLimit : config.hourlyLimit))
-      throw new PandocsError(429, "LLM_HOURLY_LIMIT", t("AI is being used too often. Try again later."));
+    const limit = actor.anonymous || actor.guest ? config.visitorHourlyLimit : config.hourlyLimit;
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [actor.id]);
+      const { rows } = await client.query<{ count: string }>(
+        `SELECT count(*) FROM pandocs.llm_usage WHERE user_id = $1 AND created_at > now() - make_interval(secs => $2)`,
+        [actor.id, WINDOW_MS / 1000]
+      );
+      if (Number(rows[0]!.count) >= limit)
+        throw new PandocsError(429, "LLM_HOURLY_LIMIT", t("AI is being used too often. Try again later."));
+      const inserted = await client.query<{ id: string }>(
+        `INSERT INTO pandocs.llm_usage (user_id, purpose, model) VALUES ($1, $2, $3) RETURNING id`,
+        [actor.id, purpose, config.model]
+      );
+      await client.query("COMMIT");
+      return inserted.rows[0]!.id;
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   };
-  const writeDown = (
-    actor: Principal,
-    purpose: string,
+  const writeDown = async (
+    usage: string,
     inputTokens: number | undefined,
     outputTokens: number | undefined
-  ) =>
-    pool.query(
-      `INSERT INTO pandocs.llm_usage (user_id, purpose, model, input_tokens, output_tokens) VALUES ($1, $2, $3, $4, $5)`,
-      [actor.id, purpose, config.model, inputTokens ?? null, outputTokens ?? null]
-    );
+  ): Promise<void> => {
+    await pool.query(`UPDATE pandocs.llm_usage SET input_tokens = $2, output_tokens = $3 WHERE id = $1`, [
+      usage,
+      inputTokens ?? null,
+      outputTokens ?? null
+    ]);
+  };
 
   const run = async (actor: Principal, purpose: string, input: { system: string; prompt: string }): Promise<string> => {
-    await checkLimit(actor);
+    const usage = await reserve(actor, purpose);
     const reply = await call(input);
-    await writeDown(actor, purpose, reply.inputTokens, reply.outputTokens);
+    await writeDown(usage, reply.inputTokens, reply.outputTokens);
     const text = reply.text.trim();
     if (!text) throw new PandocsError(502, "LLM_EMPTY", t("The model returned nothing usable"));
     return text;
@@ -386,7 +407,7 @@ export function createLlmPort(config: LlmConfig, pool: pg.Pool, fetchImpl: typeo
         prompt: `${tagged("context", context)}\n\n${tagged("text", content)}`
       }),
     async conversation({ purpose, actor, ...start }) {
-      await checkLimit(actor);
+      const usage = await reserve(actor, purpose);
       const provider =
         config.protocol === "anthropic"
           ? anthropicConversation(config, start)
@@ -404,7 +425,7 @@ export function createLlmPort(config: LlmConfig, pool: pg.Pool, fetchImpl: typeo
         },
         answerCalls: results => provider.answerCalls(results),
         finish: async () => {
-          await writeDown(actor, purpose, inputTokens, outputTokens);
+          await writeDown(usage, inputTokens, outputTokens);
         }
       };
     }

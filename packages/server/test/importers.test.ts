@@ -920,4 +920,47 @@ describe("reading from Feishu", () => {
       expect.arrayContaining(["A file could not be downloaded: missing.png"])
     );
   });
+
+  it("leaves out a file bigger than the site would keep, and carries on", async () => {
+    const api = fakeApi({
+      titles: { d1: "T" },
+      blocks: {
+        d1: document(
+          "d1",
+          { block_id: "i", block_type: 27, image: { token: "huge" } },
+          { block_id: "t", block_type: 2, text: text("Rest") }
+        )
+      }
+    });
+    // No length is declared, so the refusal has to come from watching the bytes arrive.
+    api.overrides.push(path =>
+      path.includes("/medias/") ? new Response(new Uint8Array(100 * 1024 * 1024 + 1) as BodyInit) : null
+    );
+    const { pages, notes, assets } = await run(importerWith(api), { url: "https://example.feishu.cn/docx/d1" });
+    expect(pages[0]!.markdown).toContain("Rest");
+    expect(assets).toEqual([]);
+    expect(notes.map(item => item.reason)).toEqual(
+      expect.arrayContaining(["A file is larger than 100 MiB and was left out: huge.png"])
+    );
+  });
+
+  it("leaves out an oversized whiteboard before reading it", async () => {
+    const api = fakeApi({
+      titles: { d1: "T" },
+      blocks: {
+        d1: document("d1", { block_id: "a", block_type: 43, board: { token: "poster" } })
+      }
+    });
+    api.overrides.push(path =>
+      path.endsWith("/poster/download_as_image")
+        ? new Response(new Uint8Array(0) as BodyInit, {
+            headers: { "content-type": "image/png", "content-length": String(100 * 1024 * 1024 + 1) }
+          })
+        : null
+    );
+    const { notes } = await run(importerWith(api), { url: "https://example.feishu.cn/docx/d1" });
+    expect(notes.map(item => item.reason)).toEqual(
+      expect.arrayContaining(["A file is larger than 100 MiB and was left out: poster.png"])
+    );
+  });
 });

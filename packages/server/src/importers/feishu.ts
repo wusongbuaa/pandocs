@@ -1,4 +1,4 @@
-import { PermanentIngestError, type BulkImporter, type ImportSink } from "@pandocs/core";
+import { MAX_ASSET_BYTES, PermanentIngestError, type BulkImporter, type ImportSink } from "@pandocs/core";
 import { t } from "@pandocs/i18n";
 import { relativeDocHref } from "@pandocs/markdown";
 import { blocksToMarkdown, type FeishuBlock } from "./feishu-blocks.js";
@@ -196,32 +196,56 @@ function createClient(config: FeishuConfig, fetcher: typeof fetch, sleep: (ms: n
       } while (pageToken);
       return items;
     },
-    async media(fileToken: string): Promise<{ bytes: Uint8Array; name: string | null } | null> {
+    async media(fileToken: string): Promise<Downloaded & { name?: string | null }> {
       const response = await request(
         "docs",
         `/open-apis/drive/v1/medias/${encodeURIComponent(fileToken)}/download`,
         true
       );
-      if (!response.ok) return null;
+      if (!response.ok) return "absent";
       const disposition = response.headers.get("content-disposition") ?? "";
       const encoded = /filename\*=UTF-8''([^;]+)/iu.exec(disposition)?.[1];
       const plain = /filename="?([^";]+)"?/iu.exec(disposition)?.[1];
-      return {
-        bytes: new Uint8Array(await response.arrayBuffer()),
-        name: encoded ? decodeURIComponent(encoded) : (plain ?? null)
-      };
+      const body = await bodyOf(response);
+      return body === "absent" || body === "too-large"
+        ? body
+        : { bytes: body.bytes, name: encoded ? decodeURIComponent(encoded) : (plain ?? null) };
     },
-    async whiteboard(id: string): Promise<Uint8Array | null> {
+    async whiteboard(id: string): Promise<Downloaded> {
       const response = await request(
         "docs",
         `/open-apis/board/v1/whiteboards/${encodeURIComponent(id)}/download_as_image`,
         true
       );
-      return response.ok && (response.headers.get("content-type") ?? "").startsWith("image/")
-        ? new Uint8Array(await response.arrayBuffer())
-        : null;
+      if (!response.ok) return "absent";
+      if (!(response.headers.get("content-type") ?? "").startsWith("image/")) return "absent";
+      return bodyOf(response);
     }
   };
+}
+
+/** What a download can come to: the bytes of the file, nothing there, or more than this site would ever store. */
+type Downloaded = { readonly bytes: Uint8Array } | "absent" | "too-large";
+
+/** Feishu serves whatever a drive token names, and a page can embed something enormous: the cap sits on the download
+ *  itself, so a huge file is refused as it arrives rather than buffered whole and refused afterwards. */
+async function bodyOf(response: Response): Promise<Downloaded> {
+  if (Number(response.headers.get("content-length") ?? 0) > MAX_ASSET_BYTES) return "too-large";
+  if (response.body === null) return "absent";
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  for await (const part of response.body) {
+    total += part.byteLength;
+    if (total > MAX_ASSET_BYTES) return "too-large";
+    parts.push(part);
+  }
+  const bytes = new Uint8Array(total);
+  let at = 0;
+  for (const part of parts) {
+    bytes.set(part, at);
+    at += part.byteLength;
+  }
+  return { bytes };
 }
 
 const LABELS: Readonly<Record<string, () => string>> = {
@@ -339,15 +363,25 @@ export function createFeishuImporter(
               },
               whiteboard: async token => {
                 if (stored.has(token)) return stored.get(token) ?? null;
-                const bytes = await client.whiteboard(token);
-                const path = bytes ? await sink.asset(bytes, `${token}.png`) : null;
+                const downloaded = await client.whiteboard(token);
+                if (downloaded === "too-large") {
+                  note(t("A file is larger than 100 MiB and was left out: {0}", `${token}.png`));
+                  stored.set(token, null);
+                  return null;
+                }
+                const path = downloaded === "absent" ? null : await sink.asset(downloaded.bytes, `${token}.png`);
                 stored.set(token, path);
                 return path;
               },
               media: async (token, name) => {
                 if (stored.has(token)) return stored.get(token) ?? null;
                 const media = await client.media(token);
-                if (!media) {
+                if (media === "too-large") {
+                  note(t("A file is larger than 100 MiB and was left out: {0}", name));
+                  stored.set(token, null);
+                  return null;
+                }
+                if (media === "absent") {
                   note(t("A file could not be downloaded: {0}", name));
                   stored.set(token, null);
                   return null;

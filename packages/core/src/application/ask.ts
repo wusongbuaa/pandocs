@@ -185,12 +185,13 @@ export class AskService {
     private readonly stats: StatsService
   ) {}
 
-  /** What this person gets offered. Agents have models of their own, and visitors are on the site's bill only if it says so. */
+  /** What this person gets offered. Agents have models of their own, and anyone without a login — a visitor or a guest
+   *  from an embed — is on the site's bill only if it says so. */
   available(principal: Principal, askForVisitors: boolean): boolean {
     return (
       Boolean(this.context.ports.llm?.conversation) &&
       principal.kind === "user" &&
-      (!principal.anonymous || askForVisitors)
+      (!(principal.anonymous || principal.guest) || askForVisitors)
     );
   }
 

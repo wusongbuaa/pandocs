@@ -38,7 +38,7 @@ const POLICY_REPORTS_PER_MINUTE = 60;
 const mostBytesFor = (pathname: string) =>
   UPLOAD_PATH.test(pathname)
     ? UPLOAD_BYTES
-    : pathname === "/mcp" || pathname.startsWith(`${API_BASE}/`)
+    : pathname === "/mcp" || pathname === "/mcp/public" || pathname.startsWith(`${API_BASE}/`)
       ? API_BYTES
       : FORM_BYTES;
 const bodyTooLarge = () => new PandocsError(413, "BODY_TOO_LARGE", t("The request body is too large"));

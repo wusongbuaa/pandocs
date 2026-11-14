@@ -197,6 +197,30 @@ describe("model calls", () => {
     ).resolves.toBeTruthy();
   });
 
+  it("holds the limit when many calls arrive at once", async () => {
+    await pool.query(`DELETE FROM pandocs.llm_usage`);
+    const llm = createLlmPort(config({ hourlyLimit: 3 }), pool);
+    const answers = await Promise.allSettled(
+      Array.from({ length: 8 }, (_, at) => llm.complete({ purpose: "thread_summary", prompt: `q${at}`, actor: person }))
+    );
+    expect(answers.filter(answer => answer.status === "fulfilled")).toHaveLength(3);
+    const refused = answers.filter(answer => answer.status === "rejected");
+    expect(refused).toHaveLength(5);
+    for (const answer of refused) expect(answer.reason).toMatchObject({ code: "LLM_HOURLY_LIMIT" });
+    const { rows } = await pool.query(`SELECT count(*) FROM pandocs.llm_usage`);
+    expect(Number(rows[0]!.count)).toBe(3);
+  });
+
+  it("gives a guest the limit set aside for visitors", async () => {
+    await pool.query(`DELETE FROM pandocs.llm_usage`);
+    const llm = createLlmPort(config({ hourlyLimit: 10, visitorHourlyLimit: 1 }), pool);
+    const guest: Principal = { ...person, id: "guest-7", guest: true };
+    await expect(llm.complete({ purpose: "thread_summary", prompt: "一", actor: guest })).resolves.toBeTruthy();
+    await expect(llm.complete({ purpose: "thread_summary", prompt: "二", actor: guest })).rejects.toMatchObject({
+      code: "LLM_HOURLY_LIMIT"
+    });
+  });
+
   it("leaves agents to bring their own models", async () => {
     const llm = createLlmPort(config({}), pool);
     const agent: Principal = { ...person, id: "agent:1", kind: "agent", onBehalfOf: { id: "user-1", groups: [] } };
