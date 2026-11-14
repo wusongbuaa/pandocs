@@ -11,7 +11,7 @@
     "./s3-asset-store": "./src/infrastructure/s3-asset-store.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1116.0",
+    "@aws-sdk/client-s3": "3.1166.0",
     "@pandocs/i18n": "workspace:*",
     "@pandocs/markdown": "workspace:*",
     "diff": "^8.0.2",
