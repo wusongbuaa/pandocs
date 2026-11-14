@@ -1,6 +1,6 @@
 {
   "name": "@pandocs/cli",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "type": "module",
   "license": "Apache-2.0",
   "description": "The pandocs command line: read and change a Pandocs site, and keep a space as files on disk.",

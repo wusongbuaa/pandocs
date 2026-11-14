@@ -4,9 +4,27 @@ What changes for someone running or using Pandocs. The format follows [Keep a Ch
 
 ## Unreleased
 
+## 0.2.0 - 2026-11-14
+
 ### Managing documents
 
 - A deleted space can be deleted for good from the list of deleted spaces. Its pages, version history, discussions and uploads go with it, and it cannot be restored. Deleting a space that is still in use stays as it was: it only leaves the site, and an administrator can still bring it back.
+- Restoring a deleted space cannot land it on an address the site keeps for its own pages, such as `login`: it says the address is taken, and restoring at another one works as before. On a site where public spaces are turned off, a space that was public comes back private, as the site's setting says.
+- A file over 100 MiB in a Feishu import is left out with a note saying so, and the rest of the space still comes in. It used to read the whole file into memory on the way to refusing it.
+
+### Forms and managing
+
+- Making an administrator, disabling someone's account, merging a change set and removing a member each ask before they take effect, in the words of what they are about to do. Changing a space's default role is recorded in the audit log, as other changes to a space are.
+
+### Agents and AI
+
+- The hourly limit on AI holds when many requests arrive in the same moment: each person's calls line up behind one another, and a call that fails still uses its turn. Calls from an embedded page are counted against the limit for visitors, and asking through an embed waits for the site to let people with no login ask, as asking without a login does.
+- Calls to the public MCP address can be as large as those to the signed-in one.
+
+### Running it
+
+- A request that goes on past the size the site keeps is refused while it arrives, rather than read into memory first, and a body that is not valid JSON is answered as a bad request rather than an error from the server.
+- The converter lets go of a connection that says nothing within a minute, so one that sends its headers a byte at a time can no longer hold a conversion turn forever, and a request whose length is not a number is answered as a bad request.
 
 ## 0.1.3 - 2026-11-13
 
