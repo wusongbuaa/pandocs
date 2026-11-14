@@ -186,8 +186,8 @@ function PageHead() {
     ? {
         link: [
           { rel: "canonical", href: canonical },
-          ...versions.map(version => ({ rel: "alternate", hreflang: version.lang, href: version.href })),
-          ...versions.filter(version => version.lang === site.defaultLang).map(version => ({ rel: "alternate", hreflang: "x-default", href: version.href }))
+          ...versions.map(version => ({ rel: "alternate" as const, hreflang: version.lang, href: version.href })),
+          ...versions.filter(version => version.lang === site.defaultLang).map(version => ({ rel: "alternate" as const, hreflang: "x-default" as const, href: version.href }))
         ],
         meta: [
           { property: "og:url", content: canonical },
