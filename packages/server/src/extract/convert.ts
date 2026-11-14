@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { t } from "@pandocs/i18n";
 import { unzipSync } from "fflate";
 import mammoth from "mammoth";
-import readXlsxFile, { readSheetNames } from "read-excel-file/node";
+import readXlsxFile from "read-excel-file/node";
 import { extractText, getDocumentProxy } from "unpdf";
 import { markListNumbers, POWERPOINT_PARTS, shownNumbers, slidesInOrder, unescapeXml } from "./ooxml.js";
 import { declaredEncoding, decodeText, htmlToMarkdown, parseDelimited, toTable } from "./text.js";
@@ -89,18 +89,17 @@ async function fromDocx(bytes: Uint8Array): Promise<Extracted> {
 async function fromXlsx(bytes: Uint8Array): Promise<Extracted> {
   refuseZipBomb(bytes);
   const buffer = Buffer.from(bytes);
-  const names = await readSheetNames(buffer);
+  const sheets = await readXlsxFile(buffer);
   const shown = shownNumbers(bytes);
   const warnings: string[] = [];
   const parts: string[] = [];
-  for (const name of names) {
-    const rows = await readXlsxFile(buffer, { sheet: name });
+  for (const { sheet: name, data: rows } of sheets) {
     for (const cell of shown.get(name) ?? []) {
       const row = rows[cell.row];
       if (row && cell.column < row.length) row[cell.column] = cell.text;
     }
     const table = toTable(limitRows(rows, warnings, t("Sheet \"{0}\"", name)));
-    if (table) parts.push(names.length > 1 ? `## ${name}\n\n${table}` : table);
+    if (table) parts.push(sheets.length > 1 ? `## ${name}\n\n${table}` : table);
   }
   return { markdown: parts.join("\n\n"), warnings, files: [] };
 }

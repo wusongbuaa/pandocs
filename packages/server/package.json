@@ -31,7 +31,7 @@
     "openid-client": "^6.8.1",
     "pdfjs-dist": "6.4.299",
     "pg": "^8.21.0",
-    "read-excel-file": "^7.0.3",
+    "read-excel-file": "^9.3.14",
     "turndown": "^7.2.5",
     "turndown-plugin-gfm": "^1.0.2",
     "unpdf": "^2.1.0",
