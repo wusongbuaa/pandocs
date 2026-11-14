@@ -529,6 +529,48 @@ describe("managing the document tree", () => {
       expect((await h.call(USERS.admin, "GET", `documents/${id}`)).status).toBe(200);
     });
 
+    it("restores a space only at an address a new one could take", async () => {
+      await create("甲");
+      await h.call(USERS.admin, "DELETE", `spaces/${space}`);
+      const deleted = (await h.call(USERS.admin, "GET", "deleted-spaces")).data.find(
+        (item: { slug: string }) => item.slug === space
+      );
+      expect(
+        (await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`, { slug: "login" })).error.code
+      ).toBe("SPACE_SLUG_RESERVED");
+      expect(
+        (await h.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`, { slug: `${space}-back` })).status
+      ).toBe(200);
+    });
+
+    it("restores a public space as a private one on a site that no longer allows public spaces", async () => {
+      await h.call(USERS.admin, "POST", "spaces", { slug: "open-space", name: "公开的", defaultRole: "viewer" });
+      await h.call(USERS.admin, "PATCH", "spaces/open-space", { publicRead: true });
+      await h.call(USERS.admin, "DELETE", "spaces/open-space");
+      const deleted = (await h.call(USERS.admin, "GET", "deleted-spaces")).data.find(
+        (item: { slug: string }) => item.slug === "open-space"
+      );
+      const shut = createHarness(fixture.getConnectionString(), { publicSpacesDisabled: true });
+      try {
+        expect((await shut.call(USERS.admin, "POST", `deleted-spaces/${deleted.id}/restore`)).status).toBe(200);
+        expect((await shut.call(USERS.admin, "GET", "spaces/open-space")).data.publicRead).toBe(false);
+        expect((await shut.call(USERS.admin, "PATCH", "spaces/open-space", { publicRead: true })).status).toBe(403);
+      } finally {
+        await shut.close();
+      }
+    });
+
+    it("records who opened a space to everyone with an account", async () => {
+      await h.call(USERS.admin, "PATCH", `spaces/${space}`, { defaultRole: "editor" });
+      const record = (await h.call(USERS.admin, "GET", "audit?category=space")).data as {
+        action: string;
+        detail: { slug?: string; defaultRole?: string };
+      }[];
+      expect(
+        record.find(event => event.action === "space.default_role" && event.detail.slug === space)?.detail
+      ).toMatchObject({ defaultRole: "editor" });
+    });
+
     it("deletes a deleted space for good, and leaves one still in use alone", async () => {
       const page = await create("甲");
       const image = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);

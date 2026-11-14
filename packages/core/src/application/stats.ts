@@ -17,6 +17,9 @@ const VIEWS_KEPT_DAYS = 400;
 const WORDS_KEPT_DAYS = 180;
 const MAX_TERM_CHARS = 100;
 const LISTED = 50;
+/** Anyone can report a search, so what they report cannot be allowed to grow without end: this many distinct counts are
+ *  held between flushes, and anything beyond them is dropped. Real traffic stays far below it; a flood stops here. */
+const MAX_TRACKED = 20_000;
 
 const today = () => new Date().toISOString().slice(0, 10);
 const daysAgo = (days: number) => new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10);
@@ -69,10 +72,13 @@ export class StatsService {
     const term = normalizeTerm(input.term);
     if (this.off || !term) return;
     const key = JSON.stringify([today(), input.space ?? "", term, input.audience]);
-    const count = this.searches.get(key) ?? { searches: 0, empty: 0 };
-    count.searches += 1;
-    if (input.results === 0) count.empty += 1;
-    this.searches.set(key, count);
+    const count = this.searches.get(key);
+    if (count) {
+      count.searches += 1;
+      if (input.results === 0) count.empty += 1;
+    } else if (this.searches.size < MAX_TRACKED) {
+      this.searches.set(key, { searches: 1, empty: input.results === 0 ? 1 : 0 });
+    }
     this.later();
   }
 

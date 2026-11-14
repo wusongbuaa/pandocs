@@ -198,6 +198,7 @@ export const zh: Readonly<Record<string, string>> = {
   "Changed page permissions": "修改页面权限",
   "Changed site settings": "修改站点设置",
   "Changed space members": "修改空间成员",
+  "Changed a space's default role": "修改空间的默认角色",
   "Changed the Git sync settings": "修改了 Git 同步设置",
   Changes: "修改列表",
   "Changes only go through review: nobody saves, moves or deletes a page directly":
