@@ -17,7 +17,11 @@ describe("Markdown to the theme's elements", () => {
     expect(headingTitle).toBe("");
     expect(elements(hast, "h1")).toHaveLength(0);
     expect(elements(hast, "h2")).toHaveLength(2);
-    expect(toc.map(entry => [entry.depth, entry.text])).toEqual([[2, "第一章"], [3, "小节"], [2, "第二章"]]);
+    expect(toc.map(entry => [entry.depth, entry.text])).toEqual([
+      [2, "第一章"],
+      [3, "小节"],
+      [2, "第二章"]
+    ]);
   });
 
   it("treats a first heading that repeats the title as the title", async () => {
@@ -50,7 +54,12 @@ describe("Markdown to the theme's elements", () => {
   });
 
   it("drops raw HTML and script links, and keeps asset paths", async () => {
-    const { hast } = await renderMarkdown("<script>alert(1)</script>\n\n[坏链接](javascript:alert(1))\n\n[好链接](https://example.test)\n\n![图](assets/" + "a".repeat(64) + ".png)\n", { title: "手册" });
+    const { hast } = await renderMarkdown(
+      "<script>alert(1)</script>\n\n[坏链接](javascript:alert(1))\n\n[好链接](https://example.test)\n\n![图](assets/" +
+        "a".repeat(64) +
+        ".png)\n",
+      { title: "手册" }
+    );
     expect(elements(hast, "script")).toHaveLength(0);
     const [bad, good] = elements(hast, "a");
     expect(bad?.properties.href).toBeUndefined();
@@ -59,7 +68,7 @@ describe("Markdown to the theme's elements", () => {
   });
 
   it("highlights code with the theme's css-variables output, loading Shiki only when there is code", async () => {
-    const { hast } = await renderMarkdown("```ts title=\"a.ts\"\nconst a = 1;\n```\n", { title: "手册" });
+    const { hast } = await renderMarkdown('```ts title="a.ts"\nconst a = 1;\n```\n', { title: "手册" });
     const pre = elements(hast, "pre")[0]!;
     expect(String(pre.properties.class)).toContain("shiki");
     expect(pre.properties.title).toBe("a.ts");
@@ -67,7 +76,10 @@ describe("Markdown to the theme's elements", () => {
 
   it("shows code in a language it has no grammar for as plain code, and the rest of the page with it", async () => {
     for (const lang of ["curl", "terminal-output"]) {
-      const { hast } = await renderMarkdown(`Before.\n\n\`\`\`${lang}\ncurl http://127.0.0.1/healthz\n\`\`\`\n\nAfter.\n`, { title: "接入" });
+      const { hast } = await renderMarkdown(
+        `Before.\n\n\`\`\`${lang}\ncurl http://127.0.0.1/healthz\n\`\`\`\n\nAfter.\n`,
+        { title: "接入" }
+      );
       expect(String(elements(hast, "pre")[0]!.properties.class)).toContain("shiki");
       expect(JSON.stringify(hast)).toContain("After.");
     }

@@ -13,7 +13,12 @@ import "../src/language.js";
 describe("threads with nothing to do", () => {
   it("go away, and come back when there is work", async () => {
     const script = `import { parentPort } from "node:worker_threads"; parentPort.on("message", ({ id, input }) => parentPort.postMessage({ id, result: input + 1 }));`;
-    const pool = createWorkerPool<number, number>(new URL(`data:text/javascript,${encodeURIComponent(script)}`), 1, undefined, 50);
+    const pool = createWorkerPool<number, number>(
+      new URL(`data:text/javascript,${encodeURIComponent(script)}`),
+      1,
+      undefined,
+      50
+    );
     expect(await pool.run(1)).toBe(2);
     expect(pool.workers).toBe(1);
     await expect.poll(() => pool.workers, { timeout: 5000 }).toBe(0);
@@ -54,7 +59,10 @@ describe("parsing long documents off the main thread", () => {
       bundle: true,
       platform: "node",
       format: "esm",
-      alias: { "@pandocs/markdown/zh": join(import.meta.dirname, "../../markdown/src/i18n/zh.ts"), "@pandocs/markdown": join(import.meta.dirname, "../../markdown/src/index.ts") },
+      alias: {
+        "@pandocs/markdown/zh": join(import.meta.dirname, "../../markdown/src/i18n/zh.ts"),
+        "@pandocs/markdown": join(import.meta.dirname, "../../markdown/src/index.ts")
+      },
       logLevel: "silent"
     });
     pool = createAnalyzePool(pathToFileURL(outfile), 2);
@@ -71,7 +79,9 @@ describe("parsing long documents off the main thread", () => {
   it("reports problems in the language of whoever asked", async () => {
     const odd = `:::no-such-block\n\nx\n\n:::\n\n${long}`;
     expect((await pool.analyze(odd)).diagnostics[0]!.message).toContain("Unknown block no-such-block");
-    expect((await inLanguage("zh", () => pool.analyze(odd))).diagnostics[0]!.message).toContain("不认识的块 no-such-block");
+    expect((await inLanguage("zh", () => pool.analyze(odd))).diagnostics[0]!.message).toContain(
+      "不认识的块 no-such-block"
+    );
   });
 
   it("keeps the main thread free while it works", async () => {

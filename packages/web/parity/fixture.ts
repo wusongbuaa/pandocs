@@ -26,7 +26,16 @@ const tree: TreeEntry[] = pages.map((page, index) => ({
   labels: []
 }));
 
-const space: SpaceWithTree = { id: "parity", slug: "parity", name: "比对", description: "", defaultRole: "viewer", role: "viewer", glossary: [], tree };
+const space: SpaceWithTree = {
+  id: "parity",
+  slug: "parity",
+  name: "比对",
+  description: "",
+  defaultRole: "viewer",
+  role: "viewer",
+  glossary: [],
+  tree
+};
 
 const bootstrap: Bootstrap = {
   me: { id: "parity", displayName: "比对", kind: "user", isAdmin: false, scopes: ["read"] },
@@ -41,10 +50,10 @@ const bootstrap: Bootstrap = {
     socialLinks: [{ icon: "github", link: "https://github.com/web-infra-dev/rspress" }],
     appLinks: [],
     actions: [],
-  trashRetentionDays: null,
-  logoutUrl: "",
-  askForVisitors: false,
-  brandColor: ""
+    trashRetentionDays: null,
+    logoutUrl: "",
+    askForVisitors: false,
+    brandColor: ""
   },
   spaces: [space],
   searchIndexHash: "parity",
@@ -54,11 +63,30 @@ const bootstrap: Bootstrap = {
 function documentView(id: string): DocumentView {
   const page = pages.find(item => item.path === id)!;
   return {
-    document: { id, path: id, title: page.title, restricted: false, parentId: null, currentRevisionNo: 1, updatedAt: "2026-11-06T00:00:00.000Z" },
+    document: {
+      id,
+      path: id,
+      title: page.title,
+      restricted: false,
+      parentId: null,
+      currentRevisionNo: 1,
+      updatedAt: "2026-11-06T00:00:00.000Z"
+    },
     spaceSlug: "parity",
     role: "viewer",
     labels: [],
-    revision: { no: 1, sha256: "", actorId: "parity", actorName: "", actorKind: "user", channel: "web", proposalId: null, ingestJobId: null, message: "", createdAt: "2026-11-06T00:00:00.000Z" },
+    revision: {
+      no: 1,
+      sha256: "",
+      actorId: "parity",
+      actorName: "",
+      actorKind: "user",
+      channel: "web",
+      proposalId: null,
+      ingestJobId: null,
+      message: "",
+      createdAt: "2026-11-06T00:00:00.000Z"
+    },
     markdown: documents[`./fixtures/${id}.md`] ?? "",
     outline: [],
     blocks: [],

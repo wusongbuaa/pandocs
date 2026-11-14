@@ -21,7 +21,7 @@ describe("importing files that are not Markdown", () => {
     form.set("file", new File([bytes as BlobPart], filename, { type: "application/octet-stream" }));
     form.set("target", JSON.stringify(target));
     const response = await person.request("/api/v1/spaces/shop/imports", { method: "POST", body: form });
-    const payload = await response.json() as { data: { id: string; status: string }; error?: { code: string } };
+    const payload = (await response.json()) as { data: { id: string; status: string }; error?: { code: string } };
     expect(response.status, JSON.stringify(payload)).toBe(201);
     return payload.data;
   };
@@ -35,10 +35,15 @@ describe("importing files that are not Markdown", () => {
     }
     throw new Error("the import never finished");
   };
-  const publish = async (id: string, slug: string) => (await admin.json("POST", `/api/v1/imports/${id}/publish`, { slug })).data;
+  const publish = async (id: string, slug: string) =>
+    (await admin.json("POST", `/api/v1/imports/${id}/publish`, { slug })).data;
 
   beforeAll(async () => {
-    server = await startServer(postgres.getConnectionString(), {}, { processors: [createExtractProcessor(extractToMarkdown)] });
+    server = await startServer(
+      postgres.getConnectionString(),
+      {},
+      { processors: [createExtractProcessor(extractToMarkdown)] }
+    );
     admin = await signInFirstAdmin(server);
     await admin.json("POST", "/api/v1/spaces", { slug: "shop", name: "书店", defaultRole: "viewer" });
   });
@@ -68,15 +73,22 @@ describe("importing files that are not Markdown", () => {
     const read = (await admin.json("GET", `/api/v1/documents/${id}`)).data;
     expect(read.diagnostics).toEqual([]);
     expect(read.revision.ingestJobId).toBe(job.id);
-    expect((await admin.json("GET", "/api/v1/search?q=无理由")).data.map((hit: { id: string }) => hit.id)).toContain(id);
-    const thread = await admin.json("POST", `/api/v1/documents/${id}/threads`, { anchor: { kind: "quote", quote: "无理由" }, body: "确认一下" });
+    expect((await admin.json("GET", "/api/v1/search?q=无理由")).data.map((hit: { id: string }) => hit.id)).toContain(
+      id
+    );
+    const thread = await admin.json("POST", `/api/v1/documents/${id}/threads`, {
+      anchor: { kind: "quote", quote: "无理由" },
+      body: "确认一下"
+    });
     expect(thread.status).toBe(201);
 
     const hash = /assets\/([a-f0-9]{64})\.docx/u.exec(read.markdown as string)![1]!;
     const original = await admin.request(`/api/v1/spaces/shop/assets/${hash}`);
     expect(original.status).toBe(200);
     // These are the same bytes as an earlier import, so they keep the name they first came with.
-    expect(original.headers.get("content-disposition")).toBe(`attachment; filename*=UTF-8''${encodeURIComponent("退货流程.docx")}`);
+    expect(original.headers.get("content-disposition")).toBe(
+      `attachment; filename*=UTF-8''${encodeURIComponent("退货流程.docx")}`
+    );
     expect(new Uint8Array(await original.arrayBuffer())).toEqual(docx());
   });
 
@@ -86,7 +98,9 @@ describe("importing files that are not Markdown", () => {
       const manifest = (await admin.json("GET", "/api/v1/spaces/shop/manifest")).data;
       const original = manifest.files.find((file: { path: string }) => file.path.endsWith(".docx"));
       expect(original).toMatchObject({ kind: "asset" });
-      await createPublisher({ services: server.runtime.services, dir, spaces: ["shop"], log: () => undefined }).publish("shop");
+      await createPublisher({ services: server.runtime.services, dir, spaces: ["shop"], log: () => undefined }).publish(
+        "shop"
+      );
       expect(new Uint8Array(readFileSync(join(dir, "shop", original.path)))).toEqual(docx());
       expect(readFileSync(join(dir, "shop", "rules.md"), "utf8")).toContain("无理由");
     } finally {
@@ -95,7 +109,9 @@ describe("importing files that are not Markdown", () => {
   });
 
   it("replaces a page's text when a new version of the file comes, and history keeps the old one", async () => {
-    const created = (await admin.json("POST", "/api/v1/spaces/shop/documents", { title: "季报", slug: "report", markdown: "旧内容\n" })).data.document;
+    const created = (
+      await admin.json("POST", "/api/v1/spaces/shop/documents", { title: "季报", slug: "report", markdown: "旧内容\n" })
+    ).data.document;
     const job = await upload(admin, pdf("New quarterly figures"), "季报.pdf", { documentId: created.id });
     const done = await finished(job.id);
     expect(done.status).toBe("succeeded");
@@ -131,7 +147,11 @@ describe("importing files that are not Markdown", () => {
   });
 
   it("gives someone who cannot publish a draft for someone who can, as with any import", async () => {
-    await admin.json("POST", "/api/v1/admin/users", { email: "writer@example.test", displayName: "投稿人", password: "writer-password-1" });
+    await admin.json("POST", "/api/v1/admin/users", {
+      email: "writer@example.test",
+      displayName: "投稿人",
+      password: "writer-password-1"
+    });
     const writer = server.client();
     await writer.form("/login", { email: "writer@example.test", password: "writer-password-1", next: "/" });
     const { id } = (await writer.json("GET", "/api/v1/account")).data;
@@ -156,7 +176,11 @@ describe("converting on a thread of its own", () => {
     const { dir, file } = workerFile("");
     writeFileSync(file, "setInterval(() => {}, 1000);");
     try {
-      const failure = await extractInWorker(new URL(`file://${file}`), { timeoutMs: 100 })({ bytes: new Uint8Array(1), contentType: "a", filename: "a" }).catch((error: unknown) => error);
+      const failure = await extractInWorker(new URL(`file://${file}`), { timeoutMs: 100 })({
+        bytes: new Uint8Array(1),
+        contentType: "a",
+        filename: "a"
+      }).catch((error: unknown) => error);
       expect(failure).toMatchObject({ code: "EXTRACT_TIMEOUT" });
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -171,9 +195,15 @@ describe("converting on a thread of its own", () => {
       return extractInWorker(new URL(`file://${file}`))({ bytes: new Uint8Array(1), contentType: "a", filename: "a" });
     };
     try {
-      await expect(run(`parentPort.postMessage({ output: { markdown: "好", warnings: [], files: [] } });`)).resolves.toEqual({ markdown: "好", warnings: [], files: [] });
-      await expect(run(`parentPort.postMessage({ failure: { permanent: true, code: "NOPE", message: "不行" } });`)).rejects.toMatchObject({ code: "NOPE", message: "不行" });
-      const retryable = await run(`parentPort.postMessage({ failure: { permanent: false, code: "X", message: "可以再试" } });`).catch((error: unknown) => error) as Error & { code?: string };
+      await expect(
+        run(`parentPort.postMessage({ output: { markdown: "好", warnings: [], files: [] } });`)
+      ).resolves.toEqual({ markdown: "好", warnings: [], files: [] });
+      await expect(
+        run(`parentPort.postMessage({ failure: { permanent: true, code: "NOPE", message: "不行" } });`)
+      ).rejects.toMatchObject({ code: "NOPE", message: "不行" });
+      const retryable = (await run(
+        `parentPort.postMessage({ failure: { permanent: false, code: "X", message: "可以再试" } });`
+      ).catch((error: unknown) => error)) as Error & { code?: string };
       expect(retryable.message).toBe("可以再试");
       expect(retryable.code).toBeUndefined();
       await expect(run(`throw new Error("崩了");`)).rejects.toThrow("崩了");

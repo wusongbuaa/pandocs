@@ -6,7 +6,12 @@ import { startServer, type Client, type TestServer } from "./support.js";
 const postgres = usePostgresFixture();
 
 /** Walks the redirects a browser would: to the provider and back to whichever replica answers. */
-async function signIn(person: Client, provider: "oidc" | "oauth", next = "/handbook", back: Client = person): Promise<Response> {
+async function signIn(
+  person: Client,
+  provider: "oidc" | "oauth",
+  next = "/handbook",
+  back: Client = person
+): Promise<Response> {
   const start = await person.request(`/auth/${provider}/start?next=${encodeURIComponent(next)}`);
   expect(start.status).toBe(302);
   const location = start.headers.get("location")!;
@@ -52,15 +57,30 @@ describe("signing in through a company's identity provider", () => {
     expect(page).toContain("Sign in with 企业账号");
     expect(page).toContain("/auth/oauth/start");
     const options = await (await server.client().request("/login", { headers: { accept: "application/json" } })).json();
-    expect(options.data.providers).toEqual([{ id: "oidc", name: "企业账号" }, { id: "oauth", name: "内部 OAuth" }]);
+    expect(options.data.providers).toEqual([
+      { id: "oidc", name: "企业账号" },
+      { id: "oauth", name: "内部 OAuth" }
+    ]);
   });
 
   it("makes the first person the administrator and brings their groups along", async () => {
-    idp.signInAs({ sub: "first", email: "first@example.test", email_verified: true, name: "第一位", groups: ["writers"] });
+    idp.signInAs({
+      sub: "first",
+      email: "first@example.test",
+      email_verified: true,
+      name: "第一位",
+      groups: ["writers"]
+    });
     const person = server.client();
     const back = await signIn(person, "oidc");
     expect(back.headers.get("location")).toBe("/handbook");
-    expect((await person.json("GET", "/api/v1/account")).data).toMatchObject({ email: "first@example.test", displayName: "第一位", isAdmin: true, groups: ["writers"], hasPassword: false });
+    expect((await person.json("GET", "/api/v1/account")).data).toMatchObject({
+      email: "first@example.test",
+      displayName: "第一位",
+      isAdmin: true,
+      groups: ["writers"],
+      hasPassword: false
+    });
     idp.signInAs({ sub: "second", email: "second@example.test", email_verified: true, name: "第二位" });
     const other = server.client();
     await signIn(other, "oidc");
@@ -80,11 +100,21 @@ describe("signing in through a company's identity provider", () => {
     idp.signInAs({ sub: "owner", email: "owner@example.test", email_verified: true, name: "站长" });
     const owner = server.client();
     await signIn(owner, "oidc");
-    await owner.json("POST", "/api/v1/spaces", { slug: `team-${Date.now().toString(36)}`, name: "团队", defaultRole: "none" });
+    await owner.json("POST", "/api/v1/spaces", {
+      slug: `team-${Date.now().toString(36)}`,
+      name: "团队",
+      defaultRole: "none"
+    });
     const { data: spaces } = await owner.json("GET", "/api/v1/spaces");
     const slug = spaces.at(-1).slug as string;
     await owner.json("PUT", `/api/v1/spaces/${slug}/members`, { subject: "group:writers", role: "editor" });
-    idp.signInAs({ sub: "member", email: "member@example.test", email_verified: true, name: "成员", groups: ["writers"] });
+    idp.signInAs({
+      sub: "member",
+      email: "member@example.test",
+      email_verified: true,
+      name: "成员",
+      groups: ["writers"]
+    });
     const member = server.client();
     await signIn(member, "oidc");
     expect((await member.json("GET", `/api/v1/spaces/${slug}`)).status).toBe(200);
@@ -133,7 +163,11 @@ describe("signing in through a company's identity provider", () => {
     const person = server.client();
     const back = await signIn(person, "oauth");
     expect(back.headers.get("location")).toBe("/handbook");
-    expect((await person.json("GET", "/api/v1/account")).data).toMatchObject({ email: "oauth@example.test", displayName: "OAuth 用户", groups: ["ops"] });
+    expect((await person.json("GET", "/api/v1/account")).data).toMatchObject({
+      email: "oauth@example.test",
+      displayName: "OAuth 用户",
+      groups: ["ops"]
+    });
   });
 
   it("does not let plain OAuth2 take over an account by address, since it vouches for nothing", async () => {
@@ -160,7 +194,13 @@ describe("administrators set by a group at the provider", () => {
       const plain = server.client();
       await signIn(plain, "oidc");
       expect((await plain.json("GET", "/api/v1/me")).data.isAdmin).toBe(false);
-      idp.signInAs({ sub: "plain", email: "plain@example.test", email_verified: true, name: "普通人", groups: ["pandocs-admins"] });
+      idp.signInAs({
+        sub: "plain",
+        email: "plain@example.test",
+        email_verified: true,
+        name: "普通人",
+        groups: ["pandocs-admins"]
+      });
       await signIn(plain, "oidc");
       expect((await plain.json("GET", "/api/v1/me")).data.isAdmin).toBe(true);
       const page = await (await server.client().request("/login")).text();

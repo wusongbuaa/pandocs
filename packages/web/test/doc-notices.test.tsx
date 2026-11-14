@@ -9,36 +9,72 @@ import { bootstrap, entry, space } from "./support";
 
 const NOW = new Date("2026-11-06T10:00:00.000Z").getTime();
 
-function pageWith(overrides: { diagnostics?: readonly object[]; role?: string; translation?: object | null } = {}): PandocsPage {
+function pageWith(
+  overrides: { diagnostics?: readonly object[]; role?: string; translation?: object | null } = {}
+): PandocsPage {
   return {
     kind: "document",
     space: space("handbook", []),
     entry: entry("guide"),
     rendered: { hast: { type: "root", children: [] }, toc: [], headingTitle: "", readingMinutes: 1, description: "" },
-    view: { markdown: "正文\n", role: overrides.role ?? "editor", revision: { no: 3 }, document: { title: "手册" }, blocks: [], diagnostics: overrides.diagnostics ?? [] } as never,
+    view: {
+      markdown: "正文\n",
+      role: overrides.role ?? "editor",
+      revision: { no: 3 },
+      document: { title: "手册" },
+      blocks: [],
+      diagnostics: overrides.diagnostics ?? []
+    } as never,
     translation: (overrides.translation ?? null) as never
   };
 }
 
 async function renderNotices(page: PandocsPage, path = "/handbook/guide") {
   applyBootstrap(bootstrap());
-  const [{ PageContext }, { DocNotices }] = await Promise.all([import("@rspress/core/runtime"), import("../src/review/doc-notices")]);
+  const [{ PageContext }, { DocNotices }] = await Promise.all([
+    import("@rspress/core/runtime"),
+    import("../src/review/doc-notices")
+  ]);
   const data = { lang: "zh", frontmatter: {}, title: "手册", toc: [], pandocs: page } as never;
-  const router = createMemoryRouter([{ path: "*", element: <PageContext.Provider value={{ data }}><DocNotices /></PageContext.Provider> }], { initialEntries: [path] });
+  const router = createMemoryRouter(
+    [
+      {
+        path: "*",
+        element: (
+          <PageContext.Provider value={{ data }}>
+            <DocNotices />
+          </PageContext.Provider>
+        )
+      }
+    ],
+    { initialEntries: [path] }
+  );
   render(<RouterProvider router={router} />);
 }
 
 function serverWith(latest: number) {
   const asked: string[] = [];
-  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-    asked.push(url);
-    return new Response(JSON.stringify({ data: url.includes("/revisions") ? [{ no: latest, actorName: "周一鸣", createdAt: new Date(NOW - 60_000).toISOString() }] : [] }), { status: 200 });
-  }));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      asked.push(url);
+      return new Response(
+        JSON.stringify({
+          data: url.includes("/revisions")
+            ? [{ no: latest, actorName: "周一鸣", createdAt: new Date(NOW - 60_000).toISOString() }]
+            : []
+        }),
+        { status: 200 }
+      );
+    })
+  );
   return asked;
 }
 
 function comeBack() {
-  act(() => { document.dispatchEvent(new Event("visibilitychange")); });
+  act(() => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
 }
 
 afterEach(() => {
@@ -89,7 +125,14 @@ describe("coming back to a page", () => {
 });
 
 describe("a draft left behind", () => {
-  const withDraft = (draft: object | null) => vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify({ data: url.endsWith("/draft") ? draft : [] }), { status: 200 })));
+  const withDraft = (draft: object | null) =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (url: string) =>
+          new Response(JSON.stringify({ data: url.endsWith("/draft") ? draft : [] }), { status: 200 })
+      )
+    );
   const FOUND = { markdown: "没保存的内容\n", baseRevision: 3, updatedAt: new Date(NOW - 120_000).toISOString() };
 
   it("is mentioned on the page, with a way back to it", async () => {
@@ -117,7 +160,10 @@ describe("a draft left behind", () => {
 });
 
 describe("problems in a page", () => {
-  const PROBLEMS = [{ severity: "error", code: "BLOCK_BODY_INVALID", message: "chart 的内容无法解析：不是 JSON", line: 3 }, { severity: "warning", code: "BLOCK_UNKNOWN", message: "不认识的块 foo" }];
+  const PROBLEMS = [
+    { severity: "error", code: "BLOCK_BODY_INVALID", message: "chart 的内容无法解析：不是 JSON", line: 3 },
+    { severity: "warning", code: "BLOCK_UNKNOWN", message: "不认识的块 foo" }
+  ];
 
   it("are listed for people who can do something about them", async () => {
     serverWith(3);
@@ -133,7 +179,12 @@ describe("problems in a page", () => {
     await renderNotices(pageWith({ diagnostics: PROBLEMS, role: "viewer" }));
     expect(screen.queryByText(/写法问题/u)).toBeNull();
     cleanup();
-    await renderNotices(pageWith({ diagnostics: PROBLEMS, translation: { lang: "en", label: "English", exists: true, stale: false, machine: false, canEdit: true } }));
+    await renderNotices(
+      pageWith({
+        diagnostics: PROBLEMS,
+        translation: { lang: "en", label: "English", exists: true, stale: false, machine: false, canEdit: true }
+      })
+    );
     expect(screen.queryByText(/写法问题/u)).toBeNull();
     cleanup();
     await renderNotices(pageWith({ diagnostics: PROBLEMS }), "/handbook/guide?mode=edit");

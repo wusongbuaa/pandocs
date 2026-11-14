@@ -12,7 +12,10 @@ const manifest = JSON.parse(readFileSync(join(DIR, "manifest.json"), "utf8")) as
 const pages = manifest.map(entry => [entry.title, readFileSync(join(DIR, entry.file), "utf8")] as const);
 const elements = readFileSync(join(import.meta.dirname, "../parity/fixtures/elements.md"), "utf8");
 
-const domText = (root: Element) => buildTextMap(root).segments.map(segment => segment.node.nodeValue ?? "").join("");
+const domText = (root: Element) =>
+  buildTextMap(root)
+    .segments.map(segment => segment.node.nodeValue ?? "")
+    .join("");
 
 afterEach(cleanup);
 
@@ -48,12 +51,14 @@ describe("the official theme's page counts text the way the server does", () => 
   });
 
   it("captures a selection in the same coordinates, skipping the callout title the renderer supplies", async () => {
-    const markdown = ":::callout{emoji=\"🎯\"}\n\n**重点**内容\n\n:::\n\n第二段文字\n";
+    const markdown = ':::callout{emoji="🎯"}\n\n**重点**内容\n\n:::\n\n第二段文字\n';
     const { body } = await renderDocument(markdown);
     expect(body.querySelector(".rp-callout__title")?.textContent).toBe("说明");
     const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
     let node: Node | null;
-    while ((node = walker.nextNode()) && !node.nodeValue?.includes("第二段")) { /* find the paragraph */ }
+    while ((node = walker.nextNode()) && !node.nodeValue?.includes("第二段")) {
+      /* find the paragraph */
+    }
     const range = document.createRange();
     range.setStart(node!, 0);
     range.setEnd(node!, 3);

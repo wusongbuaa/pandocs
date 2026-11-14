@@ -13,28 +13,43 @@ interface HighlightRegistry {
 function highlightApi(): { registry: HighlightRegistry; create: (...ranges: Range[]) => unknown } | null {
   const css = globalThis.CSS as unknown as { highlights?: HighlightRegistry } | undefined;
   const Highlight = (globalThis as unknown as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight;
-  return css?.highlights && Highlight ? { registry: css.highlights, create: (...ranges) => new Highlight(...ranges) } : null;
+  return css?.highlights && Highlight
+    ? { registry: css.highlights, create: (...ranges) => new Highlight(...ranges) }
+    : null;
 }
 
 export const bodyRoot = () => document.querySelector<HTMLElement>("[data-pandocs-body]");
 
 export function textThreads(threads: readonly ThreadView[]): readonly ThreadView[] {
-  return threads.filter(thread => thread.status === "open" && thread.anchor.kind === "text" && thread.anchorState !== "orphaned");
+  return threads.filter(
+    thread => thread.status === "open" && thread.anchor.kind === "text" && thread.anchorState !== "orphaned"
+  );
 }
 
 /**
  * The CSS Custom Highlight API paints without touching the DOM, so React's nodes and the coordinate
  * mapping stay intact. `extra` is text that is active without having a discussion yet.
  */
-export function paintHighlights(threads: readonly ThreadView[], activeId: string | null, extra: readonly { readonly start: number; readonly end: number }[]): void {
+export function paintHighlights(
+  threads: readonly ThreadView[],
+  activeId: string | null,
+  extra: readonly { readonly start: number; readonly end: number }[]
+): void {
   const root = bodyRoot();
   const api = highlightApi();
   if (!root || !api) return;
   const map = buildTextMap(root);
-  const ranges = (anchors: readonly { readonly start: number; readonly end: number }[]) => anchors.flatMap(anchor => rangeFor(map, root, anchor.start, anchor.end) ?? []);
-  const anchored = textThreads(threads).map(thread => ({ id: thread.id, ...(thread.anchor as { start: number; end: number }) }));
+  const ranges = (anchors: readonly { readonly start: number; readonly end: number }[]) =>
+    anchors.flatMap(anchor => rangeFor(map, root, anchor.start, anchor.end) ?? []);
+  const anchored = textThreads(threads).map(thread => ({
+    id: thread.id,
+    ...(thread.anchor as { start: number; end: number })
+  }));
   api.registry.set(THREAD_HIGHLIGHT, api.create(...ranges(anchored.filter(item => item.id !== activeId))));
-  api.registry.set(ACTIVE_HIGHLIGHT, api.create(...ranges([...anchored.filter(item => item.id === activeId), ...extra])));
+  api.registry.set(
+    ACTIVE_HIGHLIGHT,
+    api.create(...ranges([...anchored.filter(item => item.id === activeId), ...extra]))
+  );
 }
 
 export function clearHighlights(): void {
@@ -55,17 +70,23 @@ function openFolded(element: Element): Promise<void> | null {
   const hidden = element.closest("details:not([open]), .rp-tabs__content__item--hidden") !== null;
   if (prompts.length === 0 && !hidden) return null;
   if (hidden) revealTarget(element);
-  for (const prompt of prompts) prompt.closest(".rp-prompt")?.querySelector<HTMLElement>(".rp-prompt__action-toggle")?.click();
-  return Promise.all(prompts.map(prompt => new Promise<void>(resolve => {
-    const done = (event?: Event) => {
-      if (event && event.target !== prompt) return;
-      prompt.removeEventListener("transitionend", done);
-      clearTimeout(timer);
-      resolve();
-    };
-    const timer = setTimeout(done, PROMPT_OPENS_MS);
-    prompt.addEventListener("transitionend", done);
-  }))).then(() => new Promise(resolve => requestAnimationFrame(() => resolve())));
+  for (const prompt of prompts)
+    prompt.closest(".rp-prompt")?.querySelector<HTMLElement>(".rp-prompt__action-toggle")?.click();
+  return Promise.all(
+    prompts.map(
+      prompt =>
+        new Promise<void>(resolve => {
+          const done = (event?: Event) => {
+            if (event && event.target !== prompt) return;
+            prompt.removeEventListener("transitionend", done);
+            clearTimeout(timer);
+            resolve();
+          };
+          const timer = setTimeout(done, PROMPT_OPENS_MS);
+          prompt.addEventListener("transitionend", done);
+        })
+    )
+  ).then(() => new Promise(resolve => requestAnimationFrame(() => resolve())));
 }
 
 function* ancestorsOf(element: Element): Generator<Element> {

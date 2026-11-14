@@ -10,5 +10,9 @@ export function ManageSpaceNav() {
   const { pathname } = useLocation();
   const { page } = usePage();
   if (!pathname.startsWith(`${localePrefix(page.lang, app.bootstrap.site.defaultLang)}${MANAGE_PREFIX}/`)) return null;
-  return <React.Suspense fallback={null}><SpaceNav /></React.Suspense>;
+  return (
+    <React.Suspense fallback={null}>
+      <SpaceNav />
+    </React.Suspense>
+  );
 }

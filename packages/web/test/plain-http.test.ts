@@ -17,7 +17,9 @@ describe("a site on plain HTTP", () => {
     vi.stubGlobal("fetch", fetchMock);
     await api.send("PUT", "documents/a/content", { idempotent: true, body: {} });
     await api.send("PUT", "documents/a/content", { idempotent: true, body: {} });
-    const keys = fetchMock.mock.calls.map(call => ((call as unknown as [string, RequestInit])[1].headers as Record<string, string>)["idempotency-key"]!);
+    const keys = fetchMock.mock.calls.map(
+      call => ((call as unknown as [string, RequestInit])[1].headers as Record<string, string>)["idempotency-key"]!
+    );
     expect(keys[0]!.length).toBeGreaterThanOrEqual(8);
     expect(keys[0]).not.toBe(keys[1]);
   });
@@ -29,11 +31,14 @@ describe("a site on plain HTTP", () => {
   });
 
   it("is not relied on to have what only secure pages get", () => {
-    const files = (directory: string): string[] => readdirSync(directory).flatMap(name => {
-      const path = join(directory, name);
-      return statSync(path).isDirectory() ? files(path) : /\.tsx?$/u.test(name) ? [path] : [];
-    });
-    const using = files(join(import.meta.dirname, "../src")).filter(path => /crypto\.(randomUUID|subtle)|navigator\.clipboard/u.test(readFileSync(path, "utf8")));
+    const files = (directory: string): string[] =>
+      readdirSync(directory).flatMap(name => {
+        const path = join(directory, name);
+        return statSync(path).isDirectory() ? files(path) : /\.tsx?$/u.test(name) ? [path] : [];
+      });
+    const using = files(join(import.meta.dirname, "../src")).filter(path =>
+      /crypto\.(randomUUID|subtle)|navigator\.clipboard/u.test(readFileSync(path, "utf8"))
+    );
     expect(using).toEqual([]);
   });
 });

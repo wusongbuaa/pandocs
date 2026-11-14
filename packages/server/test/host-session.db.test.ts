@@ -11,7 +11,10 @@ const HOST_LOGIN = "https://example.test/login";
 
 /** The site this one lives beside: it knows its sessions, and wraps what it says the way many do. */
 const PEOPLE: Readonly<Record<string, object | number>> = {
-  "s-ana": { code: 0, data: { user: { uid: "u-1", nick: "Ana", mail: "ana@example.test", roles: ["docs-admin", "staff"] } } },
+  "s-ana": {
+    code: 0,
+    data: { user: { uid: "u-1", nick: "Ana", mail: "ana@example.test", roles: ["docs-admin", "staff"] } }
+  },
   "s-bo": { code: 0, data: { user: { uid: "u-2", nick: "Bo", roles: ["staff"] } } },
   "s-bo-again": { code: 0, data: { user: { uid: "u-2", nick: "Bo", roles: ["staff"] } } },
   "s-gone": 401
@@ -64,7 +67,9 @@ describe("signing in with the session of the site this one lives beside", () => 
     expect(asked).toEqual(["main_sid=s-ana"]);
     await ana.json("GET", "/docs/api/v1/me");
     expect(asked).toHaveLength(1);
-    const { rows } = await server.pool.query(`SELECT email, groups, password_hash FROM pandocs.users WHERE display_name = 'Ana'`);
+    const { rows } = await server.pool.query(
+      `SELECT email, groups, password_hash FROM pandocs.users WHERE display_name = 'Ana'`
+    );
     expect(rows).toEqual([{ email: "ana@example.test", groups: ["docs-admin", "staff"], password_hash: null }]);
   });
 
@@ -82,15 +87,26 @@ describe("signing in with the session of the site this one lives beside", () => 
     const login = await visitor.request("/docs/login?next=%2F_%2Finbox");
     expect(login.headers.get("location")).toBe(`${HOST_LOGIN}?back=${encodeURIComponent(`${SITE}/_/inbox`)}`);
     const dialog = await visitor.request("/docs/login", { headers: { accept: "application/json" } });
-    expect((await dialog.json()).data).toMatchObject({ signedIn: false, passwordLogin: false, providers: [{ id: "host", name: "主站" }] });
+    expect((await dialog.json()).data).toMatchObject({
+      signedIn: false,
+      passwordLogin: false,
+      providers: [{ id: "host", name: "主站" }]
+    });
     const fromDialog = await visitor.request("/docs/auth/host/start?next=%2Fhandbook");
     expect(fromDialog.headers.get("location")).toBe(`${HOST_LOGIN}?back=${encodeURIComponent(`${SITE}/handbook`)}`);
-    expect((await person("s-ana").json("GET", "/docs/api/v1/bootstrap")).data.site.logoutUrl).toBe("https://example.test/logout");
+    expect((await person("s-ana").json("GET", "/docs/api/v1/bootstrap")).data.site.logoutUrl).toBe(
+      "https://example.test/logout"
+    );
   });
 
   it("turns away sessions the host does not know, and writes other sites ask for", async () => {
     expect((await person("s-gone").json("GET", "/docs/api/v1/me")).status).toBe(401);
-    const across = await person("s-ana").json("POST", "/docs/api/v1/spaces", { slug: "across", name: "Across" }, { "sec-fetch-site": "cross-site" });
+    const across = await person("s-ana").json(
+      "POST",
+      "/docs/api/v1/spaces",
+      { slug: "across", name: "Across" },
+      { "sec-fetch-site": "cross-site" }
+    );
     expect(across.status).toBe(403);
   });
 
@@ -105,8 +121,22 @@ describe("signing in with the session of the site this one lives beside", () => 
   it("is set up with the cookies to send, which keep their case", () => {
     const env = { DATABASE_URL: "postgres://x/y", PANDOCS_PASSWORD_LOGIN: "false" };
     expect(() => readConfig(env)).toThrow(/nobody could sign in/u);
-    expect(readConfig({ ...env, PANDOCS_HOST_SESSION_URL: "https://example.test/api/me", PANDOCS_HOST_SESSION_COOKIES: "SID, Remember" }).hostSession).toMatchObject({ cookies: ["SID", "Remember"], name: "example.test", subjectClaim: "id", cacheSeconds: 60 });
-    expect(() => readConfig({ ...env, PANDOCS_HOST_SESSION_URL: "https://example.test/api/me" })).toThrow(/PANDOCS_HOST_SESSION_COOKIES/u);
-    expect(() => readConfig({ ...env, PANDOCS_HOST_SESSION_URL: "https://example.test/api/me", PANDOCS_HOST_SESSION_COOKIES: "a b" })).toThrow(/no cookie can have/u);
+    expect(
+      readConfig({
+        ...env,
+        PANDOCS_HOST_SESSION_URL: "https://example.test/api/me",
+        PANDOCS_HOST_SESSION_COOKIES: "SID, Remember"
+      }).hostSession
+    ).toMatchObject({ cookies: ["SID", "Remember"], name: "example.test", subjectClaim: "id", cacheSeconds: 60 });
+    expect(() => readConfig({ ...env, PANDOCS_HOST_SESSION_URL: "https://example.test/api/me" })).toThrow(
+      /PANDOCS_HOST_SESSION_COOKIES/u
+    );
+    expect(() =>
+      readConfig({
+        ...env,
+        PANDOCS_HOST_SESSION_URL: "https://example.test/api/me",
+        PANDOCS_HOST_SESSION_COOKIES: "a b"
+      })
+    ).toThrow(/no cookie can have/u);
   });
 });

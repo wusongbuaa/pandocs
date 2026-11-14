@@ -41,10 +41,13 @@ function useNewerRevision(page: PandocsPage): RevisionMeta | null {
       void refreshProposals().catch(() => undefined);
     };
     const refreshRevision = (accept: (latest: RevisionMeta) => boolean) => {
-      api.get<readonly RevisionMeta[]>(`documents/${documentId}/revisions?limit=1`).then(([latest]) => {
-        // An answer to a question from before the page moved on says nothing about the page now.
-        if (active && latest && latest.no > current && accept(latest)) setNewer(latest);
-      }, () => undefined);
+      api.get<readonly RevisionMeta[]>(`documents/${documentId}/revisions?limit=1`).then(
+        ([latest]) => {
+          // An answer to a question from before the page moved on says nothing about the page now.
+          if (active && latest && latest.no > current && accept(latest)) setNewer(latest);
+        },
+        () => undefined
+      );
     };
     let checked = Date.now();
     // For when the live connection is not there, such as behind a proxy that holds responses back.
@@ -97,12 +100,20 @@ function DraftNotice({ page }: { page: PandocsPage }) {
       if (current) setUpdatedAt(latest && latest.draft.markdown !== published ? latest.draft.updatedAt : null);
     };
     loadServerDraft(documentId, lang).then(settle, () => settle(null));
-    return () => { current = false; };
+    return () => {
+      current = false;
+    };
   }, [canHaveDraft, documentId, lang, published]);
   if (!updatedAt || params.get("mode") === "edit") return null;
   return (
     <aside className="pd-doc-notice rp-not-doc" role="status">
-      <FilePen size={16} aria-hidden="true" />{t("You have an unsaved draft, last edited {0}.", relativeTime(updatedAt))}<span className="pd-doc-notice__actions"><Link href="?mode=edit" className="pd-btn">{t("Continue editing")}</Link></span>
+      <FilePen size={16} aria-hidden="true" />
+      {t("You have an unsaved draft, last edited {0}.", relativeTime(updatedAt))}
+      <span className="pd-doc-notice__actions">
+        <Link href="?mode=edit" className="pd-btn">
+          {t("Continue editing")}
+        </Link>
+      </span>
     </aside>
   );
 }
@@ -110,7 +121,10 @@ function DraftNotice({ page }: { page: PandocsPage }) {
 /** A shared draft waits for anyone who can edit the page, and someone should find out before starting something else. */
 function SharedDraftNotice({ page }: { page: PandocsPage }) {
   const [params] = useSearchParams();
-  const [unsaved, setUnsaved] = React.useState<{ readonly contributors: readonly string[]; readonly updatedAt: string } | null>(null);
+  const [unsaved, setUnsaved] = React.useState<{
+    readonly contributors: readonly string[];
+    readonly updatedAt: string;
+  } | null>(null);
   const canJoin = editorModeOf(page) === "edit" && !embedded;
   const documentId = page.entry.id;
   const version = page.view.revision.no;
@@ -119,15 +133,34 @@ function SharedDraftNotice({ page }: { page: PandocsPage }) {
   React.useEffect(() => {
     if (!canJoin || !reading) return undefined;
     let current = true;
-    api.get<{ unsaved: { contributors: readonly string[]; updatedAt: string } | null }>(`documents/${documentId}/live`).then(status => {
-      if (current) setUnsaved(status.unsaved);
-    }, () => undefined);
-    return () => { current = false; };
+    api
+      .get<{ unsaved: { contributors: readonly string[]; updatedAt: string } | null }>(`documents/${documentId}/live`)
+      .then(
+        status => {
+          if (current) setUnsaved(status.unsaved);
+        },
+        () => undefined
+      );
+    return () => {
+      current = false;
+    };
   }, [canJoin, documentId, reading, version]);
   if (!unsaved || !reading) return null;
   return (
     <aside className="pd-doc-notice rp-not-doc" role="status">
-      <FilePen size={16} aria-hidden="true" />{unsaved.contributors.length > 0 ? t("This page has unsaved changes from {0}, last edited {1}.", unsaved.contributors.join(", "), relativeTime(unsaved.updatedAt)) : t("This page has unsaved changes, last edited {0}.", relativeTime(unsaved.updatedAt))}<span className="pd-doc-notice__actions"><Link href="?mode=edit" className="pd-btn">{t("Continue editing")}</Link></span>
+      <FilePen size={16} aria-hidden="true" />
+      {unsaved.contributors.length > 0
+        ? t(
+            "This page has unsaved changes from {0}, last edited {1}.",
+            unsaved.contributors.join(", "),
+            relativeTime(unsaved.updatedAt)
+          )
+        : t("This page has unsaved changes, last edited {0}.", relativeTime(unsaved.updatedAt))}
+      <span className="pd-doc-notice__actions">
+        <Link href="?mode=edit" className="pd-btn">
+          {t("Continue editing")}
+        </Link>
+      </span>
     </aside>
   );
 }
@@ -138,11 +171,28 @@ function FreshnessNotice({ page }: { page: PandocsPage }) {
   const [params] = useSearchParams();
   if (!newer) return null;
   const who = t("{0} saved a new version {1}", newer.actorName, relativeTime(newer.createdAt));
-  if (params.get("mode") === "edit") return <aside className="pd-doc-notice pd-doc-notice--editing rp-not-doc" role="status"><RefreshCw size={16} aria-hidden="true" />{t("{0}. Saving merges it with your changes, and tells you if both touched the same text.", who)}</aside>;
+  if (params.get("mode") === "edit")
+    return (
+      <aside className="pd-doc-notice pd-doc-notice--editing rp-not-doc" role="status">
+        <RefreshCw size={16} aria-hidden="true" />
+        {t("{0}. Saving merges it with your changes, and tells you if both touched the same text.", who)}
+      </aside>
+    );
   return (
     <aside className="pd-doc-notice rp-not-doc" role="status">
-      <RefreshCw size={16} aria-hidden="true" />{t("This page has changed: {0}.", who)}<span className="pd-doc-notice__actions">
-        <button type="button" className="pd-btn" onClick={() => { invalidatePages(); void revalidator.revalidate(); }}>{t("Refresh")}</button>
+      <RefreshCw size={16} aria-hidden="true" />
+      {t("This page has changed: {0}.", who)}
+      <span className="pd-doc-notice__actions">
+        <button
+          type="button"
+          className="pd-btn"
+          onClick={() => {
+            invalidatePages();
+            void revalidator.revalidate();
+          }}
+        >
+          {t("Refresh")}
+        </button>
       </span>
     </aside>
   );
@@ -152,15 +202,29 @@ function FreshnessNotice({ page }: { page: PandocsPage }) {
 function DiagnosticsNotice({ page }: { page: PandocsPage }) {
   const [params] = useSearchParams();
   const problems = page.view.diagnostics ?? [];
-  if (problems.length === 0 || page.translation?.exists || !atLeast(page.view.role, "commenter") || params.get("mode") === "edit") return null;
+  if (
+    problems.length === 0 ||
+    page.translation?.exists ||
+    !atLeast(page.view.role, "commenter") ||
+    params.get("mode") === "edit"
+  )
+    return null;
   return (
     <aside className="pd-doc-notice pd-doc-notice--warning rp-not-doc" aria-label={t("Markup problems")}>
       <CircleAlert size={16} aria-hidden="true" />
       <details>
         <summary>{t("This page has {0} markup {0|problem|problems}", problems.length)}</summary>
-        <ul>{problems.map((problem, index) => <li key={index}>{problemText(problem)}</li>)}</ul>
+        <ul>
+          {problems.map((problem, index) => (
+            <li key={index}>{problemText(problem)}</li>
+          ))}
+        </ul>
       </details>
-      <span className="pd-doc-notice__actions"><Link href="?mode=edit" className="pd-btn">{t("Fix them")}</Link></span>
+      <span className="pd-doc-notice__actions">
+        <Link href="?mode=edit" className="pd-btn">
+          {t("Fix them")}
+        </Link>
+      </span>
     </aside>
   );
 }
@@ -170,9 +234,14 @@ export function ProblemsMenu({ problems }: { problems: readonly Diagnostic[] }) 
   if (problems.length === 0) return null;
   return (
     <Menu.Root>
-      <Menu.Trigger className="pd-editor__problems"><CircleAlert size={14} aria-hidden="true" />{t("{0} markup {0|problem|problems}", problems.length)}</Menu.Trigger>
+      <Menu.Trigger className="pd-editor__problems">
+        <CircleAlert size={14} aria-hidden="true" />
+        {t("{0} markup {0|problem|problems}", problems.length)}
+      </Menu.Trigger>
       <Menu.Content className="pd-menu--problems" align="end" sideOffset={4}>
-        {problems.map((problem, index) => <p key={index}>{problemText(problem)}</p>)}
+        {problems.map((problem, index) => (
+          <p key={index}>{problemText(problem)}</p>
+        ))}
       </Menu.Content>
     </Menu.Root>
   );
@@ -183,13 +252,24 @@ function CannotEditNotice({ page }: { page: PandocsPage }) {
   const [params] = useSearchParams();
   if (params.get("mode") !== "edit" || atLeast(page.view.role, "commenter") || page.translation?.canEdit) return null;
   if (!app.bootstrap.me.anonymous) {
-    return <aside className="pd-doc-notice rp-not-doc" role="status"><Lock size={16} aria-hidden="true" />{t("You can read this page but not change it. To edit it, ask an administrator of this space.")}</aside>;
+    return (
+      <aside className="pd-doc-notice rp-not-doc" role="status">
+        <Lock size={16} aria-hidden="true" />
+        {t("You can read this page but not change it. To edit it, ask an administrator of this space.")}
+      </aside>
+    );
   }
   if (!isVisitor()) return null;
   const reason = t("Sign in to edit this page or suggest changes.");
   return (
     <aside className="pd-doc-notice rp-not-doc" role="status">
-      <Lock size={16} aria-hidden="true" />{reason}<span className="pd-doc-notice__actions"><button type="button" className="pd-btn" onClick={() => askToSignIn({ reason })}>{t("Sign in")}</button></span>
+      <Lock size={16} aria-hidden="true" />
+      {reason}
+      <span className="pd-doc-notice__actions">
+        <button type="button" className="pd-btn" onClick={() => askToSignIn({ reason })}>
+          {t("Sign in")}
+        </button>
+      </span>
     </aside>
   );
 }
@@ -199,7 +279,15 @@ export function DocNotices() {
   if (app.bootstrap.me.anonymous) return page?.kind === "document" ? <CannotEditNotice page={page} /> : null;
   return (
     <>
-      {page?.kind === "document" ? <><CannotEditNotice page={page} /><FreshnessNotice key={page.entry.id} page={page} /><DraftNotice key={`draft:${page.entry.id}`} page={page} /><SharedDraftNotice key={`shared:${page.entry.id}`} page={page} /><DiagnosticsNotice page={page} /></> : null}
+      {page?.kind === "document" ? (
+        <>
+          <CannotEditNotice page={page} />
+          <FreshnessNotice key={page.entry.id} page={page} />
+          <DraftNotice key={`draft:${page.entry.id}`} page={page} />
+          <SharedDraftNotice key={`shared:${page.entry.id}`} page={page} />
+          <DiagnosticsNotice page={page} />
+        </>
+      ) : null}
       <TranslationNotice />
     </>
   );

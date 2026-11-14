@@ -14,7 +14,9 @@ function PageFailed() {
   return (
     <main className="pd-page-failed">
       <p>{t("Something went wrong showing this page.")}</p>
-      <a href={window.location.href} className="pd-btn pd-btn--primary">{t("Reload")}</a>
+      <a href={window.location.href} className="pd-btn pd-btn--primary">
+        {t("Reload")}
+      </a>
     </main>
   );
 }
@@ -23,14 +25,24 @@ export async function mount(container: HTMLElement, rendered: boolean): Promise<
   setDocumentBody(DocumentBody);
   redirectToCleanUrl(window.location, window.history);
   if (!rendered) {
-    createRoot(container).render(<ErrorBoundary area="The page" fallback={<PageFailed />}><ClientApp router={createClientRouter()} /></ErrorBoundary>);
+    createRoot(container).render(
+      <ErrorBoundary area="The page" fallback={<PageFailed />}>
+        <ClientApp router={createClientRouter()} />
+      </ErrorBoundary>
+    );
     return;
   }
   // The same order as the theme's own entry for pages rendered ahead of time: the page's data first, or there is nothing to match the HTML with.
   const router = createClientRouter(await initPageData(removeBase(window.location.pathname)));
   startTransition(() => {
-    hydrateRoot(container, <ErrorBoundary area="The page" fallback={<PageFailed />}><ClientApp router={router} /></ErrorBoundary>, {
-      onRecoverableError: error => console.error("The page did not match what the server rendered", error)
-    });
+    hydrateRoot(
+      container,
+      <ErrorBoundary area="The page" fallback={<PageFailed />}>
+        <ClientApp router={router} />
+      </ErrorBoundary>,
+      {
+        onRecoverableError: error => console.error("The page did not match what the server rendered", error)
+      }
+    );
   });
 }

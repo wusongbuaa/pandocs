@@ -10,7 +10,17 @@
  * versions not published yet.
  */
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -45,7 +55,13 @@ function pack(version, binaries, out) {
   if (main.version !== version) throw new Error(`${MAIN}/package.json says ${main.version}`);
   const notices = join(binaries, "THIRD-PARTY-NOTICES-cli.txt");
   if (!existsSync(notices)) throw new Error(`${notices} is missing`);
-  const shared = { version, license: main.license, homepage: main.homepage, bugs: main.bugs, repository: main.repository };
+  const shared = {
+    version,
+    license: main.license,
+    homepage: main.homepage,
+    bugs: main.bugs,
+    repository: main.repository
+  };
   const work = mkdtempSync(join(tmpdir(), "pandocs-cli-npm-"));
   mkdirSync(out, { recursive: true });
   try {
@@ -58,7 +74,10 @@ function pack(version, binaries, out) {
       chmodSync(join(dir, "bin", fileOf(target)), 0o755);
       copyFileSync(join(root, "LICENSE"), join(dir, "LICENSE"));
       copyFileSync(notices, join(dir, "THIRD-PARTY-NOTICES.txt"));
-      writeFileSync(join(dir, "README.md"), `# ${nameOf(target)}\n\nThe \`pandocs\` binary for ${target.os} on ${target.cpu}. Install [@pandocs/cli](https://www.npmjs.com/package/@pandocs/cli) instead, which picks this one by itself.\n`);
+      writeFileSync(
+        join(dir, "README.md"),
+        `# ${nameOf(target)}\n\nThe \`pandocs\` binary for ${target.os} on ${target.cpu}. Install [@pandocs/cli](https://www.npmjs.com/package/@pandocs/cli) instead, which picks this one by itself.\n`
+      );
       writeJson(join(dir, "package.json"), {
         name: nameOf(target),
         ...shared,
@@ -69,19 +88,31 @@ function pack(version, binaries, out) {
         // Yarn's Plug'n'Play cannot run a binary from inside its zip files.
         preferUnplugged: true
       });
-      run("npm", ["pack", "--silent", "--pack-destination", resolve(out)], { cwd: dir, stdio: ["ignore", "ignore", "inherit"] });
+      run("npm", ["pack", "--silent", "--pack-destination", resolve(out)], {
+        cwd: dir,
+        stdio: ["ignore", "ignore", "inherit"]
+      });
     }
     const dir = join(work, "cli");
     mkdirSync(join(dir, "bin"), { recursive: true });
     copyFileSync(join(root, MAIN, "bin/pandocs.js"), join(dir, "bin/pandocs.js"));
     copyFileSync(join(root, MAIN, "README.md"), join(dir, "README.md"));
     copyFileSync(join(root, "LICENSE"), join(dir, "LICENSE"));
-    writeJson(join(dir, "package.json"), { ...main, optionalDependencies: Object.fromEntries(TARGETS.map(target => [nameOf(target), version])) });
-    run("npm", ["pack", "--silent", "--pack-destination", resolve(out)], { cwd: dir, stdio: ["ignore", "ignore", "inherit"] });
+    writeJson(join(dir, "package.json"), {
+      ...main,
+      optionalDependencies: Object.fromEntries(TARGETS.map(target => [nameOf(target), version]))
+    });
+    run("npm", ["pack", "--silent", "--pack-destination", resolve(out)], {
+      cwd: dir,
+      stdio: ["ignore", "ignore", "inherit"]
+    });
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
-  for (const file of readdirSync(out).filter(file => file.endsWith(".tgz")).sort()) console.log(file);
+  for (const file of readdirSync(out)
+    .filter(file => file.endsWith(".tgz"))
+    .sort())
+    console.log(file);
 }
 
 /** Installs @pandocs/cli with each system's package taken from <out> instead of the registry, and runs what npm put there. */
@@ -102,14 +133,23 @@ function tryIt(version, out) {
 
     const installed = readdirSync(join(work, "node_modules/@pandocs")).sort();
     const expected = ["cli", `cli-${here.os}-${here.cpu}`];
-    if (installed.join() !== expected.join()) throw new Error(`npm installed ${installed.join(", ")} instead of ${expected.join(", ")}`);
+    if (installed.join() !== expected.join())
+      throw new Error(`npm installed ${installed.join(", ")} instead of ${expected.join(", ")}`);
 
-    const said = run("npx", ["--no-install", "pandocs", "version"], { cwd: work, stdio: ["ignore", "pipe", "inherit"], encoding: "utf8" }).stdout;
+    const said = run("npx", ["--no-install", "pandocs", "version"], {
+      cwd: work,
+      stdio: ["ignore", "pipe", "inherit"],
+      encoding: "utf8"
+    }).stdout;
     process.stdout.write(said);
     if (!said.includes(version)) throw new Error("it says it is something else");
 
     // What the binary exits with comes through: 2 is a mistake in the command.
-    const wrong = spawnSync("npx", ["--no-install", "pandocs", "no-such-command"], { cwd: work, stdio: "ignore", shell: process.platform === "win32" });
+    const wrong = spawnSync("npx", ["--no-install", "pandocs", "no-such-command"], {
+      cwd: work,
+      stdio: "ignore",
+      shell: process.platform === "win32"
+    });
     if (wrong.status !== 2) throw new Error(`a mistake in the command exited with ${wrong.status} instead of 2`);
     console.log(`npm installs ${expected.map(name => `@pandocs/${name}`).join(" and ")}, and it runs.`);
   } finally {

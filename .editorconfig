@@ -1,4 +1,4 @@
-# What every editor should agree on. How lines are wrapped is left to the code around them.
+# What every editor should agree on. The code itself is laid out by `pnpm format`; see CONTRIBUTING.
 root = true
 
 [*]

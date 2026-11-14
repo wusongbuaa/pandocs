@@ -60,6 +60,7 @@ jobs:
       - run: docker run -d -p 9000:9000 -e RUSTFS_ACCESS_KEY=testkey12345 -e RUSTFS_SECRET_KEY=testsecret1234567890 rustfs/rustfs:1.0.4
       - run: pnpm typecheck
       - run: pnpm lint
+      - run: pnpm format:check
       - run: pnpm test
       - run: pnpm build
       - run: pnpm test:e2e

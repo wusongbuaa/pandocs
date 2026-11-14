@@ -1,7 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { addMessages, currentLanguage, DEFAULT_LANGUAGE, inLanguage, pickLanguage, setLanguageScope, t, type Language } from "../src/index.js";
+import {
+  addMessages,
+  currentLanguage,
+  DEFAULT_LANGUAGE,
+  inLanguage,
+  pickLanguage,
+  setLanguageScope,
+  t,
+  type Language
+} from "../src/index.js";
 
-const inLanguageFixed = (language: Language) => setLanguageScope({ current: () => language, run: (_language, work) => work() });
+const inLanguageFixed = (language: Language) =>
+  setLanguageScope({ current: () => language, run: (_language, work) => work() });
 
 afterEach(() => inLanguageFixed(DEFAULT_LANGUAGE));
 

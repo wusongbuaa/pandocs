@@ -5,7 +5,11 @@ import { topLevelBlocks } from "./structure.js";
 const MOST_COMPARISONS = 4_000_000;
 
 /** Keeps untouched blocks byte-identical: only blocks the editor really changed get re-serialized. */
-export function spliceBlocks(source: readonly string[], baseline: readonly string[], current: readonly string[]): string[] {
+export function spliceBlocks(
+  source: readonly string[],
+  baseline: readonly string[],
+  current: readonly string[]
+): string[] {
   const result: string[] = [];
   let at = 0;
   for (const [baselineIndex, currentIndex] of matchIndexes(baseline, current)) {
@@ -21,8 +25,8 @@ export function joinBlocks(blocks: readonly string[]): string {
 }
 
 export function sourceBlocks(markdown: string, registry?: BlockRegistry): string[] {
-  return parseDocument(markdown, registry).tree.children
-    .filter(node => node.position)
+  return parseDocument(markdown, registry)
+    .tree.children.filter(node => node.position)
     .map(node => markdown.slice(node.position!.start.offset ?? 0, node.position!.end.offset ?? 0));
 }
 
@@ -53,8 +57,8 @@ interface Placed {
 }
 
 function layoutOf(markdown: string, registry?: BlockRegistry): Layout {
-  const spans = parseDocument(markdown, registry).tree.children
-    .filter(node => node.position)
+  const spans = parseDocument(markdown, registry)
+    .tree.children.filter(node => node.position)
     .map(node => [node.position!.start.offset ?? 0, node.position!.end.offset ?? 0] as const);
   return {
     blocks: spans.map(([start, end]) => markdown.slice(start, end)),
@@ -89,14 +93,23 @@ function joinPlaced(merged: readonly Placed[], layouts: Readonly<Record<Side, La
 export function mergeThreeWay(base: string, ours: string, theirs: string, registry?: BlockRegistry): MergeResult {
   if (ours === theirs || theirs === base) return { ok: true, markdown: ours };
   if (ours === base) return { ok: true, markdown: theirs };
-  const layouts: Record<Side, Layout> = { base: layoutOf(base, registry), ours: layoutOf(ours, registry), theirs: layoutOf(theirs, registry) };
+  const layouts: Record<Side, Layout> = {
+    base: layoutOf(base, registry),
+    ours: layoutOf(ours, registry),
+    theirs: layoutOf(theirs, registry)
+  };
   const baseBlocks = layouts.base.blocks;
   const ourMatches = matchIndexes(baseBlocks, layouts.ours.blocks);
   const theirMatches = matchIndexes(baseBlocks, layouts.theirs.blocks);
   const ourHunks = hunksOf(baseBlocks, layouts.ours.blocks, ourMatches);
   const theirHunks = hunksOf(baseBlocks, layouts.theirs.blocks, theirMatches);
-  const fromBase = (from: number, to: number): Placed[] => baseBlocks.slice(from, to).map((text, k) => ({ text, at: { base: from + k, ours: ourMatches.get(from + k), theirs: theirMatches.get(from + k) } }));
-  const fromSide = (side: "ours" | "theirs", hunk: Hunk): Placed[] => hunk.content.map((text, k) => ({ text, at: { [side]: hunk.from + k } }));
+  const fromBase = (from: number, to: number): Placed[] =>
+    baseBlocks.slice(from, to).map((text, k) => ({
+      text,
+      at: { base: from + k, ours: ourMatches.get(from + k), theirs: theirMatches.get(from + k) }
+    }));
+  const fromSide = (side: "ours" | "theirs", hunk: Hunk): Placed[] =>
+    hunk.content.map((text, k) => ({ text, at: { [side]: hunk.from + k } }));
   const applied = (side: "ours" | "theirs", hunks: readonly Hunk[], start: number, end: number): Placed[] => {
     const result: Placed[] = [];
     let at = start;
@@ -143,7 +156,8 @@ export function mergeThreeWay(base: string, ours: string, theirs: string, regist
       const ourRegion = applied("ours", ourCluster, start, end);
       const theirRegion = applied("theirs", theirCluster, start, end);
       const texts = (region: readonly Placed[]) => region.map(block => block.text);
-      if (!same(texts(ourRegion), texts(theirRegion))) conflicts.push({ base: baseBlocks.slice(start, end), ours: texts(ourRegion), theirs: texts(theirRegion) });
+      if (!same(texts(ourRegion), texts(theirRegion)))
+        conflicts.push({ base: baseBlocks.slice(start, end), ours: texts(ourRegion), theirs: texts(theirRegion) });
       content = ourRegion;
     } else if (ours && (!theirs || comesFirst(ours, theirs))) {
       ({ start, end } = ours);
@@ -177,7 +191,8 @@ function hunksOf(base: readonly string[], other: readonly string[], matches: Rea
   const close = (baseEnd: number, otherEnd: number) => {
     // Rewriting n blocks into n is n separate edits, which lets the other side change one of their neighbours.
     if (baseEnd - baseAt === otherEnd - otherAt) {
-      for (let k = 0; k < baseEnd - baseAt; k += 1) hunks.push({ start: baseAt + k, end: baseAt + k + 1, content: [other[otherAt + k]!], from: otherAt + k });
+      for (let k = 0; k < baseEnd - baseAt; k += 1)
+        hunks.push({ start: baseAt + k, end: baseAt + k + 1, content: [other[otherAt + k]!], from: otherAt + k });
     } else {
       hunks.push({ start: baseAt, end: baseEnd, content: other.slice(otherAt, otherEnd), from: otherAt });
     }
@@ -217,7 +232,8 @@ function matchIndexes(a: readonly string[], b: readonly string[]): Map<number, n
   let head = 0;
   while (head < a.length && head < b.length && a[head] === b[head]) head += 1;
   let tail = 0;
-  while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail += 1;
+  while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail])
+    tail += 1;
   const matches = new Map<number, number>();
   for (let k = 0; k < head; k += 1) matches.set(k, k);
   const middleA = a.slice(head, a.length - tail);
@@ -257,7 +273,9 @@ const FRONT_MATTER = /^(\uFEFF?---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$))/
 /** The editor never sees YAML front matter; it goes back byte for byte on save. */
 export function splitFrontMatter(markdown: string): { frontMatter: string; body: string } {
   const match = FRONT_MATTER.exec(markdown);
-  return match ? { frontMatter: match[1]!, body: markdown.slice(match[1]!.length).replace(/^\n+/u, "") } : { frontMatter: "", body: markdown };
+  return match
+    ? { frontMatter: match[1]!, body: markdown.slice(match[1]!.length).replace(/^\n+/u, "") }
+    : { frontMatter: "", body: markdown };
 }
 
 export function joinFrontMatter(frontMatter: string, body: string): string {
@@ -267,7 +285,8 @@ export function joinFrontMatter(frontMatter: string, body: string): string {
 
 /** Uses the server's block numbering, whichever parser produced the new text. */
 export function opsBetweenMarkdown(base: string, next: string, registry?: BlockRegistry) {
-  const slices = (markdown: string) => topLevelBlocks(parseDocument(markdown, registry)).map(block => markdown.slice(block.start, block.end));
+  const slices = (markdown: string) =>
+    topLevelBlocks(parseDocument(markdown, registry)).map(block => markdown.slice(block.start, block.end));
   return opsBetweenBlocks(slices(base), slices(next));
 }
 
@@ -286,7 +305,12 @@ export function opsBetweenBlocks(base: readonly string[], next: readonly string[
     const added = next.slice(n, nEnd);
     const removedCount = bEnd - b;
     if (removedCount > 0 && added.length > 0) {
-      ops.push({ op: "block_replace", ref: refOf(b), ...(removedCount > 1 ? { end: refOf(bEnd - 1) } : {}), content: added.join("\n\n") });
+      ops.push({
+        op: "block_replace",
+        ref: refOf(b),
+        ...(removedCount > 1 ? { end: refOf(bEnd - 1) } : {}),
+        content: added.join("\n\n")
+      });
     } else if (removedCount > 0) {
       ops.push({ op: "block_delete", ref: refOf(b), ...(removedCount > 1 ? { end: refOf(bEnd - 1) } : {}) });
     } else if (added.length > 0) {

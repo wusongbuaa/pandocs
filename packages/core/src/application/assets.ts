@@ -35,7 +35,13 @@ export interface StoredAsset extends AssetRecord {
 export class AssetService {
   constructor(private readonly context: AppContext) {}
 
-  async put(principal: Principal, spaceSlug: string, bytes: Uint8Array, filename: string, required: Role = "editor"): Promise<StoredAsset> {
+  async put(
+    principal: Principal,
+    spaceSlug: string,
+    bytes: Uint8Array,
+    filename: string,
+    required: Role = "editor"
+  ): Promise<StoredAsset> {
     const { db, ports } = this.context;
     if (bytes.byteLength === 0) throw invalid("ASSET_EMPTY", t("The file is empty"));
     if (bytes.byteLength > MAX_ASSET_BYTES) throw invalid("ASSET_TOO_LARGE", t("The file is larger than 100 MiB"));
@@ -66,7 +72,11 @@ export class AssetService {
     );
   }
 
-  async get(principal: Principal, spaceSlug: string, sha256: string): Promise<{ record: AssetRecord; bytes: Uint8Array }> {
+  async get(
+    principal: Principal,
+    spaceSlug: string,
+    sha256: string
+  ): Promise<{ record: AssetRecord; bytes: Uint8Array }> {
     const { db, ports } = this.context;
     const { space } = await requireSpace(db, principal, spaceSlug);
     // The public gets what public pages show. An upload from a restricted page, or one no longer used, stays closed.
@@ -81,12 +91,21 @@ export class AssetService {
       );
       if (!used[0]) throw notFound(t("Asset"));
     }
-    const { rows } = await db.query(`SELECT * FROM pandocs.assets WHERE space_id = $1 AND sha256 = $2`, [space.id, sha256.toLowerCase()]);
+    const { rows } = await db.query(`SELECT * FROM pandocs.assets WHERE space_id = $1 AND sha256 = $2`, [
+      space.id,
+      sha256.toLowerCase()
+    ]);
     if (!rows[0]) throw notFound(t("Asset"));
     const stored = await ports.assets.get(storageKey(space.id, String(rows[0].sha256)));
     if (!stored) throw notFound(t("Asset"));
     return {
-      record: { spaceId: space.id, sha256: String(rows[0].sha256), mime: String(rows[0].mime), sizeBytes: Number(rows[0].size_bytes), filename: String(rows[0].filename) },
+      record: {
+        spaceId: space.id,
+        sha256: String(rows[0].sha256),
+        mime: String(rows[0].mime),
+        sizeBytes: Number(rows[0].size_bytes),
+        filename: String(rows[0].filename)
+      },
       bytes: stored.bytes
     };
   }

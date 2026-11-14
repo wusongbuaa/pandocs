@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { blocksInTextRange, parseDocument, squashWhitespace, visibleText } from "../src/index.js";
 
-const MARKDOWN = "---\ntitle: 示例\n---\n\n# 标题\n\n第一段 **说明**。\n\n![图](assets/a.png)\n\n第二段说明。\n\n- 甲\n- 乙\n";
+const MARKDOWN =
+  "---\ntitle: 示例\n---\n\n# 标题\n\n第一段 **说明**。\n\n![图](assets/a.png)\n\n第二段说明。\n\n- 甲\n- 乙\n";
 
 function rangeOf(words: string): [number, number] {
   const text = squashWhitespace(visibleText(parseDocument(MARKDOWN)));

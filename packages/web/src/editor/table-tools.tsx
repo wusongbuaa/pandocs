@@ -38,8 +38,18 @@ export function TableTools({ editor }: { editor: Editor }) {
   }, [editor]);
   if (!box) return null;
   return (
-    <div className="pd-toolbar pd-table-tools" role="toolbar" aria-label={t("Table actions")} style={{ top: Math.max(box.top - 48, 72), left: box.left }} onMouseDown={event => event.preventDefault()}>
-      {ACTIONS.map(action => <button type="button" key={action.label} className="pd-tool" onClick={() => action.run(editor)}>{action.label}</button>)}
+    <div
+      className="pd-toolbar pd-table-tools"
+      role="toolbar"
+      aria-label={t("Table actions")}
+      style={{ top: Math.max(box.top - 48, 72), left: box.left }}
+      onMouseDown={event => event.preventDefault()}
+    >
+      {ACTIONS.map(action => (
+        <button type="button" key={action.label} className="pd-tool" onClick={() => action.run(editor)}>
+          {action.label}
+        </button>
+      ))}
     </div>
   );
 }

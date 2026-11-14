@@ -1,4 +1,11 @@
-import { createPandocsDb, createPandocsServices, createIngestWorker, createLocalAssetStore, type AssetStore, type PandocsPorts } from "@pandocs/core";
+import {
+  createPandocsDb,
+  createPandocsServices,
+  createIngestWorker,
+  createLocalAssetStore,
+  type AssetStore,
+  type PandocsPorts
+} from "@pandocs/core";
 import { createS3AssetStore } from "@pandocs/core/s3-asset-store";
 import type pg from "pg";
 import { analyzePoolFromBuild } from "./analyze-pool.js";
@@ -27,10 +34,20 @@ import { createHostSessions } from "./auth/host-session.js";
 function createAssetStore(config: Config): AssetStore & { destroy?(): void } {
   const { storage } = config;
   if (storage.kind === "local") return createLocalAssetStore(storage.dir);
-  return createS3AssetStore({ bucket: storage.bucket, region: storage.region, prefix: storage.prefix, endpoint: storage.endpoint, forcePathStyle: storage.forcePathStyle });
+  return createS3AssetStore({
+    bucket: storage.bucket,
+    region: storage.region,
+    prefix: storage.prefix,
+    endpoint: storage.endpoint,
+    forcePathStyle: storage.forcePathStyle
+  });
 }
 
-export function createRuntime(config: Config & { readonly secret: string }, pool: pg.Pool, overrides: Partial<PandocsPorts> = {}) {
+export function createRuntime(
+  config: Config & { readonly secret: string },
+  pool: pg.Pool,
+  overrides: Partial<PandocsPorts> = {}
+) {
   const users = createUserStore(pool);
   const sessions = createSessionStore(pool);
   const tokens = createTokenStore(pool);
@@ -38,7 +55,14 @@ export function createRuntime(config: Config & { readonly secret: string }, pool
   const embedApps = createEmbedApps(pool, config.secret);
   const oauth = createOAuthStore(pool, tokens);
   const hostSessions = config.hostSession ? createHostSessions(config.hostSession, { users }) : undefined;
-  const identity = createIdentity({ config, sessions, tokens, embedApps, shareLink: token => services.shareLinks.principalOf(token), hostSessions });
+  const identity = createIdentity({
+    config,
+    sessions,
+    tokens,
+    embedApps,
+    shareLink: token => services.shareLinks.principalOf(token),
+    hostSessions
+  });
   const assets = createAssetStore(config);
   const analyzePool = analyzePoolFromBuild();
   const extractor = extractorFromConfig(config.extract);
@@ -64,14 +88,27 @@ export function createRuntime(config: Config & { readonly secret: string }, pool
       ...(gitIsInstalled() ? { git: createGitPort({ allowPrivate: config.gitAllowPrivate }) } : {}),
       ...(liveCodec ? { liveCodec } : {}),
       webhookSender: createWebhookSender({ publicUrl: config.publicUrl, allowPrivate: config.webhooksAllowPrivate }),
-      ...(config.smtp ? { notifier: createMailNotifier({ smtp: config.smtp, publicUrl: config.publicUrl, users }) } : {}),
+      ...(config.smtp
+        ? { notifier: createMailNotifier({ smtp: config.smtp, publicUrl: config.publicUrl, users }) }
+        : {}),
       passwordLogin: config.passwordLogin,
-      siteDefaults: { title: config.siteTitle ?? "Pandocs", logoutUrl: config.hostSession?.logoutUrl ?? `${config.basePath}/logout` },
+      siteDefaults: {
+        title: config.siteTitle ?? "Pandocs",
+        logoutUrl: config.hostSession?.logoutUrl ?? `${config.basePath}/logout`
+      },
       ...overrides
     }
   });
-  const passwordLinks = createPasswordLinks({ pool, publicUrl: config.publicUrl, enabled: config.passwordLogin, mail: config.smtp ? createMailer(config.smtp, config.publicUrl) : null, siteTitle: async () => (await services.site.get()).title });
-  const flows = config.providers.map(provider => createLoginFlow(provider, onSite(config.publicUrl, `/auth/${provider.id}/callback`), config.secret));
+  const passwordLinks = createPasswordLinks({
+    pool,
+    publicUrl: config.publicUrl,
+    enabled: config.passwordLogin,
+    mail: config.smtp ? createMailer(config.smtp, config.publicUrl) : null,
+    siteTitle: async () => (await services.site.get()).title
+  });
+  const flows = config.providers.map(provider =>
+    createLoginFlow(provider, onSite(config.publicUrl, `/auth/${provider.id}/callback`), config.secret)
+  );
   const worker = createIngestWorker(services);
   const events = createEventHub({ identity, services });
   const publicAccess = createPublicAccess({ services, enabled: config.publicSpaces });

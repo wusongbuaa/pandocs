@@ -19,4 +19,11 @@ export { SHARE_TOKEN_PREFIX } from "./application/share-links.js";
 export type { ImportReport } from "./application/bulk-import.js";
 export type { PageTemplate } from "./application/templates.js";
 export { WEBHOOK_EVENTS, type WebhookEvent } from "./application/webhook-events.js";
-export { brandStyles, DEFAULT_BRAND_COLOR, DEFAULT_SITE_SETTINGS, siteSettingsSchema, siteStyles, type SiteSettings } from "./application/site.js";
+export {
+  brandStyles,
+  DEFAULT_BRAND_COLOR,
+  DEFAULT_SITE_SETTINGS,
+  siteSettingsSchema,
+  siteStyles,
+  type SiteSettings
+} from "./application/site.js";

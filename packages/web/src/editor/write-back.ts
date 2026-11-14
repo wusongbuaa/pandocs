@@ -9,7 +9,9 @@ export interface WriteBack {
   markdown(): string;
 }
 
-type WithMarkdown = Editor & { markdown: { serialize(doc: JSONContent): string; parse(markdown: string): JSONContent } };
+type WithMarkdown = Editor & {
+  markdown: { serialize(doc: JSONContent): string; parse(markdown: string): JSONContent };
+};
 
 const serialize = (editor: Editor) => (doc: JSONContent) => (editor as WithMarkdown).markdown.serialize(doc);
 
@@ -17,7 +19,10 @@ const serialize = (editor: Editor) => (doc: JSONContent) => (editor as WithMarkd
 export function createWriteBack(editor: Editor, marked: Marked, body: string): WriteBack {
   const source = editorSourceBlocks(marked, body);
   // In a shared draft, what the editor holds by now is not what this text says.
-  const baseline = blocksOf(editor.schema.nodeFromJSON((editor as WithMarkdown).markdown.parse(body)).toJSON() as JSONContent, serialize(editor));
+  const baseline = blocksOf(
+    editor.schema.nodeFromJSON((editor as WithMarkdown).markdown.parse(body)).toJSON() as JSONContent,
+    serialize(editor)
+  );
   return {
     aligned: source.length === baseline.length,
     markdown: () => writeBackBlocks(source, baseline, blocksOf(editor.getJSON(), serialize(editor)))
@@ -38,7 +43,9 @@ export function replaceChangedBlocks(editor: Editor, body: string): void {
   // The trailing empty paragraphs the editor keeps for the caret are not content, on either side.
   const contentOf = (doc: ProseMirrorNode) => {
     const nodes: ProseMirrorNode[] = [];
-    doc.forEach(node => { nodes.push(node); });
+    doc.forEach(node => {
+      nodes.push(node);
+    });
     while (nodes.length && empty(nodes.at(-1)!)) nodes.pop();
     return nodes;
   };
@@ -49,7 +56,12 @@ export function replaceChangedBlocks(editor: Editor, body: string): void {
   let start = 0;
   while (start < was.length && start < will.length && was[start] === will[start]) start += 1;
   let end = 0;
-  while (end < was.length - start && end < will.length - start && was[was.length - 1 - end] === will[will.length - 1 - end]) end += 1;
+  while (
+    end < was.length - start &&
+    end < will.length - start &&
+    was[was.length - 1 - end] === will[will.length - 1 - end]
+  )
+    end += 1;
   if (start === was.length && start === will.length) return;
   let from = 0;
   for (const node of before.slice(0, start)) from += node.nodeSize;

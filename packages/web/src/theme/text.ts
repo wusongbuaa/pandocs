@@ -26,7 +26,9 @@ export function renderInlineMarkdown(text: string): { dangerouslySetInnerHTML: {
   const keep = (html: string) => `${MARKER}${literals.push(html) - 1}${MARKER}`;
   const marked = text
     .replaceAll(MARKER, "")
-    .replace(LITERAL, (_, escaped: string | undefined, _ticks: string, code: string) => keep(escaped ? escapeHtml(escaped) : `<code>${escapeHtml(codeOf(code))}</code>`));
+    .replace(LITERAL, (_, escaped: string | undefined, _ticks: string, code: string) =>
+      keep(escaped ? escapeHtml(escaped) : `<code>${escapeHtml(codeOf(code))}</code>`)
+    );
   const __html = escapeHtml(marked)
     .replace(STRONG, "<strong>$1</strong>")
     .replace(EMPHASIS, "<em>$1</em>")

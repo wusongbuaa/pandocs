@@ -26,7 +26,8 @@ export function SuggestFromThread({ thread }: { thread: ThreadView }) {
     setBusy(true);
     try {
       const result = await api.send<ThreadSuggestion>("POST", `threads/${thread.id}/suggestion`);
-      if (result.text.trim() === result.source.trim()) toast(t("The discussion asks for no clear change, so AI changed nothing"));
+      if (result.text.trim() === result.source.trim())
+        toast(t("The discussion asks for no clear change, so AI changed nothing"));
       else setSuggestion(result);
     } catch (error) {
       toast(failureMessage(error, t("Could not generate it. Try again later.")), "error");
@@ -36,10 +37,23 @@ export function SuggestFromThread({ thread }: { thread: ThreadView }) {
   };
   return (
     <>
-      <button type="button" className="pd-card__action" disabled={busy} onClick={event => { event.stopPropagation(); void generate(); }}>
-        <Sparkles size={13} aria-hidden="true" />{busy ? t("Generating…") : t("Suggest a change from this discussion")}
+      <button
+        type="button"
+        className="pd-card__action"
+        disabled={busy}
+        onClick={event => {
+          event.stopPropagation();
+          void generate();
+        }}
+      >
+        <Sparkles size={13} aria-hidden="true" />
+        {busy ? t("Generating…") : t("Suggest a change from this discussion")}
       </button>
-      {suggestion ? <React.Suspense fallback={null}><SuggestionDialog page={page} thread={thread} suggestion={suggestion} onClose={() => setSuggestion(null)} /></React.Suspense> : null}
+      {suggestion ? (
+        <React.Suspense fallback={null}>
+          <SuggestionDialog page={page} thread={thread} suggestion={suggestion} onClose={() => setSuggestion(null)} />
+        </React.Suspense>
+      ) : null}
     </>
   );
 }

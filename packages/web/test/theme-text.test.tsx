@@ -47,7 +47,7 @@ describe("text on its way to the theme", () => {
   });
 
   it("shows the words someone typed, angle brackets included", () => {
-    expect(parsed(htmlOf(renderInlineMarkdown('标题<b>粗</b>'))).textContent).toBe("标题<b>粗</b>");
+    expect(parsed(htmlOf(renderInlineMarkdown("标题<b>粗</b>"))).textContent).toBe("标题<b>粗</b>");
     expect(parsed(htmlOf(renderInlineMarkdown("A & B &amp; C"))).textContent).toBe("A & B &amp; C");
     expect(parsed(htmlOf(renderInlineMarkdown("泛型 Array<string>"))).textContent).toBe("泛型 Array<string>");
   });
@@ -79,7 +79,10 @@ describe("the theme's own components", () => {
   /** The theme captures its site data when it loads, so nothing imports it before this. */
   async function loadTheme() {
     applyBootstrap(bootstrap());
-    const [{ PageContext }, theme] = await Promise.all([import("@rspress/core/runtime"), import("@rspress/core/theme")]);
+    const [{ PageContext }, theme] = await Promise.all([
+      import("@rspress/core/runtime"),
+      import("@rspress/core/theme")
+    ]);
     return { PageContext, theme };
   }
 
@@ -90,55 +93,121 @@ describe("the theme's own components", () => {
   });
 
   it("show a hostile title as text", async () => {
-    const { PageContext, theme: { FallbackHeading } } = await loadTheme();
-    const { container } = render(<MemoryRouter><PageContext.Provider value={{ data: { frontmatter: {}, lang: "zh" } as never }}><FallbackHeading level={1} title={`标题${XSS}`} /></PageContext.Provider></MemoryRouter>);
+    const {
+      PageContext,
+      theme: { FallbackHeading }
+    } = await loadTheme();
+    const { container } = render(
+      <MemoryRouter>
+        <PageContext.Provider value={{ data: { frontmatter: {}, lang: "zh" } as never }}>
+          <FallbackHeading level={1} title={`标题${XSS}`} />
+        </PageContext.Provider>
+      </MemoryRouter>
+    );
     expect(container.querySelector("img")).toBeNull();
     expect(container.textContent).toContain(XSS);
   });
 
   it("show hostile home page text as text", async () => {
-    const { PageContext, theme: { HomeHero } } = await loadTheme();
-    const data = { frontmatter: { hero: { name: XSS, text: XSS, tagline: XSS, actions: [{ theme: "brand", text: XSS, link: "/a" }] } } } as never;
-    const { container } = render(<MemoryRouter><PageContext.Provider value={{ data }}><HomeHero /></PageContext.Provider></MemoryRouter>);
+    const {
+      PageContext,
+      theme: { HomeHero }
+    } = await loadTheme();
+    const data = {
+      frontmatter: {
+        hero: { name: XSS, text: XSS, tagline: XSS, actions: [{ theme: "brand", text: XSS, link: "/a" }] }
+      }
+    } as never;
+    const { container } = render(
+      <MemoryRouter>
+        <PageContext.Provider value={{ data }}>
+          <HomeHero />
+        </PageContext.Provider>
+      </MemoryRouter>
+    );
     expect(container.querySelector("img")).toBeNull();
     expect(container.textContent).toContain(XSS);
   });
 
   describe("the outline", () => {
-    async function renderOutline(toc: readonly { id: string; text: string; depth: number }[], headings: React.ReactNode) {
-      const { PageContext, theme: { Toc, useWatchToc } } = await loadTheme();
+    async function renderOutline(
+      toc: readonly { id: string; text: string; depth: number }[],
+      headings: React.ReactNode
+    ) {
+      const {
+        PageContext,
+        theme: { Toc, useWatchToc }
+      } = await loadTheme();
       function Page() {
         const { rspressDocRef } = useWatchToc();
-        return <div ref={rspressDocRef} className="rspress-doc">{headings}<nav><Toc /></nav></div>;
+        return (
+          <div ref={rspressDocRef} className="rspress-doc">
+            {headings}
+            <nav>
+              <Toc />
+            </nav>
+          </div>
+        );
       }
       const data = { frontmatter: {}, toc } as never;
-      const { container } = render(<MemoryRouter><PageContext.Provider value={{ data }}><Page /></PageContext.Provider></MemoryRouter>);
+      const { container } = render(
+        <MemoryRouter>
+          <PageContext.Provider value={{ data }}>
+            <Page />
+          </PageContext.Provider>
+        </MemoryRouter>
+      );
       return container.querySelector("nav")!;
     }
 
     it("keeps the formatting of a heading, from the document's text rather than the page's HTML", async () => {
-      const nav = await renderOutline([{ id: "a", text: "`x` 和 **粗**", depth: 2 }], <h2 id="a" className="rp-toc-include"><code>x</code> 和 <strong>粗</strong></h2>);
+      const nav = await renderOutline(
+        [{ id: "a", text: "`x` 和 **粗**", depth: 2 }],
+        <h2 id="a" className="rp-toc-include">
+          <code>x</code> 和 <strong>粗</strong>
+        </h2>
+      );
       await waitFor(() => expect(nav.querySelector("code")?.textContent).toBe("x"));
       expect(nav.querySelector("strong")?.textContent).toBe("粗");
     });
 
     it("shows a hostile heading as text, however the outline was collected", async () => {
-      const nav = await renderOutline([{ id: "a", text: XSS, depth: 2 }], <h2 id="a" className="rp-toc-include">{XSS}</h2>);
+      const nav = await renderOutline(
+        [{ id: "a", text: XSS, depth: 2 }],
+        <h2 id="a" className="rp-toc-include">
+          {XSS}
+        </h2>
+      );
       await waitFor(() => expect(nav.textContent).toContain(XSS));
       expect(nav.querySelector("img")).toBeNull();
     });
 
     it("shows a heading the document's outline does not list, without its markup", async () => {
-      const nav = await renderOutline([], <h2 id="a" className="rp-toc-include"><b>{XSS}</b></h2>);
+      const nav = await renderOutline(
+        [],
+        <h2 id="a" className="rp-toc-include">
+          <b>{XSS}</b>
+        </h2>
+      );
       await waitFor(() => expect(nav.textContent).toContain(XSS));
       expect(nav.querySelector("img, b")).toBeNull();
     });
 
     it("leaves out what the page is not showing, like the theme does", async () => {
-      const nav = await renderOutline([{ id: "a", text: "看得见", depth: 2 }, { id: "b", text: "看不见", depth: 2 }], <>
-        <h2 id="a" className="rp-toc-include">看得见</h2>
-        <h2 id="b" className="rp-toc-include" style={{ display: "none" }}>看不见</h2>
-      </>);
+      const nav = await renderOutline(
+        [
+          { id: "a", text: "看得见", depth: 2 },
+          { id: "b", text: "看不见", depth: 2 }
+        ],
+        <>
+          <h2 id="a" className="rp-toc-include">
+            看得见
+          </h2>
+          <h2 id="b" className="rp-toc-include" style={{ display: "none" }}>
+            看不见
+          </h2>
+        </>
+      );
       await waitFor(() => expect(nav.textContent).not.toContain("看不见"));
       expect(nav.textContent).toContain("看得见");
     });
@@ -152,23 +221,31 @@ describe("the theme's own components", () => {
 
 describe("the theme's route to HTML", () => {
   const ROOT = join(import.meta.dirname, "../vendor/rspress/theme");
-  const files = (dir: string): string[] => readdirSync(dir).flatMap(name => {
-    const path = join(dir, name);
-    return statSync(path).isDirectory() ? files(path) : /\.tsx?$/u.test(name) ? [path] : [];
-  });
+  const files = (dir: string): string[] =>
+    readdirSync(dir).flatMap(name => {
+      const path = join(dir, name);
+      return statSync(path).isDirectory() ? files(path) : /\.tsx?$/u.test(name) ? [path] : [];
+    });
   const relative = (path: string) => path.slice(ROOT.length + 1);
 
   it("goes through the entry we override, so no component can bypass it", () => {
     for (const path of files(ROOT).filter(file => !/logic\/utils\.tsx$|theme\/index\.ts$/u.test(file))) {
       const source = readFileSync(path, "utf8");
-      for (const statement of source.match(/import\s*\{[^}]*\b(?:renderHtmlOrText|renderInlineMarkdown)\b[^}]*\}\s*from\s*'[^']+'/gu) ?? []) {
+      for (const statement of source.match(
+        /import\s*\{[^}]*\b(?:renderHtmlOrText|renderInlineMarkdown)\b[^}]*\}\s*from\s*'[^']+'/gu
+      ) ?? []) {
         expect(statement, relative(path)).toContain("'@rspress/core/theme'");
       }
     }
   });
 
   it("has no other HTML sinks fed with page content; a new one has to be looked at", () => {
-    const sinks = files(ROOT).filter(file => /dangerouslySetInnerHTML=\{\{/u.test(readFileSync(file, "utf8")) && !file.endsWith("logic/utils.tsx")).map(relative).sort();
+    const sinks = files(ROOT)
+      .filter(
+        file => /dangerouslySetInnerHTML=\{\{/u.test(readFileSync(file, "utf8")) && !file.endsWith("logic/utils.tsx")
+      )
+      .map(relative)
+      .sort();
     expect(sinks).toEqual([
       // A static inline script, not used by any page here.
       "components/Banner/index.tsx",

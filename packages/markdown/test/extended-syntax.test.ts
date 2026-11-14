@@ -8,18 +8,14 @@ describe("superscript and subscript", () => {
     expect(text("水是 H~2~O，面积 10^2^ 平方米")).toBe("水是 H2O，面积 102 平方米");
   });
 
-  it.each([
-    ["1~3 天，5~7 天"],
-    ["1~3天，5~7天"],
-    ["北京~上海~广州"],
-    ["10~20~30"],
-    ["a^b c^d"],
-    ["~~删掉~~"]
-  ])("do not touch text that only looks like them: %s", source => {
-    const paragraph = parseDocument(source).tree.children[0] as { children: { type: string }[] };
-    expect(paragraph.children.map(child => child.type)).not.toContain("subscript");
-    expect(paragraph.children.map(child => child.type)).not.toContain("superscript");
-  });
+  it.each([["1~3 天，5~7 天"], ["1~3天，5~7天"], ["北京~上海~广州"], ["10~20~30"], ["a^b c^d"], ["~~删掉~~"]])(
+    "do not touch text that only looks like them: %s",
+    source => {
+      const paragraph = parseDocument(source).tree.children[0] as { children: { type: string }[] };
+      expect(paragraph.children.map(child => child.type)).not.toContain("subscript");
+      expect(paragraph.children.map(child => child.type)).not.toContain("superscript");
+    }
+  );
 
   it("leave code alone", () => {
     expect(text("`x^2^` 不变")).toBe("x^2^ 不变");
@@ -44,7 +40,10 @@ describe("demonstration blocks", () => {
     }
     expect(namesIn(":::steps\n\n### 一\n\n内容\n\n:::\n")).toEqual(["container:steps"]);
     expect(namesIn("::::tabs\n\n:::tab[甲]\n\n内容\n\n:::\n\n::::\n")).toEqual(["container:tabs", "container:tab"]);
-    expect(namesIn('::::cards\n\n:::card[甲]{href="./a.md"}\n\n内容\n\n:::\n\n::::\n')).toEqual(["container:cards", "container:card"]);
+    expect(namesIn('::::cards\n\n:::card[甲]{href="./a.md"}\n\n内容\n\n:::\n\n::::\n')).toEqual([
+      "container:cards",
+      "container:card"
+    ]);
     expect(namesIn('::compare{before="assets/a.png" after="assets/b.png"}\n')).toEqual(["leaf:compare"]);
     expect(namesIn('```prompt title="标题"\n内容\n```\n')).toEqual(["fence:prompt"]);
     expect(namesIn('```hotspots src="assets/a.png"\n[]\n```\n')).toEqual(["fence:hotspots"]);
@@ -52,7 +51,9 @@ describe("demonstration blocks", () => {
   });
 
   it("leave a tab's label out of the counted text, because it shows away from where it is written", () => {
-    expect(text("::::tabs\n\n:::tab[甲]\n\n甲的内容\n\n:::\n\n:::tab[乙]\n\n乙的内容\n\n:::\n\n::::\n").replace(/\s+/gu, "")).toBe("甲的内容乙的内容");
+    expect(
+      text("::::tabs\n\n:::tab[甲]\n\n甲的内容\n\n:::\n\n:::tab[乙]\n\n乙的内容\n\n:::\n\n::::\n").replace(/\s+/gu, "")
+    ).toBe("甲的内容乙的内容");
   });
 
   it("count what a card and a prompt show, in the order they show it", () => {
@@ -66,7 +67,9 @@ describe("demonstration blocks", () => {
   it("say so when a required part is missing or a mark is off the picture", () => {
     expect(problems("::compare\n")).toContain("BLOCK_ATTR_INVALID");
     expect(problems("```hotspots\n[]\n```\n")).toContain("BLOCK_ATTR_INVALID");
-    expect(problems('```hotspots src="assets/a.png"\n[{"x":120,"y":2,"title":"入口"}]\n```\n')).toContain("BLOCK_BODY_INVALID");
+    expect(problems('```hotspots src="assets/a.png"\n[{"x":120,"y":2,"title":"入口"}]\n```\n')).toContain(
+      "BLOCK_BODY_INVALID"
+    );
     expect(problems('```hotspots src="assets/a.png"\n不是 JSON\n```\n')).toContain("BLOCK_BODY_INVALID");
   });
 });

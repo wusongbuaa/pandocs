@@ -4,7 +4,13 @@ import { api } from "../api/client";
 import type { CommentView, ProposalSummary, ThreadView } from "../types";
 
 export type PendingAnchor =
-  | { readonly kind: "text"; readonly start: number; readonly end: number; readonly exact: string; readonly revision: number }
+  | {
+      readonly kind: "text";
+      readonly start: number;
+      readonly end: number;
+      readonly exact: string;
+      readonly revision: number;
+    }
   | { readonly kind: "block"; readonly ref: string; readonly preview: string; readonly revision: number }
   /** From the editor, which has no reading offsets: the server finds these words in the saved version. */
   | { readonly kind: "quote"; readonly quote: string };
@@ -20,7 +26,16 @@ interface AnnotationState {
   readonly panelTab: "threads" | "proposals";
 }
 
-const EMPTY: AnnotationState = { documentId: null, threads: [], proposals: [], open: false, activeId: null, pending: null, showResolved: false, panelTab: "threads" };
+const EMPTY: AnnotationState = {
+  documentId: null,
+  threads: [],
+  proposals: [],
+  open: false,
+  activeId: null,
+  pending: null,
+  showResolved: false,
+  panelTab: "threads"
+};
 
 let state = EMPTY;
 const listeners = new Set<() => void>();
@@ -31,17 +46,24 @@ function update(patch: Partial<AnnotationState>): void {
 }
 
 export function useAnnotations(): AnnotationState {
-  return React.useSyncExternalStore(listener => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  }, () => state, () => EMPTY);
+  return React.useSyncExternalStore(
+    listener => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => state,
+    () => EMPTY
+  );
 }
 
 const fetchThreads = (documentId: string) => api.get<ThreadView[]>(`documents/${documentId}/threads`);
 const fetchProposals = (documentId: string) => api.get<ProposalSummary[]>(`documents/${documentId}/proposals`);
 
 /** Discussions belong to one document, so moving to another starts over. */
-export async function openDocument(documentId: string, target: { readonly threadId?: string | null } = {}): Promise<void> {
+export async function openDocument(
+  documentId: string,
+  target: { readonly threadId?: string | null } = {}
+): Promise<void> {
   state = { ...EMPTY, open: Boolean(target.threadId), activeId: target.threadId ?? null, documentId };
   listeners.forEach(listener => listener());
   const [threads, proposals] = await Promise.all([fetchThreads(documentId), fetchProposals(documentId)]);
@@ -67,16 +89,26 @@ export const openPanel = (tab: AnnotationState["panelTab"] = "threads") => updat
 export const closePanel = () => update({ open: false, activeId: null, pending: null });
 export const setPanelTab = (panelTab: AnnotationState["panelTab"]) => update({ panelTab });
 export const setShowResolved = (showResolved: boolean) => update({ showResolved });
-export const activateThread = (activeId: string | null) => update({ activeId, open: activeId ? true : state.open, panelTab: "threads", showResolved: state.threads.find(thread => thread.id === activeId)?.status === "resolved" });
-export const startComment = (pending: PendingAnchor) => update({ pending, open: true, activeId: null, panelTab: "threads", showResolved: false });
-export const startCommentOnQuote = (quote: string) => startComment({ kind: "quote", quote: quote.replace(/\s+/gu, " ").trim() });
+export const activateThread = (activeId: string | null) =>
+  update({
+    activeId,
+    open: activeId ? true : state.open,
+    panelTab: "threads",
+    showResolved: state.threads.find(thread => thread.id === activeId)?.status === "resolved"
+  });
+export const startComment = (pending: PendingAnchor) =>
+  update({ pending, open: true, activeId: null, panelTab: "threads", showResolved: false });
+export const startCommentOnQuote = (quote: string) =>
+  startComment({ kind: "quote", quote: quote.replace(/\s+/gu, " ").trim() });
 export const cancelComment = () => update({ pending: null });
 
 export async function submitComment(body: string, mentions: readonly Mention[]): Promise<void> {
   const { documentId, pending } = state;
   if (!documentId || !pending) return;
   const anchor = pending.kind === "block" ? { kind: "block", ref: pending.ref, revision: pending.revision } : pending;
-  const thread = await api.send<ThreadView>("POST", `documents/${documentId}/threads`, { body: { anchor, body, mentions } });
+  const thread = await api.send<ThreadView>("POST", `documents/${documentId}/threads`, {
+    body: { anchor, body, mentions }
+  });
   update({ pending: null, activeId: thread.id });
   await refreshThreads();
 }

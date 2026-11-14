@@ -33,7 +33,10 @@ function pointRouteAt(pathname: string): void {
   const found = routes.find(route => matchPath(route.path, pathname));
   // The theme remembers an address it has found a route for, and that page may have gone since. It then loads this as the page.
   const missing = async () => notFoundPage({ routePath: "/404", lang: languageOfAddress(pathname), version: "" });
-  Object.assign(pageRoute, found ?? { path: NO_PATH, filePath: "", lang: "", version: "", element: null, preload: missing });
+  Object.assign(
+    pageRoute,
+    found ?? { path: NO_PATH, filePath: "", lang: "", version: "", element: null, preload: missing }
+  );
 }
 
 function renderToHtml(app: ReactNode): Promise<string> {
@@ -60,7 +63,10 @@ export async function renderPage({ url, origin, answers }: RenderInput): Promise
   const address = new URL(`${ORIGIN}${url}`);
   pointRouteAt(address.pathname);
   // Below the site's path, the same as the router in the browser, so links come out the same in both.
-  const { query, dataRoutes } = createStaticHandler(createPageRoutes(), SITE_BASE ? { basename: SITE_BASE } : undefined);
+  const { query, dataRoutes } = createStaticHandler(
+    createPageRoutes(),
+    SITE_BASE ? { basename: SITE_BASE } : undefined
+  );
   const context = await query(new Request(`${ORIGIN}${SITE_BASE}${url}`));
   if (context instanceof Response) throw new Error(`Rendering ${url} answered ${context.status}`);
   if (context.errors) throw Object.values(context.errors)[0];

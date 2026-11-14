@@ -51,7 +51,8 @@ const stringClaim = (claims: Record<string, unknown>, name: string) => {
 
 function groupsFrom(claims: Record<string, unknown>, name: string): string[] {
   const value = claims[name];
-  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string" && item.trim() !== "");
+  if (Array.isArray(value))
+    return value.filter((item): item is string => typeof item === "string" && item.trim() !== "");
   return typeof value === "string" && value.trim() ? value.split(/[\s,]+/u).filter(Boolean) : [];
 }
 
@@ -61,9 +62,21 @@ export function createLoginFlow(provider: LoginProvider, callbackUrl: string, se
   const configure = () => {
     configuration ??= (async () => {
       const { protocol } = provider;
-      if (protocol.kind === "oidc") return client.discovery(new URL(protocol.issuer), provider.clientId, provider.clientSecret, undefined, insecure);
+      if (protocol.kind === "oidc")
+        return client.discovery(
+          new URL(protocol.issuer),
+          provider.clientId,
+          provider.clientSecret,
+          undefined,
+          insecure
+        );
       const manual = new client.Configuration(
-        { issuer: new URL(protocol.authorizationUrl).origin, authorization_endpoint: protocol.authorizationUrl, token_endpoint: protocol.tokenUrl, userinfo_endpoint: protocol.userinfoUrl },
+        {
+          issuer: new URL(protocol.authorizationUrl).origin,
+          authorization_endpoint: protocol.authorizationUrl,
+          token_endpoint: protocol.tokenUrl,
+          userinfo_endpoint: protocol.userinfoUrl
+        },
         provider.clientId,
         provider.clientSecret
       );
@@ -91,7 +104,10 @@ export function createLoginFlow(provider: LoginProvider, callbackUrl: string, se
         state,
         ...(nonce ? { nonce } : {})
       });
-      return { url, cookie: sealLoginState(secret, { verifier, state, nonce, next, expires: Date.now() + STATE_TTL_MS }) };
+      return {
+        url,
+        cookie: sealLoginState(secret, { verifier, state, nonce, next, expires: Date.now() + STATE_TTL_MS })
+      };
     },
     async finish(currentUrl: URL, login: LoginState): Promise<ProviderProfile> {
       const config = await configure();
@@ -118,9 +134,14 @@ export function createLoginFlow(provider: LoginProvider, callbackUrl: string, se
           groups: groupsFrom(merged, provider.groupsClaim)
         };
       }
-      const response = await client.fetchProtectedResource(config, tokens.access_token, new URL(protocol.userinfoUrl), "GET");
+      const response = await client.fetchProtectedResource(
+        config,
+        tokens.access_token,
+        new URL(protocol.userinfoUrl),
+        "GET"
+      );
       if (!response.ok) throw new Error(`userinfo answered ${response.status}`);
-      const info = await response.json() as Record<string, unknown>;
+      const info = (await response.json()) as Record<string, unknown>;
       const subject = stringClaim(info, protocol.subjectClaim);
       if (!subject) throw new Error(`userinfo has no ${protocol.subjectClaim}`);
       return {

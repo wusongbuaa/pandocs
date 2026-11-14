@@ -26,7 +26,12 @@ export interface SelectionAction {
   available?(context: SelectionContext): boolean;
   run?(context: SelectionContext): void;
   /** Instead of `run`: opens a menu of these. */
-  readonly items?: readonly { readonly id: string; readonly label: string; readonly hint?: string; run(context: SelectionContext): void }[];
+  readonly items?: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly hint?: string;
+    run(context: SelectionContext): void;
+  }[];
 }
 
 export const selectionActions: SelectionAction[] = [];

@@ -47,7 +47,9 @@ async function runGivingWay(client: pg.PoolClient, statement: string): Promise<v
       const { code } = error as { code?: string };
       if ((code !== LOCK_NOT_AVAILABLE && code !== DEADLOCK_DETECTED) || attempt === ATTEMPTS) throw error;
       console.warn(JSON.stringify({ event: "db.schema_waiting", attempt, statement: statement.slice(0, 80) }));
-      await new Promise(done => setTimeout(done, Math.min(LONGEST_PAUSE_MS, 50 * 2 ** attempt) * (0.5 + Math.random() / 2)));
+      await new Promise(done =>
+        setTimeout(done, Math.min(LONGEST_PAUSE_MS, 50 * 2 ** attempt) * (0.5 + Math.random() / 2))
+      );
     }
   }
 }
@@ -61,7 +63,9 @@ async function apply(client: pg.PoolClient, sql: string, version: string): Promi
   await client.query(`SET lock_timeout = '${LOCK_WITHIN}'`);
   try {
     for (const statement of statementsOf(sql)) await runGivingWay(client, statement);
-    await client.query(`INSERT INTO pandocs.applied_schemas (version) VALUES ($1) ON CONFLICT (version) DO NOTHING`, [version]);
+    await client.query(`INSERT INTO pandocs.applied_schemas (version) VALUES ($1) ON CONFLICT (version) DO NOTHING`, [
+      version
+    ]);
   } finally {
     await client.query("RESET lock_timeout").catch(() => undefined);
   }
@@ -79,7 +83,7 @@ export async function migrate(pool: pg.Pool): Promise<void> {
   try {
     // Replicas starting together would race on `CREATE TABLE IF NOT EXISTS`, so one runs it while the others wait.
     await client.query(`SELECT pg_advisory_lock(hashtext('pandocs:migrate'))`);
-    if (!await wasApplied(client, version)) await apply(client, sql, version);
+    if (!(await wasApplied(client, version))) await apply(client, sql, version);
   } finally {
     await client.query(`SELECT pg_advisory_unlock(hashtext('pandocs:migrate'))`).catch(() => undefined);
     client.release();
@@ -88,7 +92,12 @@ export async function migrate(pool: pg.Pool): Promise<void> {
 
 /** Whichever replica gets here first writes it; the others read the same value. */
 export async function loadSigningSecret(pool: pg.Pool): Promise<string> {
-  await pool.query(`INSERT INTO pandocs.server_secrets (name, value) VALUES ('login-state', $1) ON CONFLICT (name) DO NOTHING`, [randomBytes(32).toString("hex")]);
-  const { rows } = await pool.query<{ value: string }>(`SELECT value FROM pandocs.server_secrets WHERE name = 'login-state'`);
+  await pool.query(
+    `INSERT INTO pandocs.server_secrets (name, value) VALUES ('login-state', $1) ON CONFLICT (name) DO NOTHING`,
+    [randomBytes(32).toString("hex")]
+  );
+  const { rows } = await pool.query<{ value: string }>(
+    `SELECT value FROM pandocs.server_secrets WHERE name = 'login-state'`
+  );
   return rows[0]!.value;
 }

@@ -18,7 +18,10 @@ describe("diffBlocks", () => {
       { kind: "same", text: "二" },
       { kind: "added", text: "三" }
     ]);
-    expect(diffBlocks(["一", "二"], [])).toEqual([{ kind: "removed", text: "一" }, { kind: "removed", text: "二" }]);
+    expect(diffBlocks(["一", "二"], [])).toEqual([
+      { kind: "removed", text: "一" },
+      { kind: "removed", text: "二" }
+    ]);
   });
 });
 
@@ -47,10 +50,18 @@ describe("wordChanges", () => {
 describe("markRanges", () => {
   const paragraph = (): Root => ({
     type: "root",
-    children: [{
-      type: "element", tagName: "p", properties: {},
-      children: [{ type: "text", value: "过去" }, { type: "element", tagName: "strong", properties: {}, children: [{ type: "text", value: "要找" }] }, { type: "text", value: "排期" }]
-    }]
+    children: [
+      {
+        type: "element",
+        tagName: "p",
+        properties: {},
+        children: [
+          { type: "text", value: "过去" },
+          { type: "element", tagName: "strong", properties: {}, children: [{ type: "text", value: "要找" }] },
+          { type: "text", value: "排期" }
+        ]
+      }
+    ]
   });
 
   it("wraps a range that spans several text nodes without changing the text", () => {
@@ -69,12 +80,27 @@ describe("markRanges", () => {
   it("leaves the heading's own anchor out of the count", () => {
     const tree: Root = {
       type: "root",
-      children: [{
-        type: "element", tagName: "h2", properties: {},
-        children: [{ type: "text", value: "标题" }, { type: "element", tagName: "a", properties: { className: ["rp-header-anchor"] }, children: [{ type: "text", value: "#" }] }, { type: "text", value: "后" }]
-      }]
+      children: [
+        {
+          type: "element",
+          tagName: "h2",
+          properties: {},
+          children: [
+            { type: "text", value: "标题" },
+            {
+              type: "element",
+              tagName: "a",
+              properties: { className: ["rp-header-anchor"] },
+              children: [{ type: "text", value: "#" }]
+            },
+            { type: "text", value: "后" }
+          ]
+        }
+      ]
     };
     markRanges(tree, [[2, 3]], "pd-mark");
-    expect(JSON.stringify(tree)).toContain('"tagName":"mark","properties":{"className":["pd-mark"]},"children":[{"type":"text","value":"后"}]');
+    expect(JSON.stringify(tree)).toContain(
+      '"tagName":"mark","properties":{"className":["pd-mark"]},"children":[{"type":"text","value":"后"}]'
+    );
   });
 });

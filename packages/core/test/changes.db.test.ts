@@ -9,7 +9,12 @@ import { usePostgresFixture } from "./postgres.js";
 import { createHarness, resetPandocs, USERS } from "./support.js";
 
 const fixture = usePostgresFixture();
-const PNG = new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"));
+const PNG = new Uint8Array(
+  Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64"
+  )
+);
 const PNG2 = new Uint8Array([...PNG, 0]);
 
 describe("the change feed and spaces as files", () => {
@@ -19,9 +24,13 @@ describe("the change feed and spaces as files", () => {
   beforeAll(async () => {
     await resetPandocs(fixture.getConnectionString());
     h = createHarness(fixture.getConnectionString());
-    spaceId = (await h.call(USERS.admin, "POST", "spaces", { slug: "books", name: "书", defaultRole: "viewer" })).data.id;
+    spaceId = (await h.call(USERS.admin, "POST", "spaces", { slug: "books", name: "书", defaultRole: "viewer" })).data
+      .id;
     await h.call(USERS.admin, "PUT", "spaces/books/members", { subject: `user:${USERS.editor.id}`, role: "editor" });
-    await h.call(USERS.admin, "PUT", "spaces/books/members", { subject: `user:${USERS.commenter.id}`, role: "commenter" });
+    await h.call(USERS.admin, "PUT", "spaces/books/members", {
+      subject: `user:${USERS.commenter.id}`,
+      role: "commenter"
+    });
     await h.call(USERS.admin, "POST", "spaces", { slug: "closed", name: "内部", defaultRole: "none" });
   });
   afterAll(async () => {
@@ -30,14 +39,21 @@ describe("the change feed and spaces as files", () => {
   });
 
   const create = async (slug: string, markdown = "正文\n", extra: object = {}) => {
-    const result = await h.call(USERS.editor, "POST", "spaces/books/documents", { title: slug, slug, markdown, ...extra });
+    const result = await h.call(USERS.editor, "POST", "spaces/books/documents", {
+      title: slug,
+      slug,
+      markdown,
+      ...extra
+    });
     expect(result.status).toBe(201);
     return result.data.document as { id: string; path: string };
   };
-  const feed = async (principal: Principal = USERS.reader, since = "0") => (await h.call(principal, "GET", `changes?since=${since}`)).data as { changes: any[]; next: string; reset: boolean };
+  const feed = async (principal: Principal = USERS.reader, since = "0") =>
+    (await h.call(principal, "GET", `changes?since=${since}`)).data as { changes: any[]; next: string; reset: boolean };
   const end = async () => (await feed(USERS.admin)).next;
   /** The feed from here on, by asking until there is nothing new. */
-  const after = async (position: string, principal: Principal = USERS.admin) => (await feed(principal, position)).changes;
+  const after = async (position: string, principal: Principal = USERS.admin) =>
+    (await feed(principal, position)).changes;
 
   describe("what it records", () => {
     it("says when a page is created, changed, moved and deleted, and only then", async () => {
@@ -64,7 +80,12 @@ describe("the change feed and spaces as files", () => {
     it("says when people talk on a page, but not when a new revision just moves their anchors along", async () => {
       const page = await create("讨论", "第一段。\n\n第二段。\n");
       const start = await end();
-      const thread = (await h.call(USERS.commenter, "POST", `documents/${page.id}/threads`, { anchor: { kind: "block", ref: "b1" }, body: "这里要确认" })).data;
+      const thread = (
+        await h.call(USERS.commenter, "POST", `documents/${page.id}/threads`, {
+          anchor: { kind: "block", ref: "b1" },
+          body: "这里要确认"
+        })
+      ).data;
       expect(thread.id).toBeTruthy();
       const started = await after(start);
       expect(started.length).toBeGreaterThan(0);
@@ -75,7 +96,10 @@ describe("the change feed and spaces as files", () => {
       expect((await after(commented)).map(row => row.kind)).toEqual(["discussion"]);
 
       const saved = await end();
-      await h.write(USERS.editor, "PUT", `documents/${page.id}/content`, { markdown: "第一段。\n\n第二段。\n\n第三段。\n", expectedRevision: 1 });
+      await h.write(USERS.editor, "PUT", `documents/${page.id}/content`, {
+        markdown: "第一段。\n\n第二段。\n\n第三段。\n",
+        expectedRevision: 1
+      });
       expect((await after(saved)).map(row => row.kind)).toEqual(["document"]);
 
       const resolved = await end();
@@ -83,7 +107,10 @@ describe("the change feed and spaces as files", () => {
       expect((await after(resolved)).map(row => row.kind)).toEqual(["discussion"]);
 
       const proposed = await end();
-      await h.write(USERS.commenter, "POST", `documents/${page.id}/proposals`, { baseRevision: 2, markdown: "第一段。\n\n改过。\n\n第三段。\n" });
+      await h.write(USERS.commenter, "POST", `documents/${page.id}/proposals`, {
+        baseRevision: 2,
+        markdown: "第一段。\n\n改过。\n\n第三段。\n"
+      });
       expect((await after(proposed)).map(row => row.kind)).toEqual(["discussion"]);
     });
   });
@@ -95,7 +122,11 @@ describe("the change feed and spaces as files", () => {
       await client.connect();
       return client;
     };
-    const logRow = (client: pg.Client, path: string) => client.query(`INSERT INTO pandocs.change_log (space_id, kind, path) VALUES ($1, 'document', $2)`, [spaceId, path]);
+    const logRow = (client: pg.Client, path: string) =>
+      client.query(`INSERT INTO pandocs.change_log (space_id, kind, path) VALUES ($1, 'document', $2)`, [
+        spaceId,
+        path
+      ]);
 
     it("does not skip a row that took a lower number and committed later", async () => {
       const early = await connect();
@@ -144,7 +175,12 @@ describe("the change feed and spaces as files", () => {
   });
 
   it("knows the order of transaction numbers when they get longer", async () => {
-    const { rows: [low] } = await h.pool.query(`INSERT INTO pandocs.change_log (xid, space_id, kind, path) VALUES ('9'::xid8, $1, 'document', 'short-number') RETURNING seq::text`, [spaceId]);
+    const {
+      rows: [low]
+    } = await h.pool.query(
+      `INSERT INTO pandocs.change_log (xid, space_id, kind, path) VALUES ('9'::xid8, $1, 'document', 'short-number') RETURNING seq::text`,
+      [spaceId]
+    );
     const page = await create("长编号之后");
     const latest = await end();
     expect(await h.services.changes.watermark()).toBe(latest);
@@ -158,8 +194,18 @@ describe("the change feed and spaces as files", () => {
     it("leaves out spaces and restricted pages a person cannot read", async () => {
       const start = await end();
       const open = await create("公开");
-      const locked = (await h.call(USERS.admin, "POST", "spaces/books/documents", { title: "受限", slug: "受限", markdown: "秘密\n", restricted: true })).data.document;
-      await h.call(USERS.admin, "PUT", `documents/${locked.id}/members`, { subject: `user:${USERS.commenter.id}`, role: "viewer" });
+      const locked = (
+        await h.call(USERS.admin, "POST", "spaces/books/documents", {
+          title: "受限",
+          slug: "受限",
+          markdown: "秘密\n",
+          restricted: true
+        })
+      ).data.document;
+      await h.call(USERS.admin, "PUT", `documents/${locked.id}/members`, {
+        subject: `user:${USERS.commenter.id}`,
+        role: "viewer"
+      });
       await h.call(USERS.admin, "POST", "spaces/closed/documents", { title: "内部", slug: "内部", markdown: "内部\n" });
 
       const seenBy = async (principal: Principal) => (await feed(principal, start)).changes.map(row => row.path);
@@ -169,7 +215,12 @@ describe("the change feed and spaces as files", () => {
       expect((await feed(USERS.stranger, start)).changes.map(row => row.path)).toEqual([open.path]);
       // Rows hidden from you still move you along, or you would ask about them forever.
       const hidden = await end();
-      await h.call(USERS.admin, "POST", "spaces/books/documents", { title: "也受限", slug: "也受限", markdown: "秘密\n", restricted: true });
+      await h.call(USERS.admin, "POST", "spaces/books/documents", {
+        title: "也受限",
+        slug: "也受限",
+        markdown: "秘密\n",
+        restricted: true
+      });
       const page = await feed(USERS.reader, hidden);
       expect(page.changes).toEqual([]);
       expect(page.next).not.toBe(hidden);
@@ -182,17 +233,29 @@ describe("the change feed and spaces as files", () => {
       const start = await end();
       expect((await feed(USERS.reader)).changes.some(row => row.path === page.path)).toBe(true);
       await h.call(USERS.admin, "PATCH", `documents/${page.id}`, { restricted: true });
-      expect((await feed(USERS.reader, start)).changes).toEqual([expect.objectContaining({ documentId: page.id, deleted: true, path: null })]);
-      expect((await feed(USERS.reader)).changes.some(row => row.documentId === page.id && row.path !== null)).toBe(false);
+      expect((await feed(USERS.reader, start)).changes).toEqual([
+        expect.objectContaining({ documentId: page.id, deleted: true, path: null })
+      ]);
+      expect((await feed(USERS.reader)).changes.some(row => row.documentId === page.id && row.path !== null)).toBe(
+        false
+      );
       // Whoever can still read it hears that it changed, and last that it is there.
-      expect((await after(start)).filter(row => row.documentId === page.id).at(-1)).toMatchObject({ deleted: false, path: page.path });
+      expect((await after(start)).filter(row => row.documentId === page.id).at(-1)).toMatchObject({
+        deleted: false,
+        path: page.path
+      });
       await h.call(USERS.admin, "PATCH", `documents/${page.id}`, { restricted: false });
-      expect((await feed(USERS.reader)).changes.filter(row => row.documentId === page.id).at(-1)).toMatchObject({ deleted: false, path: page.path });
+      expect((await feed(USERS.reader)).changes.filter(row => row.documentId === page.id).at(-1)).toMatchObject({
+        deleted: false,
+        path: page.path
+      });
     });
 
     it("refuses a position it could not have given out", async () => {
       for (const bad of ["abc", "1", "1.2.3", "1;drop", "99999999999999999999.1"]) {
-        expect((await h.call(USERS.reader, "GET", `changes?since=${encodeURIComponent(bad)}`)).error.code).toBe("PARAM_INVALID");
+        expect((await h.call(USERS.reader, "GET", `changes?since=${encodeURIComponent(bad)}`)).error.code).toBe(
+          "PARAM_INVALID"
+        );
       }
     });
   });
@@ -214,37 +277,100 @@ describe("the change feed and spaces as files", () => {
 
   describe("page paths", () => {
     it("refuses names that cannot be files on every platform", async () => {
-      for (const slug of ["..", ".hidden", "a/b", "a\\b", "a b", "a:b", "a?b", "a*b", "a|b", "a<b", "a\"b", "结尾.", "x.md", "X.MD", "con", "NUL", "com1", "lpt9.txt", "\u0001x", "长".repeat(81)]) {
-        const result = await h.call(USERS.editor, "POST", "spaces/books/documents", { title: "坏名字", slug, markdown: "正文\n" });
+      for (const slug of [
+        "..",
+        ".hidden",
+        "a/b",
+        "a\\b",
+        "a b",
+        "a:b",
+        "a?b",
+        "a*b",
+        "a|b",
+        "a<b",
+        'a"b',
+        "结尾.",
+        "x.md",
+        "X.MD",
+        "con",
+        "NUL",
+        "com1",
+        "lpt9.txt",
+        "\u0001x",
+        "长".repeat(81)
+      ]) {
+        const result = await h.call(USERS.editor, "POST", "spaces/books/documents", {
+          title: "坏名字",
+          slug,
+          markdown: "正文\n"
+        });
         expect(result.error?.code, slug).toBe("SLUG_INVALID");
       }
       const page = await create("可以改名");
-      expect((await h.call(USERS.editor, "POST", `documents/${page.id}/move`, { slug: "../逃出去" })).error.code).toBe("SLUG_INVALID");
+      expect((await h.call(USERS.editor, "POST", `documents/${page.id}/move`, { slug: "../逃出去" })).error.code).toBe(
+        "SLUG_INVALID"
+      );
       expect((await h.call(USERS.editor, "POST", `documents/${page.id}/move`, { slug: "console" })).status).toBe(200);
     });
 
     it("refuses addresses the site could not open, or would open as another page", async () => {
       const parent = await create("上级");
-      for (const [slug, parentPath] of [["discount-50%", undefined], ["a#b", undefined], ["guide.html", undefined], ["GUIDE.HTML", undefined], ["Index", undefined], ["index", parent.path], ["INDEX", parent.path]] as const) {
-        const result = await h.call(USERS.editor, "POST", "spaces/books/documents", { title: "坏地址", slug, markdown: "正文\n", ...(parentPath ? { parentPath } : {}) });
+      for (const [slug, parentPath] of [
+        ["discount-50%", undefined],
+        ["a#b", undefined],
+        ["guide.html", undefined],
+        ["GUIDE.HTML", undefined],
+        ["Index", undefined],
+        ["index", parent.path],
+        ["INDEX", parent.path]
+      ] as const) {
+        const result = await h.call(USERS.editor, "POST", "spaces/books/documents", {
+          title: "坏地址",
+          slug,
+          markdown: "正文\n",
+          ...(parentPath ? { parentPath } : {})
+        });
         expect(result.error?.code, `${parentPath ?? ""}/${slug}`).toBe("SLUG_INVALID");
       }
-      expect((await h.call(USERS.editor, "POST", `documents/${parent.id}/move`, { slug: "50%" })).error?.code).toBe("SLUG_INVALID");
+      expect((await h.call(USERS.editor, "POST", `documents/${parent.id}/move`, { slug: "50%" })).error?.code).toBe(
+        "SLUG_INVALID"
+      );
       // The front page of a space is the one page called index.
-      expect((await h.call(USERS.editor, "POST", "spaces/books/documents", { title: "首页", slug: "index", markdown: "正文\n" })).status).toBe(201);
+      expect(
+        (
+          await h.call(USERS.editor, "POST", "spaces/books/documents", {
+            title: "首页",
+            slug: "index",
+            markdown: "正文\n"
+          })
+        ).status
+      ).toBe(201);
     });
 
     it("cuts a long title down to a name that fits", async () => {
-      const result = await h.call(USERS.editor, "POST", "spaces/books/documents", { title: "很长的标题".repeat(30), markdown: "正文\n" });
+      const result = await h.call(USERS.editor, "POST", "spaces/books/documents", {
+        title: "很长的标题".repeat(30),
+        markdown: "正文\n"
+      });
       expect(result.status).toBe(201);
       expect(Buffer.byteLength(result.data.document.path)).toBeLessThanOrEqual(240);
     });
 
     it("does not let two pages differ only by case, as some file systems could not hold both", async () => {
       const page = await create("Guide");
-      expect((await h.call(USERS.editor, "POST", "spaces/books/documents", { title: "guide", slug: "guide", markdown: "x\n" })).error.code).toBe("DOCUMENT_PATH_TAKEN");
+      expect(
+        (
+          await h.call(USERS.editor, "POST", "spaces/books/documents", {
+            title: "guide",
+            slug: "guide",
+            markdown: "x\n"
+          })
+        ).error.code
+      ).toBe("DOCUMENT_PATH_TAKEN");
       const other = await create("Other");
-      expect((await h.call(USERS.editor, "POST", `documents/${other.id}/move`, { slug: "GUIDE" })).error.code).toBe("DOCUMENT_PATH_TAKEN");
+      expect((await h.call(USERS.editor, "POST", `documents/${other.id}/move`, { slug: "GUIDE" })).error.code).toBe(
+        "DOCUMENT_PATH_TAKEN"
+      );
       // Changing only the case of its own name is not a clash with anything.
       expect((await h.call(USERS.editor, "POST", `documents/${page.id}/move`, { slug: "guide" })).status).toBe(200);
       await h.call(USERS.editor, "DELETE", `documents/${page.id}`);
@@ -265,21 +391,47 @@ describe("the change feed and spaces as files", () => {
 
     beforeAll(async () => {
       await h.call(USERS.admin, "POST", "spaces", { slug: SPACE, name: "文件", defaultRole: "viewer" });
-      const upload = async (bytes: Uint8Array, filename: string) => (await h.call(USERS.admin, "POST", `spaces/${SPACE}/assets?filename=${filename}`, bytes)).data.path as string;
+      const upload = async (bytes: Uint8Array, filename: string) =>
+        (await h.call(USERS.admin, "POST", `spaces/${SPACE}/assets?filename=${filename}`, bytes)).data.path as string;
       usedByOpen = await upload(PNG, "a.png");
       usedByLocked = await upload(PNG2, "b.png");
       unused = await upload(new Uint8Array([...PNG, 1]), "c.png");
-      open = (await h.call(USERS.admin, "POST", `spaces/${SPACE}/documents`, { title: "公开", slug: "公开", markdown: `![图](${usedByOpen})\n` })).data.document;
-      await h.call(USERS.admin, "POST", `spaces/${SPACE}/documents`, { title: "子页", slug: "子页", parentPath: "公开", markdown: "子页\n" });
-      locked = (await h.call(USERS.admin, "POST", `spaces/${SPACE}/documents`, { title: "受限", slug: "受限", markdown: `秘密 ![图](${usedByLocked})\n`, restricted: true })).data.document;
+      open = (
+        await h.call(USERS.admin, "POST", `spaces/${SPACE}/documents`, {
+          title: "公开",
+          slug: "公开",
+          markdown: `![图](${usedByOpen})\n`
+        })
+      ).data.document;
+      await h.call(USERS.admin, "POST", `spaces/${SPACE}/documents`, {
+        title: "子页",
+        slug: "子页",
+        parentPath: "公开",
+        markdown: "子页\n"
+      });
+      locked = (
+        await h.call(USERS.admin, "POST", `spaces/${SPACE}/documents`, {
+          title: "受限",
+          slug: "受限",
+          markdown: `秘密 ![图](${usedByLocked})\n`,
+          restricted: true
+        })
+      ).data.document;
     });
 
-    const paths = (manifest: { readonly files: readonly { readonly path: string }[] }) => manifest.files.map(file => file.path);
+    const paths = (manifest: { readonly files: readonly { readonly path: string }[] }) =>
+      manifest.files.map(file => file.path);
 
     it("lists what this person can read, with the uploads those pages use", async () => {
       const forReader = (await h.call(USERS.reader, "GET", `spaces/${SPACE}/manifest`)).data;
       expect(paths(forReader)).toEqual(["公开.md", "公开/子页.md", usedByOpen]);
-      expect(forReader.files[0]).toMatchObject({ kind: "document", documentId: open.id, revision: 1, title: "公开", sha256: expect.stringMatching(/^[a-f0-9]{64}$/u) });
+      expect(forReader.files[0]).toMatchObject({
+        kind: "document",
+        documentId: open.id,
+        revision: 1,
+        title: "公开",
+        sha256: expect.stringMatching(/^[a-f0-9]{64}$/u)
+      });
       expect(forReader.files[2]).toMatchObject({ kind: "asset", size: PNG.length });
 
       const forAdmin = (await h.call(USERS.admin, "GET", `spaces/${SPACE}/manifest`)).data;
@@ -295,9 +447,15 @@ describe("the change feed and spaces as files", () => {
     });
 
     it("gives an image to the public copy once a public page uses it, and takes it back when that stops", async () => {
-      await h.write(USERS.admin, "PUT", `documents/${open.id}/content`, { markdown: `![图](${usedByOpen}) ![也用](${usedByLocked})\n`, expectedRevision: 1 });
+      await h.write(USERS.admin, "PUT", `documents/${open.id}/content`, {
+        markdown: `![图](${usedByOpen}) ![也用](${usedByLocked})\n`,
+        expectedRevision: 1
+      });
       expect(paths((await h.services.changes.publishedManifest(SPACE))!)).toContain(usedByLocked);
-      await h.write(USERS.admin, "PUT", `documents/${open.id}/content`, { markdown: `![图](${usedByOpen})\n`, expectedRevision: 2 });
+      await h.write(USERS.admin, "PUT", `documents/${open.id}/content`, {
+        markdown: `![图](${usedByOpen})\n`,
+        expectedRevision: 2
+      });
       expect(paths((await h.services.changes.publishedManifest(SPACE))!)).not.toContain(usedByLocked);
     });
 
@@ -305,7 +463,12 @@ describe("the change feed and spaces as files", () => {
       const dir = mkdtempSync(join(tmpdir(), "pandocs-snapshot-"));
       try {
         const longName = "很长的路径名".repeat(10);
-        await h.call(USERS.admin, "POST", `spaces/${SPACE}/documents`, { title: "长名字", slug: longName, parentPath: "公开", markdown: "长名字的内容\n" });
+        await h.call(USERS.admin, "POST", `spaces/${SPACE}/documents`, {
+          title: "长名字",
+          slug: longName,
+          parentPath: "公开",
+          markdown: "长名字的内容\n"
+        });
         const { response } = await h.call(USERS.reader, "GET", `spaces/${SPACE}/snapshot`);
         expect(response.status).toBe(200);
         expect(response.headers.get("content-type")).toBe("application/gzip");
@@ -333,23 +496,35 @@ describe("the change feed and spaces as files", () => {
 
     it("works out what changed by block, so the reviewer can take it piece by piece", async () => {
       const edited = "# 标题\n\n第一段，改过。\n\n第二段。\n\n新的一段。\n";
-      const proposal = await h.write(USERS.agent, "POST", `documents/${page.id}/proposals`, { baseRevision: 1, markdown: edited });
+      const proposal = await h.write(USERS.agent, "POST", `documents/${page.id}/proposals`, {
+        baseRevision: 1,
+        markdown: edited
+      });
       expect(proposal.status).toBe(201);
       expect(proposal.data.ops.length).toBe(2);
-      const accepted = await h.write(USERS.editor, "POST", `proposals/${proposal.data.id}/decide`, { decision: "accept" });
+      const accepted = await h.write(USERS.editor, "POST", `proposals/${proposal.data.id}/decide`, {
+        decision: "accept"
+      });
       expect(accepted.status).toBe(200);
       expect((await h.call(USERS.reader, "GET", `documents/${page.id}`)).data.markdown).toBe(edited);
     });
 
     it("refuses a proposal that changes nothing, or says nothing", async () => {
-      const same = await h.write(USERS.agent, "POST", `documents/${page.id}/proposals`, { baseRevision: 1, markdown: "# 标题\n\n第一段。\n\n第二段。\n" });
+      const same = await h.write(USERS.agent, "POST", `documents/${page.id}/proposals`, {
+        baseRevision: 1,
+        markdown: "# 标题\n\n第一段。\n\n第二段。\n"
+      });
       expect(same.error.code).toBe("PROPOSAL_EMPTY");
       const empty = await h.write(USERS.agent, "POST", `documents/${page.id}/proposals`, { baseRevision: 1 });
       expect(empty.error.code).toBe("PROPOSAL_EMPTY");
     });
 
     it("offers the same through the tools", async () => {
-      const tool = await h.call(USERS.agent, "POST", "tools/proposal_create", { doc: page.id, baseRevision: 1, markdown: "# 标题\n\n第一段，改过。\n\n第二段。\n" });
+      const tool = await h.call(USERS.agent, "POST", "tools/proposal_create", {
+        doc: page.id,
+        baseRevision: 1,
+        markdown: "# 标题\n\n第一段，改过。\n\n第二段。\n"
+      });
       expect(tool.status).toBe(200);
       expect(tool.data.ops.length).toBe(1);
     });

@@ -13,16 +13,50 @@ import { CompareView, HotspotsView } from "./media-views";
 import { useCaretInside } from "./use-caret-inside";
 import { t } from "../i18n";
 
-const FIELD_LABELS: Readonly<Record<string, string>> = { label: t("Title"), title: t("Title"), emoji: t("Icon"), tone: t("Type"), width: t("Width (0 to 1)"), src: t("Address"), poster: t("Cover"), group: t("Group (tabs with the same name switch together)"), href: t("Link (such as ./page.md)"), before: t("Before image"), after: t("After image"), beforeLabel: t("Before label"), afterLabel: t("After label") };
+const FIELD_LABELS: Readonly<Record<string, string>> = {
+  label: t("Title"),
+  title: t("Title"),
+  emoji: t("Icon"),
+  tone: t("Type"),
+  width: t("Width (0 to 1)"),
+  src: t("Address"),
+  poster: t("Cover"),
+  group: t("Group (tabs with the same name switch together)"),
+  href: t("Link (such as ./page.md)"),
+  before: t("Before image"),
+  after: t("After image"),
+  beforeLabel: t("Before label"),
+  afterLabel: t("After label")
+};
 
-function BlockSettings({ definition, node, updateAttributes, withoutLabel }: { definition: BlockDefinition; withoutLabel?: boolean } & Pick<NodeViewProps, "node" | "updateAttributes">) {
-  const keys = [...new Set([...(withoutLabel ? [] : ["label"]), ...Object.keys(definition.attrs.shape)])].filter(key => !(key === "title" && definition.kind === "container"));
+function BlockSettings({
+  definition,
+  node,
+  updateAttributes,
+  withoutLabel
+}: { definition: BlockDefinition; withoutLabel?: boolean } & Pick<NodeViewProps, "node" | "updateAttributes">) {
+  const keys = [...new Set([...(withoutLabel ? [] : ["label"]), ...Object.keys(definition.attrs.shape)])].filter(
+    key => !(key === "title" && definition.kind === "container")
+  );
   return (
     <Popover.Root>
-      <Tip label={t("Settings")}><Popover.Trigger className="pd-icon-button pd-icon-button--small" contentEditable={false} aria-label={t("Settings: {0}", t(definition.summary))}><Settings2 size={14} aria-hidden="true" /></Popover.Trigger></Tip>
+      <Tip label={t("Settings")}>
+        <Popover.Trigger
+          className="pd-icon-button pd-icon-button--small"
+          contentEditable={false}
+          aria-label={t("Settings: {0}", t(definition.summary))}
+        >
+          <Settings2 size={14} aria-hidden="true" />
+        </Popover.Trigger>
+      </Tip>
       <Popover.Content className="pd-popover" align="end" sideOffset={6}>
         {keys.map(key => (
-          <TextField key={key} label={FIELD_LABELS[key] ?? key} value={String(node.attrs[key] ?? "")} onChange={event => updateAttributes({ [key]: event.target.value || null })} />
+          <TextField
+            key={key}
+            label={FIELD_LABELS[key] ?? key}
+            value={String(node.attrs[key] ?? "")}
+            onChange={event => updateAttributes({ [key]: event.target.value || null })}
+          />
         ))}
       </Popover.Content>
     </Popover.Root>
@@ -32,7 +66,9 @@ function BlockSettings({ definition, node, updateAttributes, withoutLabel }: { d
 /** Blocks look the way they read: a callout being edited is the theme's callout, with a settings button in its title. */
 function CalloutView(props: NodeViewProps & { definition: BlockDefinition }) {
   const { definition, node } = props;
-  const attrs = Object.fromEntries(Object.entries(node.attrs).filter(([, value]) => typeof value === "string")) as Record<string, string>;
+  const attrs = Object.fromEntries(
+    Object.entries(node.attrs).filter(([, value]) => typeof value === "string")
+  ) as Record<string, string>;
   const type = calloutType(definition.name, attrs);
   return (
     <NodeViewWrapper data-pandocs-block={definition.name} className={`rp-callout rp-callout--${type}`}>
@@ -53,17 +89,46 @@ function MathView({ node, updateAttributes }: NodeViewProps) {
   React.useEffect(() => {
     let current = true;
     void import("katex").then(({ default: katex }) => {
-      if (current) setHtml(katex.renderToString(latex || t("\\text{Click to enter a formula}"), { displayMode: block, throwOnError: false, strict: false }));
+      if (current)
+        setHtml(
+          katex.renderToString(latex || t("\\text{Click to enter a formula}"), {
+            displayMode: block,
+            throwOnError: false,
+            strict: false
+          })
+        );
     });
-    return () => { current = false; };
+    return () => {
+      current = false;
+    };
   }, [block, latex]);
   return (
-    <NodeViewWrapper as={block ? "div" : "span"} className={block ? "pd-math pd-math--block" : "pd-math"} contentEditable={false}>
+    <NodeViewWrapper
+      as={block ? "div" : "span"}
+      className={block ? "pd-math pd-math--block" : "pd-math"}
+      contentEditable={false}
+    >
       <Popover.Root>
         {/* KaTeX's own output, from its default safe mode: no links, no raw HTML. */}
-        <Popover.Trigger nativeButton={false} render={<span role="button" tabIndex={0} aria-label={t("Edit formula")} dangerouslySetInnerHTML={{ __html: html }} />} />
+        <Popover.Trigger
+          nativeButton={false}
+          render={
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label={t("Edit formula")}
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          }
+        />
         <Popover.Content className="pd-popover" align="start" sideOffset={6}>
-          <TextareaField label={t("Formula (LaTeX)")} mono rows={3} value={latex} onChange={event => updateAttributes({ latex: event.target.value })} />
+          <TextareaField
+            label={t("Formula (LaTeX)")}
+            mono
+            rows={3}
+            value={latex}
+            onChange={event => updateAttributes({ latex: event.target.value })}
+          />
         </Popover.Content>
       </Popover.Root>
     </NodeViewWrapper>
@@ -90,7 +155,11 @@ function PreviewedCodeView({ editor, getPos, node }: NodeViewProps) {
   const openSource = (event: React.MouseEvent) => {
     event.preventDefault();
     const position = getPos();
-    if (typeof position === "number") editor.chain().focus(position + 1).run();
+    if (typeof position === "number")
+      editor
+        .chain()
+        .focus(position + 1)
+        .run();
   };
   return (
     <NodeViewWrapper className="pd-code-view" data-code-language={name || undefined}>
@@ -100,7 +169,11 @@ function PreviewedCodeView({ editor, getPos, node }: NodeViewProps) {
           <FencePreview name={name} info={info.slice(name.length).trim()} source={shown} />
         </div>
       ) : null}
-      <pre className={previewed && !inside ? "pd-code-view__source pd-code-view__source--closed" : "pd-code-view__source"}><NodeViewContent<"code"> as="code" /></pre>
+      <pre
+        className={previewed && !inside ? "pd-code-view__source pd-code-view__source--closed" : "pd-code-view__source"}
+      >
+        <NodeViewContent<"code"> as="code" />
+      </pre>
     </NodeViewWrapper>
   );
 }
@@ -111,20 +184,32 @@ function CodeBlockView(props: NodeViewProps) {
 }
 
 function ColumnsView({ definition }: NodeViewProps & { definition: BlockDefinition }) {
-  return <NodeViewWrapper data-pandocs-block={definition.name} className="pd-columns pd-columns--editing"><NodeViewContent /></NodeViewWrapper>;
+  return (
+    <NodeViewWrapper data-pandocs-block={definition.name} className="pd-columns pd-columns--editing">
+      <NodeViewContent />
+    </NodeViewWrapper>
+  );
 }
 
 function ColumnView(props: NodeViewProps & { definition: BlockDefinition }) {
   const width = Number(props.node.attrs.width);
   return (
-    <NodeViewWrapper data-pandocs-block={props.definition.name} className="pd-column pd-column--editing" style={width > 0 ? { flexGrow: width } : undefined}>
+    <NodeViewWrapper
+      data-pandocs-block={props.definition.name}
+      className="pd-column pd-column--editing"
+      style={width > 0 ? { flexGrow: width } : undefined}
+    >
       <NodeViewContent />
     </NodeViewWrapper>
   );
 }
 
 function StepsView({ definition }: NodeViewProps & { definition: BlockDefinition }) {
-  return <NodeViewWrapper data-pandocs-block={definition.name} className="pd-steps-edit"><NodeViewContent /></NodeViewWrapper>;
+  return (
+    <NodeViewWrapper data-pandocs-block={definition.name} className="pd-steps-edit">
+      <NodeViewContent />
+    </NodeViewWrapper>
+  );
 }
 
 /**
@@ -136,14 +221,25 @@ function GroupView(props: NodeViewProps & { definition: BlockDefinition; item: "
   const add = () => {
     const position = getPos();
     if (typeof position !== "number") return;
-    editor.chain().focus().insertContentAt(position + node.nodeSize - 1, { type: item, attrs: { label: item === "tab" ? t("New tab") : t("New card") }, content: [{ type: "paragraph" }] }).run();
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(position + node.nodeSize - 1, {
+        type: item,
+        attrs: { label: item === "tab" ? t("New tab") : t("New card") },
+        content: [{ type: "paragraph" }]
+      })
+      .run();
   };
   const hasSettings = Object.keys(definition.attrs.shape).length > 0;
   return (
     <NodeViewWrapper data-pandocs-block={definition.name} className={`pd-group-edit pd-group-edit--${definition.name}`}>
       <NodeViewContent />
       <div className="pd-group-edit__bar" contentEditable={false}>
-        <Button variant="outline" onClick={add}><Plus size={14} aria-hidden="true" />{addLabel}</Button>
+        <Button variant="outline" onClick={add}>
+          <Plus size={14} aria-hidden="true" />
+          {addLabel}
+        </Button>
         {hasSettings ? <BlockSettings {...props} withoutLabel /> : null}
       </div>
     </NodeViewWrapper>
@@ -154,11 +250,29 @@ function PaneView(props: NodeViewProps & { definition: BlockDefinition }) {
   const { definition, deleteNode, node, updateAttributes } = props;
   const isCard = definition.name === "card";
   return (
-    <NodeViewWrapper data-pandocs-block={definition.name} className={isCard ? "pd-doc-card pd-pane-edit" : "pd-pane-edit pd-pane-edit--tab"}>
+    <NodeViewWrapper
+      data-pandocs-block={definition.name}
+      className={isCard ? "pd-doc-card pd-pane-edit" : "pd-pane-edit pd-pane-edit--tab"}
+    >
       <div className="pd-pane-edit__head" contentEditable={false}>
-        <input className="pd-pane-edit__label" aria-label={isCard ? t("Card title") : t("Tab name")} placeholder={isCard ? t("Card title") : t("Tab name")} value={String(node.attrs.label ?? "")} onChange={event => updateAttributes({ label: event.target.value || null })} />
+        <input
+          className="pd-pane-edit__label"
+          aria-label={isCard ? t("Card title") : t("Tab name")}
+          placeholder={isCard ? t("Card title") : t("Tab name")}
+          value={String(node.attrs.label ?? "")}
+          onChange={event => updateAttributes({ label: event.target.value || null })}
+        />
         {isCard ? <BlockSettings {...props} withoutLabel /> : null}
-        <Tip label={t("Delete")}><button type="button" className="pd-icon-button pd-icon-button--small" aria-label={isCard ? t("Delete this card") : t("Delete this tab")} onClick={() => deleteNode()}><Trash2 size={14} aria-hidden="true" /></button></Tip>
+        <Tip label={t("Delete")}>
+          <button
+            type="button"
+            className="pd-icon-button pd-icon-button--small"
+            aria-label={isCard ? t("Delete this card") : t("Delete this tab")}
+            onClick={() => deleteNode()}
+          >
+            <Trash2 size={14} aria-hidden="true" />
+          </button>
+        </Tip>
       </div>
       <NodeViewContent />
     </NodeViewWrapper>
@@ -179,17 +293,28 @@ function ContainerView(props: NodeViewProps & { definition: BlockDefinition }) {
 function LeafView(props: NodeViewProps & { definition: BlockDefinition }) {
   const { definition, node } = props;
   if (definition.name === "compare") return <CompareView {...props} settings={<BlockSettings {...props} />} />;
-  const details = Object.keys(definition.attrs.shape).map(key => node.attrs[key]).filter(Boolean).join(" · ");
+  const details = Object.keys(definition.attrs.shape)
+    .map(key => node.attrs[key])
+    .filter(Boolean)
+    .join(" · ");
   return (
     <NodeViewWrapper data-pandocs-block={definition.name} className="pd-block-card">
-      <span>{t(definition.summary)}{node.attrs.label ? t(": {0}", node.attrs.label as string) : ""}{details ? ` · ${details}` : ""}</span>
+      <span>
+        {t(definition.summary)}
+        {node.attrs.label ? t(": {0}", node.attrs.label as string) : ""}
+        {details ? ` · ${details}` : ""}
+      </span>
       <BlockSettings {...props} />
     </NodeViewWrapper>
   );
 }
 
 function InlineView({ node }: NodeViewProps) {
-  return <NodeViewWrapper as="span" className="rp-badge rp-badge--info" contentEditable={false}>{String(node.attrs.label ?? "")}</NodeViewWrapper>;
+  return (
+    <NodeViewWrapper as="span" className="rp-badge rp-badge--info" contentEditable={false}>
+      {String(node.attrs.label ?? "")}
+    </NodeViewWrapper>
+  );
 }
 
 function FootnoteView({ node, updateAttributes }: NodeViewProps) {
@@ -198,7 +323,12 @@ function FootnoteView({ node, updateAttributes }: NodeViewProps) {
   return (
     <NodeViewWrapper className="pd-footnote-edit" contentEditable={false}>
       <sup>{label}</sup>
-      <textarea aria-label={t("Footnote {0}", label)} rows={text.split("\n").length} value={text} onChange={event => updateAttributes({ text: event.target.value })} />
+      <textarea
+        aria-label={t("Footnote {0}", label)}
+        rows={text.split("\n").length}
+        value={text}
+        onChange={event => updateAttributes({ text: event.target.value })}
+      />
     </NodeViewWrapper>
   );
 }
@@ -206,7 +336,9 @@ function FootnoteView({ node, updateAttributes }: NodeViewProps) {
 function RawView({ node }: NodeViewProps) {
   return (
     <NodeViewWrapper className="pd-block-card pd-block-card--raw" contentEditable={false}>
-      <strong>{t("This block cannot be edited here: {0}. Saving leaves it unchanged.", String(node.attrs.directive ?? ""))}</strong>
+      <strong>
+        {t("This block cannot be edited here: {0}. Saving leaves it unchanged.", String(node.attrs.directive ?? ""))}
+      </strong>
       <pre>{String(node.attrs.raw ?? "")}</pre>
     </NodeViewWrapper>
   );

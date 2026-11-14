@@ -8,12 +8,14 @@ import { strToU8, unzipSync, zipSync, type Unzipped } from "fflate";
 
 const decode = (bytes: Uint8Array | undefined) => (bytes ? new TextDecoder().decode(bytes) : "");
 
-const XML_ENTITIES: Readonly<Record<string, string>> = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'" };
-export const unescapeXml = (text: string) => text.replace(/&(amp|lt|gt|quot|apos|#\d+|#x[\da-f]+);/giu, (whole, entity: string) => {
-  if (entity.startsWith("#x") || entity.startsWith("#X")) return String.fromCodePoint(Number.parseInt(entity.slice(2), 16));
-  if (entity.startsWith("#")) return String.fromCodePoint(Number(entity.slice(1)));
-  return XML_ENTITIES[entity.toLowerCase()] ?? whole;
-});
+const XML_ENTITIES: Readonly<Record<string, string>> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+export const unescapeXml = (text: string) =>
+  text.replace(/&(amp|lt|gt|quot|apos|#\d+|#x[\da-f]+);/giu, (whole, entity: string) => {
+    if (entity.startsWith("#x") || entity.startsWith("#X"))
+      return String.fromCodePoint(Number.parseInt(entity.slice(2), 16));
+    if (entity.startsWith("#")) return String.fromCodePoint(Number(entity.slice(1)));
+    return XML_ENTITIES[entity.toLowerCase()] ?? whole;
+  });
 
 const attribute = (tag: string, name: string): string | undefined => {
   const value = new RegExp(`\\s${name}="([^"]*)"`, "u").exec(tag)?.[1];
@@ -24,7 +26,9 @@ const attribute = (tag: string, name: string): string | undefined => {
 function relationships(files: Unzipped, part: string): Map<string, string> {
   const folder = part.slice(0, part.lastIndexOf("/") + 1);
   const found = new Map<string, string>();
-  for (const [tag] of decode(files[`${folder}_rels/${part.slice(folder.length)}.rels`]).matchAll(/<(?:\w+:)?Relationship\b[^>]*>/gu)) {
+  for (const [tag] of decode(files[`${folder}_rels/${part.slice(folder.length)}.rels`]).matchAll(
+    /<(?:\w+:)?Relationship\b[^>]*>/gu
+  )) {
     const id = attribute(tag, "Id");
     const target = attribute(tag, "Target");
     if (!id || !target || attribute(tag, "TargetMode") === "External") continue;
@@ -45,7 +49,8 @@ export const POWERPOINT_PARTS = /^ppt\/(?:slides\/slide\d+\.xml|presentation\.xm
  * so the file names give the order the slides were made in. A deck that lists none is read in that order instead.
  */
 export function slidesInOrder(files: Unzipped): string[] {
-  const slides = Object.keys(files).filter(name => /^ppt\/slides\/slide\d+\.xml$/u.test(name))
+  const slides = Object.keys(files)
+    .filter(name => /^ppt\/slides\/slide\d+\.xml$/u.test(name))
     .sort((a, b) => Number(/\d+/u.exec(a)![0]) - Number(/\d+/u.exec(b)![0]));
   const links = relationships(files, "ppt/presentation.xml");
   const listed = [...decode(files["ppt/presentation.xml"]).matchAll(/<p:sldId\b[^>]*>/gu)]
@@ -55,10 +60,21 @@ export function slidesInOrder(files: Unzipped): string[] {
 }
 
 /** Excel's own formats, by number, that show a time of day or a percentage. Its own date formats the sheet reader knows. */
-const BUILT_IN_FORMATS: Readonly<Record<string, string>> = { 9: "0%", 10: "0.00%", 18: "h:mm AM/PM", 19: "h:mm:ss AM/PM", 20: "h:mm", 21: "h:mm:ss", 45: "mm:ss", 46: "[h]:mm:ss", 47: "mm:ss.0" };
+const BUILT_IN_FORMATS: Readonly<Record<string, string>> = {
+  9: "0%",
+  10: "0.00%",
+  18: "h:mm AM/PM",
+  19: "h:mm:ss AM/PM",
+  20: "h:mm",
+  21: "h:mm:ss",
+  45: "mm:ss",
+  46: "[h]:mm:ss",
+  47: "mm:ss.0"
+};
 
 /** A format's section for positive numbers, without its colour, locale or condition, which show nothing. */
-const positiveSection = (format: string) => (/^(?:"[^"]*"|\\.|[^;])*/u.exec(format)?.[0] ?? "").replace(/\[(?![hms]+\])[^\]]*\]/giu, "");
+const positiveSection = (format: string) =>
+  (/^(?:"[^"]*"|\\.|[^;])*/u.exec(format)?.[0] ?? "").replace(/\[(?![hms]+\])[^\]]*\]/giu, "");
 /** The same with quoted text and escaped characters gone, to see what the format does with the number. */
 const withoutLiterals = (section: string) => section.replace(/"[^"]*"|\\.|[_*]./gu, "");
 
@@ -87,18 +103,25 @@ export function shownNumber(value: number, format: string): string | undefined {
   const twelveHour = /AM\/PM|A\/P|\u4e0a\u5348\/\u4e0b\u5348/iu.test(withoutLiterals(section));
   const hour = Math.floor(seconds / 3600) % 24;
   const pad = (number: number, token: string) => String(number).padStart(token.length, "0");
-  return section.replace(/"([^"]*)"|\\(.)|[_*].|\[(h+|m+|s+)\]|AM\/PM|A\/P|\u4e0a\u5348\/\u4e0b\u5348|h+|m+|s+|\.0+/giu, (token, quoted?: string, escaped?: string, elapsed?: string) => {
-    if (quoted !== undefined) return quoted;
-    if (escaped !== undefined) return escaped;
-    if (elapsed) return pad(Math.floor(seconds / { h: 3600, m: 60, s: 1 }[elapsed[0]!.toLowerCase() as "h" | "m" | "s"]), elapsed);
-    if (/^[_*]/u.test(token)) return "";
-    if (token === "\u4e0a\u5348/\u4e0b\u5348") return hour < 12 ? "\u4e0a\u5348" : "\u4e0b\u5348";
-    if (/^A/iu.test(token)) return (hour < 12 ? "AM" : "PM").slice(0, token.length === 3 ? 1 : 2);
-    if (/^h/iu.test(token)) return pad(twelveHour ? hour % 12 || 12 : hour, token);
-    if (/^m/iu.test(token)) return pad(Math.floor(seconds / 60) % 60, token);
-    if (/^s/iu.test(token)) return pad(seconds % 60, token);
-    return `.${String(ticks % 10 ** decimals).padStart(decimals, "0")}`;
-  });
+  return section.replace(
+    /"([^"]*)"|\\(.)|[_*].|\[(h+|m+|s+)\]|AM\/PM|A\/P|\u4e0a\u5348\/\u4e0b\u5348|h+|m+|s+|\.0+/giu,
+    (token, quoted?: string, escaped?: string, elapsed?: string) => {
+      if (quoted !== undefined) return quoted;
+      if (escaped !== undefined) return escaped;
+      if (elapsed)
+        return pad(
+          Math.floor(seconds / { h: 3600, m: 60, s: 1 }[elapsed[0]!.toLowerCase() as "h" | "m" | "s"]),
+          elapsed
+        );
+      if (/^[_*]/u.test(token)) return "";
+      if (token === "\u4e0a\u5348/\u4e0b\u5348") return hour < 12 ? "\u4e0a\u5348" : "\u4e0b\u5348";
+      if (/^A/iu.test(token)) return (hour < 12 ? "AM" : "PM").slice(0, token.length === 3 ? 1 : 2);
+      if (/^h/iu.test(token)) return pad(twelveHour ? hour % 12 || 12 : hour, token);
+      if (/^m/iu.test(token)) return pad(Math.floor(seconds / 60) % 60, token);
+      if (/^s/iu.test(token)) return pad(seconds % 60, token);
+      return `.${String(ticks % 10 ** decimals).padStart(decimals, "0")}`;
+    }
+  );
 }
 
 const SPREADSHEET_HEAD = /^xl\/(?:workbook\.xml|_rels\/workbook\.xml\.rels|styles\.xml)$/u;
@@ -109,7 +132,8 @@ export interface ShownCell {
   readonly text: string;
 }
 
-const columnNumber = (letters: string) => [...letters].reduce((total, letter) => total * 26 + letter.charCodeAt(0) - 64, 0);
+const columnNumber = (letters: string) =>
+  [...letters].reduce((total, letter) => total * 26 + letter.charCodeAt(0) - 64, 0);
 
 /**
  * By sheet name, the cells whose numbers their format shows as a time of day or a percentage, at their row and column
@@ -130,7 +154,8 @@ export function shownNumbers(bytes: Uint8Array): Map<string, ShownCell[]> {
   const styleFormats = new Map<string, string>();
   [...cellFormats.matchAll(/<(?:\w+:)?xf\b[^>]*>/gu)].forEach(([tag], index) => {
     const format = formats.get(attribute(tag, "numFmtId") ?? "");
-    if (format !== undefined && (isPercentage(positiveSection(format)) || isTimeOfDay(positiveSection(format)))) styleFormats.set(String(index), format);
+    if (format !== undefined && (isPercentage(positiveSection(format)) || isTimeOfDay(positiveSection(format))))
+      styleFormats.set(String(index), format);
   });
   if (styleFormats.size === 0) return shown;
   const links = relationships(head, "xl/workbook.xml");
@@ -142,7 +167,9 @@ export function shownNumbers(bytes: Uint8Array): Map<string, ShownCell[]> {
   const parts = unzipSync(bytes, { filter: file => sheets.some(sheet => sheet.path === file.name) });
   for (const { name, path } of sheets) {
     const cells: ShownCell[] = [];
-    for (const [, attributes = "", content = ""] of decode(parts[path]).matchAll(/<(?:\w+:)?c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?c>)/gu)) {
+    for (const [, attributes = "", content = ""] of decode(parts[path]).matchAll(
+      /<(?:\w+:)?c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?c>)/gu
+    )) {
       const format = styleFormats.get(attribute(attributes, "s") ?? "");
       const type = attribute(attributes, "t") ?? "n";
       const place = /^([A-Z]+)(\d+)$/u.exec(attribute(attributes, "r") ?? "");
@@ -172,10 +199,17 @@ interface ListLevel {
 
 function readNumbering(xml: string) {
   const definitions = new Map<string, Map<number, ListLevel>>();
-  for (const [, id = "", content = ""] of xml.matchAll(/<w:abstractNum\b[^>]*?w:abstractNumId="([^"]*)"[^>]*>([\s\S]*?)<\/w:abstractNum>/gu)) {
+  for (const [, id = "", content = ""] of xml.matchAll(
+    /<w:abstractNum\b[^>]*?w:abstractNumId="([^"]*)"[^>]*>([\s\S]*?)<\/w:abstractNum>/gu
+  )) {
     const levels = new Map<number, ListLevel>();
-    for (const [, level = "", definition = ""] of content.matchAll(/<w:lvl\b[^>]*?w:ilvl="(\d+)"[^>]*>([\s\S]*?)<\/w:lvl>/gu)) {
-      levels.set(Number(level), { start: Number(/<w:start w:val="(\d+)"/u.exec(definition)?.[1] ?? 1), bullet: /<w:numFmt w:val="bullet"/u.test(definition) });
+    for (const [, level = "", definition = ""] of content.matchAll(
+      /<w:lvl\b[^>]*?w:ilvl="(\d+)"[^>]*>([\s\S]*?)<\/w:lvl>/gu
+    )) {
+      levels.set(Number(level), {
+        start: Number(/<w:start w:val="(\d+)"/u.exec(definition)?.[1] ?? 1),
+        bullet: /<w:numFmt w:val="bullet"/u.test(definition)
+      });
     }
     definitions.set(id, levels);
   }
@@ -185,7 +219,9 @@ function readNumbering(xml: string) {
     const definition = /<w:abstractNumId w:val="([^"]*)"/u.exec(content)?.[1];
     if (definition === undefined) continue;
     const restarts = new Map<number, number>();
-    for (const [, level = "", override = ""] of content.matchAll(/<w:lvlOverride\b[^>]*?w:ilvl="(\d+)"[^>]*>([\s\S]*?)<\/w:lvlOverride>/gu)) {
+    for (const [, level = "", override = ""] of content.matchAll(
+      /<w:lvlOverride\b[^>]*?w:ilvl="(\d+)"[^>]*>([\s\S]*?)<\/w:lvlOverride>/gu
+    )) {
       const start = /<w:startOverride w:val="(\d+)"/u.exec(override)?.[1];
       if (start !== undefined) restarts.set(Number(level), Number(start));
     }
@@ -197,7 +233,9 @@ function readNumbering(xml: string) {
 /** Paragraph styles that number what has them, such as List Number. */
 function numberedStyles(xml: string): Map<string, { list: string; level: number }> {
   const found = new Map<string, { list: string; level: number }>();
-  for (const [, id = "", content = ""] of xml.matchAll(/<w:style\b[^>]*?w:styleId="([^"]*)"[^>]*>([\s\S]*?)<\/w:style>/gu)) {
+  for (const [, id = "", content = ""] of xml.matchAll(
+    /<w:style\b[^>]*?w:styleId="([^"]*)"[^>]*>([\s\S]*?)<\/w:style>/gu
+  )) {
     const list = /<w:numId w:val="(\d+)"/u.exec(content)?.[1];
     if (list !== undefined) found.set(id, { list, level: Number(/<w:ilvl w:val="(\d+)"/u.exec(content)?.[1] ?? 0) });
   }
@@ -246,11 +284,14 @@ export function markListNumbers(bytes: Uint8Array): Uint8Array {
     count[at] = (count[at] ?? level.start - 1) + 1;
     // A deeper level starts again under each item above it.
     count.length = at + 1;
-    if (!level.bullet && paragraph.textAt !== undefined) marks.push({ at: paragraph.textAt, text: listNumber(count[at]!) });
+    if (!level.bullet && paragraph.textAt !== undefined)
+      marks.push({ at: paragraph.textAt, text: listNumber(count[at]!) });
   };
   // Paragraphs only nest inside text boxes. What a tracked change replaced says nothing about the paragraph now.
   const open: Paragraph[] = [];
-  for (const match of xml.matchAll(/<w:pPrChange\b[\s\S]*?<\/w:pPrChange>|<w:p(?:\s[^>]*)?>|<\/w:p>|<w:pStyle w:val="([^"]*)"|<w:ilvl w:val="(\d+)"|<w:numId w:val="(\d+)"|<w:t(?:\s[^>]*)?>/gu)) {
+  for (const match of xml.matchAll(
+    /<w:pPrChange\b[\s\S]*?<\/w:pPrChange>|<w:p(?:\s[^>]*)?>|<\/w:p>|<w:pStyle w:val="([^"]*)"|<w:ilvl w:val="(\d+)"|<w:numId w:val="(\d+)"|<w:t(?:\s[^>]*)?>/gu
+  )) {
     const [tag, style, level, list] = match;
     const paragraph = open.at(-1);
     if (tag === "</w:p>") {

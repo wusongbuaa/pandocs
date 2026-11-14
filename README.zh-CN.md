@@ -76,7 +76,7 @@ docker compose -f compose.yaml -f deploy/scale/compose.yaml up --scale pandocs=3
 ```bash
 pnpm install
 export TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
-pnpm typecheck && pnpm lint && pnpm test
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm test
 pnpm build
 pnpm test:e2e   # 真实浏览器流程，需要 Playwright 的 Chromium
 node scripts/bench.mjs http://localhost:8080 pd_xxx 10000   # 对运行中的服务压测

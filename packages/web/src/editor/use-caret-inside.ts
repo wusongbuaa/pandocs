@@ -2,7 +2,10 @@ import * as React from "react";
 import type { NodeViewProps } from "@tiptap/react";
 
 /** The selection is inside this node's text, which the source stays open for. */
-export function useCaretInside({ editor, getPos, node }: Pick<NodeViewProps, "editor" | "getPos" | "node">, watching: boolean): boolean {
+export function useCaretInside(
+  { editor, getPos, node }: Pick<NodeViewProps, "editor" | "getPos" | "node">,
+  watching: boolean
+): boolean {
   const [inside, setInside] = React.useState(false);
   React.useEffect(() => {
     if (!watching) return undefined;

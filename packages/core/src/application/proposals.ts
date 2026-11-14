@@ -32,28 +32,59 @@ function mapProposal(row: Record<string, unknown>): ProposalRecord {
     decidedAt: row.decided_at ? new Date(row.decided_at as string) : null,
     decisionNote: row.decision_note ? String(row.decision_note) : null,
     acceptedOps: (row.accepted_ops as number[] | null) ?? null,
-    appliedRevisionNo: row.applied_revision_no === null || row.applied_revision_no === undefined ? null : Number(row.applied_revision_no),
+    appliedRevisionNo:
+      row.applied_revision_no === null || row.applied_revision_no === undefined
+        ? null
+        : Number(row.applied_revision_no),
     createdAt: new Date(row.created_at as string)
   };
 }
 
 export class ProposalService {
-  constructor(private readonly context: AppContext, private readonly documents: DocumentService) {}
+  constructor(
+    private readonly context: AppContext,
+    private readonly documents: DocumentService
+  ) {}
 
-  async create(principal: Principal, documentId: string, input: { baseRevision: number; ops?: readonly EditOp[] | undefined; markdown?: string | undefined; rationale?: string | undefined; threadIds?: readonly string[] | undefined }): Promise<ProposalView> {
+  async create(
+    principal: Principal,
+    documentId: string,
+    input: {
+      baseRevision: number;
+      ops?: readonly EditOp[] | undefined;
+      markdown?: string | undefined;
+      rationale?: string | undefined;
+      threadIds?: readonly string[] | undefined;
+    }
+  ): Promise<ProposalView> {
     const created = await this.context.db.transaction(async tx => {
       const { document } = await requireDocument(tx, principal, documentId, "commenter");
-      if (input.baseRevision > document.currentRevisionNo) throw invalid("REVISION_INVALID", t("The base version does not exist"));
+      if (input.baseRevision > document.currentRevisionNo)
+        throw invalid("REVISION_INVALID", t("The base version does not exist"));
       const base = await loadRevision(tx, documentId, input.baseRevision);
       // Someone working on a file has the whole new text; the block-level script lets a reviewer accept it piece by piece.
-      const ops: readonly EditOp[] = input.ops ?? (input.markdown === undefined ? [] : opsBetweenMarkdown(base.markdown, input.markdown, this.context.registry) as EditOp[]);
+      const ops: readonly EditOp[] =
+        input.ops ??
+        (input.markdown === undefined
+          ? []
+          : (opsBetweenMarkdown(base.markdown, input.markdown, this.context.registry) as EditOp[]));
       if (ops.length === 0) throw invalid("PROPOSAL_EMPTY", t("A proposal needs at least one change"));
       applyOpsOrThrow(base.markdown, ops, this.context);
       const { rows } = await tx.query(
         `INSERT INTO pandocs.proposals (document_id, base_revision_no, ops, rationale, thread_ids, author_id, author_name, author_kind, on_behalf_of, channel)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-        [documentId, input.baseRevision, JSON.stringify(ops), input.rationale ?? "", JSON.stringify(input.threadIds ?? []),
-          principal.id, principal.displayName, principal.kind, principal.onBehalfOf?.id ?? null, principal.channel]
+        [
+          documentId,
+          input.baseRevision,
+          JSON.stringify(ops),
+          input.rationale ?? "",
+          JSON.stringify(input.threadIds ?? []),
+          principal.id,
+          principal.displayName,
+          principal.kind,
+          principal.onBehalfOf?.id ?? null,
+          principal.channel
+        ]
       );
       const proposal = mapProposal(rows[0]!);
       await audit(tx, principal, "proposal.create", "proposal", proposal.id, { documentId, ops: ops.length });
@@ -63,7 +94,10 @@ export class ProposalService {
   }
 
   private async view(db: Queryable, proposal: ProposalRecord): Promise<ProposalView> {
-    const { rows } = await db.query<{ current_revision_no: number }>(`SELECT current_revision_no FROM pandocs.documents WHERE id = $1`, [proposal.documentId]);
+    const { rows } = await db.query<{ current_revision_no: number }>(
+      `SELECT current_revision_no FROM pandocs.documents WHERE id = $1`,
+      [proposal.documentId]
+    );
     const currentRevisionNo = Number(rows[0]?.current_revision_no ?? 0);
     const base = await loadRevision(db, proposal.documentId, proposal.baseRevisionNo);
     return {
@@ -75,7 +109,11 @@ export class ProposalService {
     };
   }
 
-  async list(principal: Principal, documentId: string, status?: ProposalRecord["status"] | undefined): Promise<ProposalRecord[]> {
+  async list(
+    principal: Principal,
+    documentId: string,
+    status?: ProposalRecord["status"] | undefined
+  ): Promise<ProposalRecord[]> {
     const { db } = this.context;
     await requireDocument(db, principal, documentId);
     const { rows } = await db.query(
@@ -95,17 +133,35 @@ export class ProposalService {
   }
 
   /** Accepting merges the proposal onto the latest version, so it stays useful after other edits land. */
-  async decide(principal: Principal, proposalId: string, input: { decision: "accept" | "reject"; opIndexes?: readonly number[] | undefined; note?: string | undefined; resolveThreads?: boolean | undefined }): Promise<{ proposal: ProposalRecord; commit?: CommitResult | undefined }> {
+  async decide(
+    principal: Principal,
+    proposalId: string,
+    input: {
+      decision: "accept" | "reject";
+      opIndexes?: readonly number[] | undefined;
+      note?: string | undefined;
+      resolveThreads?: boolean | undefined;
+    }
+  ): Promise<{ proposal: ProposalRecord; commit?: CommitResult | undefined }> {
     const result = await this.context.db.transaction(async tx => {
       const { rows } = await tx.query(`SELECT * FROM pandocs.proposals WHERE id = $1 FOR UPDATE`, [proposalId]);
       if (!rows[0]) throw notFound(t("Proposal"));
       const proposal = mapProposal(rows[0]);
       const { document, space } = await requireDocument(tx, principal, proposal.documentId, "editor", true);
       // Someone accepting a suggestion is one person's review, which is all it is worth under the space's rules.
-      if (input.decision === "accept" && space.mergeRules.requireChangeSets && (space.mergeRules.requiredApprovals > 1 || proposal.authorId === principal.id)) {
-        throw new PandocsError(403, "CHANGE_SET_REQUIRED", t("This space needs more review than one person's acceptance, so this has to go through a change set"));
+      if (
+        input.decision === "accept" &&
+        space.mergeRules.requireChangeSets &&
+        (space.mergeRules.requiredApprovals > 1 || proposal.authorId === principal.id)
+      ) {
+        throw new PandocsError(
+          403,
+          "CHANGE_SET_REQUIRED",
+          t("This space needs more review than one person's acceptance, so this has to go through a change set")
+        );
       }
-      if (proposal.status !== "pending") throw new PandocsError(409, "PROPOSAL_DECIDED", t("This proposal has already been decided"));
+      if (proposal.status !== "pending")
+        throw new PandocsError(409, "PROPOSAL_DECIDED", t("This proposal has already been decided"));
       if (input.decision === "reject") {
         const { rows: updated } = await tx.query(
           `UPDATE pandocs.proposals SET status = 'rejected', decided_by = $2, decided_name = $3, decided_at = now(), decision_note = $4 WHERE id = $1 RETURNING *`,
@@ -129,18 +185,34 @@ export class ProposalService {
         const current = await loadRevision(tx, proposal.documentId, document.currentRevisionNo);
         const merged = mergeThreeWay(base.markdown, proposed, current.markdown, this.context.registry);
         if (!merged.ok) {
-          throw new PandocsError(409, "PROPOSAL_CONFLICT", t("The document has changed in the same place, so this proposal has to be made again"), { conflicts: merged.conflicts, currentRevision: document.currentRevisionNo });
+          throw new PandocsError(
+            409,
+            "PROPOSAL_CONFLICT",
+            t("The document has changed in the same place, so this proposal has to be made again"),
+            { conflicts: merged.conflicts, currentRevision: document.currentRevisionNo }
+          );
         }
         markdown = merged.markdown;
       }
       const commit = await this.documents.commit(tx, principal, document, {
         markdown,
         proposalId,
-        message: t("Accepted {0}'s proposal{1}", proposal.authorName, proposal.rationale ? t(": {0}", proposal.rationale.slice(0, 80)) : "")
+        message: t(
+          "Accepted {0}'s proposal{1}",
+          proposal.authorName,
+          proposal.rationale ? t(": {0}", proposal.rationale.slice(0, 80)) : ""
+        )
       });
       const { rows: updated } = await tx.query(
         `UPDATE pandocs.proposals SET status = 'accepted', decided_by = $2, decided_name = $3, decided_at = now(), decision_note = $4, accepted_ops = $5, applied_revision_no = $6 WHERE id = $1 RETURNING *`,
-        [proposalId, principal.id, principal.displayName, input.note ?? null, JSON.stringify(selected), commit.revision.no]
+        [
+          proposalId,
+          principal.id,
+          principal.displayName,
+          input.note ?? null,
+          JSON.stringify(selected),
+          commit.revision.no
+        ]
       );
       if (input.resolveThreads !== false && proposal.threadIds.length > 0) {
         await tx.query(
@@ -149,14 +221,22 @@ export class ProposalService {
           [proposal.threadIds, principal.id, principal.displayName, proposal.documentId]
         );
       }
-      await audit(tx, principal, "proposal.accept", "proposal", proposalId, { revision: commit.revision.no, ops: selected });
+      await audit(tx, principal, "proposal.accept", "proposal", proposalId, {
+        revision: commit.revision.no,
+        ops: selected
+      });
       await this.notifyAuthor(tx, principal, proposal, t("accepted your proposal"));
       return { proposal: mapProposal(updated[0]!), commit };
     });
     return result;
   }
 
-  private async notifyAuthor(tx: Queryable, principal: Principal, proposal: ProposalRecord, summary: string): Promise<void> {
+  private async notifyAuthor(
+    tx: Queryable,
+    principal: Principal,
+    proposal: ProposalRecord,
+    summary: string
+  ): Promise<void> {
     const recipient = proposal.onBehalfOf ?? proposal.authorId;
     if (recipient === principal.id) return;
     await tx.query(

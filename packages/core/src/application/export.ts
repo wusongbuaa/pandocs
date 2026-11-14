@@ -9,7 +9,11 @@ const ASSET_PATH = /\bassets\/([a-f0-9]{64})(\.[a-z0-9]+)?/giu;
 const STORED = { level: 0 } as const;
 
 export class ExportService {
-  constructor(private readonly context: AppContext, private readonly documents: DocumentService, private readonly assets: AssetService) {}
+  constructor(
+    private readonly context: AppContext,
+    private readonly documents: DocumentService,
+    private readonly assets: AssetService
+  ) {}
 
   /**
    * Everything this person can read in a space, in the shape it was written: `<path>.md` for each page, the images
@@ -38,7 +42,14 @@ export class ExportService {
     }
     const manifest = {
       space: { slug: space.slug, name: space.name, description: space.description },
-      documents: tree.map(node => ({ file: `${node.path}.md`, title: node.title, labels: node.labels, parent: tree.find(item => item.id === node.parentId)?.path ?? null, sortOrder: node.sortOrder, revision: node.currentRevisionNo })),
+      documents: tree.map(node => ({
+        file: `${node.path}.md`,
+        title: node.title,
+        labels: node.labels,
+        parent: tree.find(item => item.id === node.parentId)?.path ?? null,
+        sortOrder: node.sortOrder,
+        revision: node.currentRevisionNo
+      })),
       missingAssets: missing
     };
     files["manifest.json"] = encoder.encode(JSON.stringify(manifest, null, 2));

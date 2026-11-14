@@ -5,10 +5,11 @@ import { API_BASE, insideSite, SITE_BASE } from "../data/site-base";
  * cookies in frames from another site, and this way the token is only ever in memory.
  */
 const EMBED_PATH = /^\/embed\/([a-z0-9][a-z0-9-]*)(?:\/|$)/u;
-const slug = typeof location === "undefined" ? null : EMBED_PATH.exec(insideSite(location.pathname))?.[1] ?? null;
+const slug = typeof location === "undefined" ? null : (EMBED_PATH.exec(insideSite(location.pathname))?.[1] ?? null);
 /** The same app again, for someone with a share link: they have no login, and the link is who they are. */
 const SHARE_PATH = /^\/s\/(pds_[\w-]+)(?:\/|$)/u;
-const shareToken = typeof location === "undefined" ? null : SHARE_PATH.exec(insideSite(location.pathname))?.[1] ?? null;
+const shareToken =
+  typeof location === "undefined" ? null : (SHARE_PATH.exec(insideSite(location.pathname))?.[1] ?? null);
 
 export const shared = shareToken !== null;
 export const embedded = slug !== null || shared;
@@ -42,7 +43,11 @@ const toHost = (message: Record<string, unknown>) => window.parent.postMessage(m
 
 function expiryOf(value: string): number {
   try {
-    const payload = value.slice(value.indexOf("_") + 1).split(".")[0]!.replaceAll("-", "+").replaceAll("_", "/");
+    const payload = value
+      .slice(value.indexOf("_") + 1)
+      .split(".")[0]!
+      .replaceAll("-", "+")
+      .replaceAll("_", "/");
     return (JSON.parse(atob(payload)) as { exp: number }).exp * 1000;
   } catch {
     return 0;
@@ -80,7 +85,8 @@ const originalFetch: typeof fetch = typeof window === "undefined" ? fetch : wind
 
 /** Everything the app asks this server for carries the token, including what the theme's own code fetches. */
 function installFetch(): void {
-  const needsToken = (url: URL) => url.origin === location.origin && (url.pathname.startsWith(`${SITE_BASE}/api/`) || url.pathname.endsWith(".md"));
+  const needsToken = (url: URL) =>
+    url.origin === location.origin && (url.pathname.startsWith(`${SITE_BASE}/api/`) || url.pathname.endsWith(".md"));
   window.fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input), location.href);
     if (!needsToken(url)) return originalFetch(input, init);
@@ -124,7 +130,12 @@ export async function startEmbedSession(): Promise<void> {
     const message = event.data as { type?: string; token?: string; path?: string; theme?: string } | null;
     if (message?.type === "pandocs:token" && typeof message.token === "string") accept(message.token);
     else if (message?.type === "pandocs:theme" && typeof message.theme === "string") applyTheme(message.theme);
-    else if (message?.type === "pandocs:navigate" && typeof message.path === "string" && message.path.startsWith("/") && !message.path.startsWith("//")) {
+    else if (
+      message?.type === "pandocs:navigate" &&
+      typeof message.path === "string" &&
+      message.path.startsWith("/") &&
+      !message.path.startsWith("//")
+    ) {
       history.pushState(null, "", `${embedBase!.slice(0, -1)}${message.path}`);
       dispatchEvent(new PopStateEvent("popstate"));
     }

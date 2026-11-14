@@ -2,7 +2,15 @@
 import * as React from "react";
 import clsx from "clsx";
 import type { Header } from "@rspress/core";
-import { PageContext, useFrontmatter, useHead, useI18n, useLocation, usePage, useSearchParams } from "@rspress/core/runtime";
+import {
+  PageContext,
+  useFrontmatter,
+  useHead,
+  useI18n,
+  useLocation,
+  usePage,
+  useSearchParams
+} from "@rspress/core/runtime";
 import {
   getCustomMDXComponent as getBaseMDXComponent,
   IconEdit,
@@ -55,7 +63,9 @@ export { renderHtmlOrText, renderInlineMarkdown } from "./text";
  * each heading as HTML, and the function above only takes text, so the words come from the document's own outline.
  */
 export function useDynamicToc(): Header[] {
-  const { page: { toc = [] } } = usePage();
+  const {
+    page: { toc = [] }
+  } = usePage();
   const collected = useCollectedToc();
   return React.useMemo(() => {
     const texts = new Map(toc.map(header => [header.id, header.text]));
@@ -68,10 +78,14 @@ export function EditLink({ isOutline }: { isOutline?: boolean }) {
   const themeText = useI18n();
   const { page } = usePage();
   const data = (page as unknown as { pandocs?: AppPage }).pandocs;
-  if (data?.kind !== "document" || (import.meta.env.MODE !== "parity" && !atLeast(data.view.role, "commenter"))) return null;
+  if (data?.kind !== "document" || (import.meta.env.MODE !== "parity" && !atLeast(data.view.role, "commenter")))
+    return null;
   const href = `${documentRoute(data.space.slug, data.entry.path, localePrefix(page.lang, app.bootstrap.site.defaultLang))}?mode=edit`;
   // Someone who can only comment goes on to suggest, which is what the button at the top of the page calls it too.
-  const text = import.meta.env.MODE === "parity" || atLeast(data.view.role, "editor") ? themeText("editLinkText") : t("Suggest changes");
+  const text =
+    import.meta.env.MODE === "parity" || atLeast(data.view.role, "editor")
+      ? themeText("editLinkText")
+      : t("Suggest changes");
   if (isOutline) {
     return (
       <Link href={href} className="rp-outline__action-row rp-edit-link">
@@ -80,20 +94,29 @@ export function EditLink({ isOutline }: { isOutline?: boolean }) {
       </Link>
     );
   }
-  return <Link href={href} className="rp-edit-link">{text}</Link>;
+  return (
+    <Link href={href} className="rp-edit-link">
+      {text}
+    </Link>
+  );
 }
 
 /** The theme's title with its copy row, plus the page's own actions on that row. */
 function H1({ className, children, ...rest }: React.ComponentProps<"h1">) {
-  const { frontmatter: { tag } } = useFrontmatter();
+  const {
+    frontmatter: { tag }
+  } = useFrontmatter();
   const page = useAppPage();
   const [params] = useSearchParams();
   const editorShown = useEditorShown();
   // Where the title can be changed, the editor shows it as a field in this place, once the editor is there.
-  if (editorShown && params.get("mode") === "edit" && page?.kind === "document" && editorModeOf(page) !== "propose") return null;
+  if (editorShown && params.get("mode") === "edit" && page?.kind === "document" && editorModeOf(page) !== "propose")
+    return null;
   return (
     <>
-      <h1 className={clsx("rp-toc-include", className)} {...rest}>{children} <Tag tag={tag} /></h1>
+      <h1 className={clsx("rp-toc-include", className)} {...rest}>
+        {children} <Tag tag={tag} />
+      </h1>
       <LlmsContainer>
         <LlmsCopyButton />
         {/* What it offers includes opening the address elsewhere, and on a share link the address is the secret. */}
@@ -116,14 +139,23 @@ export function getCustomMDXComponent() {
  * unless the page came from the server and it has already looked.
  */
 function useMovedPage(space: string, path: string, answered: boolean): "checking" | "gone" {
-  const [state, setState] = React.useState<"checking" | "gone">(() => (space && path && !answered ? "checking" : "gone"));
+  const [state, setState] = React.useState<"checking" | "gone">(() =>
+    space && path && !answered ? "checking" : "gone"
+  );
   React.useEffect(() => {
     if (!space || !path || answered) return;
-    api.get<{ path: string; redirected: boolean }>(`spaces/${encodeURIComponent(space)}/resolve?path=${encodeURIComponent(path)}`).then(
-      // Found where it was asked for, it is a page the routes do not have yet. Loading again would only ask again.
-      moved => (moved.redirected ? location.replace(`${pageUrl(documentRoute(space, moved.path))}${location.search}${location.hash}`) : setState("gone")),
-      () => setState("gone")
-    );
+    api
+      .get<{ path: string; redirected: boolean }>(
+        `spaces/${encodeURIComponent(space)}/resolve?path=${encodeURIComponent(path)}`
+      )
+      .then(
+        // Found where it was asked for, it is a page the routes do not have yet. Loading again would only ask again.
+        moved =>
+          moved.redirected
+            ? location.replace(`${pageUrl(documentRoute(space, moved.path))}${location.search}${location.hash}`)
+            : setState("gone"),
+        () => setState("gone")
+      );
   }, [space, path, answered]);
   return state;
 }
@@ -132,13 +164,19 @@ function NotFoundLayout() {
   const { pathname } = useLocation();
   const [space = "", ...rest] = decodeURIComponent(pathname.slice(1)).split("/");
   const known = app.bootstrap.spaces.some(item => item.slug === space);
-  const moved = useMovedPage(known ? space : "", rest.join("/").replace(/\/$/u, ""), import.meta.env.SSR || pageUrl(pathname) === app.renderedPath);
+  const moved = useMovedPage(
+    known ? space : "",
+    rest.join("/").replace(/\/$/u, ""),
+    import.meta.env.SSR || pageUrl(pathname) === app.renderedPath
+  );
   if (moved === "checking") return null;
   return (
     <>
       <BaseNotFoundLayout />
       {/* Someone with no login gets this for what is closed to them as well, and nothing says which it is. */}
-      {app.bootstrap.me.anonymous ? <p className="pd-not-found-note">{t("If this page is behind a login, sign in to see it.")}</p> : null}
+      {app.bootstrap.me.anonymous ? (
+        <p className="pd-not-found-note">{t("If this page is behind a login, sign in to see it.")}</p>
+      ) : null}
     </>
   );
 }
@@ -162,13 +200,20 @@ export function LlmsHint() {
 const absolute = (route: string) => `${app.origin}${pageUrl(route)}`;
 
 /** Which languages a page can be read in, as addresses. A translation nobody has written yet is the source under another address, so it does not count. */
-function languageVersions(data: AppPage | undefined, pathname: string, lang: string): readonly { readonly lang: string; readonly href: string }[] {
+function languageVersions(
+  data: AppPage | undefined,
+  pathname: string,
+  lang: string
+): readonly { readonly lang: string; readonly href: string }[] {
   const { locales, defaultLang } = app.bootstrap.site;
   if (locales.length < 2) return [];
   const here = localePrefix(lang, defaultLang);
   const path = here && pathname.startsWith(here) ? pathname.slice(here.length) : pathname;
   return locales
-    .filter(locale => data?.kind !== "document" || locale.lang === defaultLang || data.entry.titles?.[locale.lang] !== undefined)
+    .filter(
+      locale =>
+        data?.kind !== "document" || locale.lang === defaultLang || data.entry.titles?.[locale.lang] !== undefined
+    )
     .map(locale => ({ lang: locale.lang, href: absolute(`${localePrefix(locale.lang, defaultLang)}${path}`) }));
 }
 
@@ -181,22 +226,30 @@ function PageHead() {
   const untranslated = data?.kind === "document" && data.translation !== null && !data.translation.exists;
   const canonical = absolute(untranslated ? documentRoute(data.space.slug, data.entry.path) : pathname);
   const versions = languageVersions(data, pathname, page.lang);
-  const image = /^https?:/u.test(site.logo) ? site.logo : site.logo.startsWith("/") ? `${app.origin}${site.logo}` : null;
-  useHead(!shared && (data?.kind === "document" || data?.kind === "home")
-    ? {
-        link: [
-          { rel: "canonical", href: canonical },
-          ...versions.map(version => ({ rel: "alternate" as const, hreflang: version.lang, href: version.href })),
-          ...versions.filter(version => version.lang === site.defaultLang).map(version => ({ rel: "alternate" as const, hreflang: "x-default" as const, href: version.href }))
-        ],
-        meta: [
-          { property: "og:url", content: canonical },
-          { property: "og:site_name", content: site.title },
-          { name: "twitter:card", content: "summary" },
-          ...(image ? [{ property: "og:image", content: image }] : [])
-        ]
-      }
-    : { meta: [{ name: "robots", content: "noindex" }] });
+  const image = /^https?:/u.test(site.logo)
+    ? site.logo
+    : site.logo.startsWith("/")
+      ? `${app.origin}${site.logo}`
+      : null;
+  useHead(
+    !shared && (data?.kind === "document" || data?.kind === "home")
+      ? {
+          link: [
+            { rel: "canonical", href: canonical },
+            ...versions.map(version => ({ rel: "alternate" as const, hreflang: version.lang, href: version.href })),
+            ...versions
+              .filter(version => version.lang === site.defaultLang)
+              .map(version => ({ rel: "alternate" as const, hreflang: "x-default" as const, href: version.href }))
+          ],
+          meta: [
+            { property: "og:url", content: canonical },
+            { property: "og:site_name", content: site.title },
+            { name: "twitter:card", content: "summary" },
+            ...(image ? [{ property: "og:image", content: image }] : [])
+          ]
+        }
+      : { meta: [{ name: "robots", content: "noindex" }] }
+  );
   return null;
 }
 
@@ -217,11 +270,16 @@ export function Layout() {
   useRevealLinkTarget();
   usePrintsWhatIsFolded();
   // A page from the server looks ready before it responds. This is for whoever has to know the difference, such as tests.
-  React.useEffect(() => { document.documentElement.dataset.live = ""; }, []);
+  React.useEffect(() => {
+    document.documentElement.dataset.live = "";
+  }, []);
   const context = React.useContext(PageContext);
   const [params] = useSearchParams();
   const mode = params.get("mode");
-  const editable = React.useMemo(() => (context.data ? asEditable(context.data, mode) : context.data), [context.data, mode]);
+  const editable = React.useMemo(
+    () => (context.data ? asEditable(context.data, mode) : context.data),
+    [context.data, mode]
+  );
   const shown = React.useMemo(() => ({ ...context, data: editable }), [context, editable]);
   if (import.meta.env.MODE === "parity") return <BaseLayout />;
   const layout = (
@@ -237,7 +295,17 @@ export function Layout() {
       afterDocContent={<DocComments />}
       beforeDocFooter={<PageFeedback />}
       afterFeatures={<RecentPages />}
-      bottom={<><ErrorBoundary area="Comments" fallback={null}><AnnotationLayer /></ErrorBoundary><ErrorBoundary area="Ask" fallback={null}><AskHost /></ErrorBoundary><SignInHost /></>}
+      bottom={
+        <>
+          <ErrorBoundary area="Comments" fallback={null}>
+            <AnnotationLayer />
+          </ErrorBoundary>
+          <ErrorBoundary area="Ask" fallback={null}>
+            <AskHost />
+          </ErrorBoundary>
+          <SignInHost />
+        </>
+      }
     />
   );
   return editable === context.data ? layout : <PageContext.Provider value={shown}>{layout}</PageContext.Provider>;

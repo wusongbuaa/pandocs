@@ -7,11 +7,12 @@ const postgres = usePostgresFixture();
 const SPACE = "overlays";
 
 /** What a scroll lock changes: whichever way it does it, the page stops being scrollable by its own means. */
-const scroll = (page: Page) => page.evaluate(() => ({
-  gutter: getComputedStyle(document.documentElement).scrollbarGutter,
-  html: getComputedStyle(document.documentElement).overflowY,
-  body: getComputedStyle(document.body).overflowY
-}));
+const scroll = (page: Page) =>
+  page.evaluate(() => ({
+    gutter: getComputedStyle(document.documentElement).scrollbarGutter,
+    html: getComputedStyle(document.documentElement).overflowY,
+    body: getComputedStyle(document.body).overflowY
+  }));
 
 pandocsDescribe("what floats over a page leaves the page alone", () => {
   let app: Awaited<ReturnType<typeof startPandocs>>;
@@ -21,10 +22,24 @@ pandocsDescribe("what floats over a page leaves the page alone", () => {
     await app.api("admin", "POST", "spaces", { slug: SPACE, name: "手册", defaultRole: "viewer" });
     await app.api("admin", "PUT", `spaces/${SPACE}/members`, { subject: `user:${PEOPLE.editor.id}`, role: "editor" });
     const long = Array.from({ length: 60 }, (_, index) => `## 第 ${index + 1} 节\n\n正文。\n`).join("\n");
-    const guide = (await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "指南", slug: "guide", markdown: long })).data.document.id;
-    await app.api("admin", "PUT", `spaces/${SPACE}/members`, { subject: `user:${PEOPLE.commenter.id}`, role: "commenter" });
-    await app.api("commenter", "POST", `documents/${guide}/threads`, { anchor: { kind: "quote", quote: "第 1 节" }, body: "说一句。" });
-    await app.api("commenter", "POST", `documents/${guide}/proposals`, { baseRevision: 1, ops: [{ op: "str_replace", pattern: "第 2 节", content: "第二节" }] }, { "Idempotency-Key": "overlays-suggestion" });
+    const guide = (
+      await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "指南", slug: "guide", markdown: long })
+    ).data.document.id;
+    await app.api("admin", "PUT", `spaces/${SPACE}/members`, {
+      subject: `user:${PEOPLE.commenter.id}`,
+      role: "commenter"
+    });
+    await app.api("commenter", "POST", `documents/${guide}/threads`, {
+      anchor: { kind: "quote", quote: "第 1 节" },
+      body: "说一句。"
+    });
+    await app.api(
+      "commenter",
+      "POST",
+      `documents/${guide}/proposals`,
+      { baseRevision: 1, ops: [{ op: "str_replace", pattern: "第 2 节", content: "第二节" }] },
+      { "Idempotency-Key": "overlays-suggestion" }
+    );
   }, 120_000);
 
   afterAll(async () => {

@@ -9,7 +9,8 @@ export const zh: Readonly<Record<string, string>> = {
   "A prompt to copy with one click, shown and copied exactly as written": "可以一键复制的提示词，内容按原样显示和复制",
   "A quote cannot be empty": "引文不能为空",
   "An API reference, from an OpenAPI document stored here": "接口参考页，内容来自存放在这里的 OpenAPI 文档",
-  "An OpenAPI document has to be uploaded here, or be an address on this site": "OpenAPI 文档要上传到这里，或者是本站的地址",
+  "An OpenAPI document has to be uploaded here, or be an address on this site":
+    "OpenAPI 文档要上传到这里，或者是本站的地址",
   "At least {0}": "不能小于 {0}",
   "At least {0} {0|character|characters}": "至少 {0} 个字符",
   "At least {0} {0|item|items}": "至少 {0} 项",
@@ -20,7 +21,8 @@ export const zh: Readonly<Record<string, string>> = {
   "Before and after, dragging a divider to compare two images": "新旧对比，拖动分界线看两张图的差别",
   "Block {0} is registered twice": "块 {0} 重复注册",
   "Block {0} not found. Read the latest version again.": "找不到块 {0}，请基于最新版本重新读取",
-  "Blocks or formatting here are nested inside each other more deeply than a page can be, so it shows as its source. Take some of the nesting out.": "这里的块或格式嵌套得比页面能承受的更深，所以按源码显示。请减少一些嵌套。",
+  "Blocks or formatting here are nested inside each other more deeply than a page can be, so it shows as its source. Take some of the nesting out.":
+    "这里的块或格式嵌套得比页面能承受的更深，所以按源码显示。请减少一些嵌套。",
   "Callout with a custom emoji": "自定义图标的提示块",
   "Cards, holding card blocks": "卡片组，里面放一张张卡片",
   "Collapsible section": "折叠内容",
@@ -41,33 +43,42 @@ export const zh: Readonly<Record<string, string>> = {
   "Not in the right format": "格式不对",
   "Not valid": "无效",
   "Not valid JSON": "不是有效的 JSON",
-  "Notes on a screenshot, with x and y as percentages of its width and height": "截图打点标注，x、y 是占图片宽高的百分比",
+  "Notes on a screenshot, with x and y as percentages of its width and height":
+    "截图打点标注，x、y 是占图片宽高的百分比",
   "One card, inside cards, which can link to another page": "一张卡片，放在卡片组里，可以指向其他页面",
   "One column, inside columns": "一栏，放在分栏里",
   "One tab, inside tabs": "一个标签，放在标签页里",
-  "Required": "必填",
+  Required: "必填",
   "Section {0} not found": "找不到章节 {0}",
   "Several operations change the same content. Merge them into one.": "多个操作改到了同一段内容，请合并成一个操作",
   "Steps, with each heading a step": "步骤，每个标题是一步",
-  "Tabs, holding tab blocks. Tabs with the same group switch together.": "标签页，里面放一个个标签；联动分组相同的标签页一起切换",
+  "Tabs, holding tab blocks. Tabs with the same group switch together.":
+    "标签页，里面放一个个标签；联动分组相同的标签页一起切换",
   "Text to replace not found: {0}": "找不到要替换的内容：{0}",
   "The content of {0} cannot be read: {1}": "{0} 的内容无法解析：{1}",
   "The end block comes before the start block": "结束块在开始块之前",
   "The original file, placed first on a page converted from it": "原始文件。页面由它转换而来时，放在最前面",
   "The selection is outside the document": "选区超出文档范围",
   "The start or end block is not valid. Read one version again.": "起止块无效，请基于同一版本重新读取",
-  "The text to replace appears {0} times. Make it more specific, or set all.": "要替换的内容出现了 {0} 次，请写得更具体，或指定 all",
-  "This quote appears {0} times. Use occurrence to pick one, or make it more specific.": "这段引文出现了 {0} 次，请用 occurrence 指定第几处，或写得更具体",
+  "The text to replace appears {0} times. Make it more specific, or set all.":
+    "要替换的内容出现了 {0} 次，请写得更具体，或指定 all",
+  "This quote appears {0} times. Use occurrence to pick one, or make it more specific.":
+    "这段引文出现了 {0} 次，请用 occurrence 指定第几处，或写得更具体",
   "This quote is not in the document": "在文档里找不到这段引文",
   "This quote only appears {0} {0|time|times}": "引文只出现了 {0} 次",
   "Unknown block {0}. It is kept but not shown.": "不认识的块 {0}，内容保留，暂不渲染",
   "Unknown {0|field|fields}: {1}": "不支持的字段：{1}",
-  "Video": "视频",
-  "```chart title=\"Sales\"\n{\"type\":\"bar\",\"xKey\":\"Month\",\"data\":[{\"Month\":\"January\",\"Sales\":10}]}\n```": "```chart title=\"销量\"\n{\"type\":\"bar\",\"xKey\":\"月份\",\"data\":[{\"月份\":\"一月\",\"销量\":10}]}\n```",
-  "```hotspots src=\"assets/screen.png\" alt=\"The console\"\n[{\"x\":20,\"y\":30,\"title\":\"Entry\",\"text\":\"Start here\"}]\n```": "```hotspots src=\"assets/screen.png\" alt=\"控制台\"\n[{\"x\":20,\"y\":30,\"title\":\"入口\",\"text\":\"从这里开始\"}]\n```",
-  "```mindmap\n# Central topic\n\n- Branch one\n  - A point\n- Branch two\n```": "```mindmap\n# 中心主题\n\n- 分支一\n  - 要点\n- 分支二\n```",
-  "```prompt title=\"Find the error\" description=\"Paste this to your Agent\"\nRead the error log, find the cause, then tell me how to fix it.\n```": "```prompt title=\"排查报错\" description=\"贴给你的智能体\"\n读取报错日志，找到原因后告诉我怎么修。\n```",
-  "```tree\nsrc\n├── index.ts\n└── pages\n    └── home.tsx  # Front page\n```": "```tree\nsrc\n├── index.ts\n└── pages\n    └── home.tsx  # 首页\n```",
+  Video: "视频",
+  '```chart title="Sales"\n{"type":"bar","xKey":"Month","data":[{"Month":"January","Sales":10}]}\n```':
+    '```chart title="销量"\n{"type":"bar","xKey":"月份","data":[{"月份":"一月","销量":10}]}\n```',
+  '```hotspots src="assets/screen.png" alt="The console"\n[{"x":20,"y":30,"title":"Entry","text":"Start here"}]\n```':
+    '```hotspots src="assets/screen.png" alt="控制台"\n[{"x":20,"y":30,"title":"入口","text":"从这里开始"}]\n```',
+  "```mindmap\n# Central topic\n\n- Branch one\n  - A point\n- Branch two\n```":
+    "```mindmap\n# 中心主题\n\n- 分支一\n  - 要点\n- 分支二\n```",
+  '```prompt title="Find the error" description="Paste this to your Agent"\nRead the error log, find the cause, then tell me how to fix it.\n```':
+    '```prompt title="排查报错" description="贴给你的智能体"\n读取报错日志，找到原因后告诉我怎么修。\n```',
+  "```tree\nsrc\n├── index.ts\n└── pages\n    └── home.tsx  # Front page\n```":
+    "```tree\nsrc\n├── index.ts\n└── pages\n    └── home.tsx  # 首页\n```",
   "caution callout": "提示块（警告）",
   "danger callout": "提示块（危险）",
   "important callout": "提示块（重要）",

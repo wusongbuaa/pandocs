@@ -35,7 +35,10 @@ function writtenAsText(value: string, source: string): Set<number> {
       const code = reference[1] ?? reference[2];
       found.add(index);
       at += reference[0].length;
-      index += code === undefined ? 1 : String.fromCodePoint(Math.min(Number.parseInt(code, reference[1] ? 10 : 16), 0x10ffff)).length;
+      index +=
+        code === undefined
+          ? 1
+          : String.fromCodePoint(Math.min(Number.parseInt(code, reference[1] ? 10 : 16), 0x10ffff)).length;
       continue;
     }
     if (source[at] === value[index]) index += 1;
@@ -74,7 +77,8 @@ export function applySuperSub(node: Root | Nodes, source = ""): void {
   let changed = false;
   for (const child of node.children as Nodes[]) {
     const written = child.position ? source.slice(child.position.start.offset, child.position.end.offset) : "";
-    const parts = child.type === "text" ? split(child.value, written ? writtenAsText(child.value, written) : new Set()) : null;
+    const parts =
+      child.type === "text" ? split(child.value, written ? writtenAsText(child.value, written) : new Set()) : null;
     if (parts) {
       children.push(...parts);
       changed = true;

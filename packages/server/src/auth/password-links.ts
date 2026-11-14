@@ -15,7 +15,13 @@ export interface PasswordLink {
   readonly emailed: boolean;
 }
 
-export function createPasswordLinks(input: { pool: pg.Pool; publicUrl: URL; enabled: boolean; mail: Mailer | null; siteTitle: () => Promise<string> }) {
+export function createPasswordLinks(input: {
+  pool: pg.Pool;
+  publicUrl: URL;
+  enabled: boolean;
+  mail: Mailer | null;
+  siteTitle: () => Promise<string>;
+}) {
   const { pool, publicUrl, enabled, mail, siteTitle } = input;
 
   /** Only the newest one works, so making another takes back the one before. */
@@ -32,15 +38,32 @@ export function createPasswordLinks(input: { pool: pg.Pool; publicUrl: URL; enab
   const deliver = async (to: string, subject: string, text: string, url: string): Promise<boolean> => {
     if (!mail) return false;
     try {
-      await mail({ to, subject, text, html: `<p>${text.replace(/[&<>"']/gu, character => `&#${character.charCodeAt(0)};`).replace(url.replace(/&/gu, "&#38;"), `<a href="${url}">${url}</a>`).replace(/\n\n/gu, "</p><p>")}</p>` });
+      await mail({
+        to,
+        subject,
+        text,
+        html: `<p>${text
+          .replace(/[&<>"']/gu, character => `&#${character.charCodeAt(0)};`)
+          .replace(url.replace(/&/gu, "&#38;"), `<a href="${url}">${url}</a>`)
+          .replace(/\n\n/gu, "</p><p>")}</p>`
+      });
       return true;
     } catch (error) {
-      console.error(JSON.stringify({ event: "mail.password_link_failed", name: error instanceof Error ? error.name : "unknown", message: error instanceof Error ? error.message : "" }));
+      console.error(
+        JSON.stringify({
+          event: "mail.password_link_failed",
+          name: error instanceof Error ? error.name : "unknown",
+          message: error instanceof Error ? error.message : ""
+        })
+      );
       return false;
     }
   };
 
-  const issue = async (person: User, write: (title: string, url: string) => { subject: string; text: string }): Promise<PasswordLink> => {
+  const issue = async (
+    person: User,
+    write: (title: string, url: string) => { subject: string; text: string }
+  ): Promise<PasswordLink> => {
     const link = await create(person.id, INVITATION_HOURS);
     const { subject, text } = write(await siteTitle(), link.url);
     return { ...link, emailed: await deliver(person.email, subject, text, link.url) };
@@ -50,18 +73,39 @@ export function createPasswordLinks(input: { pool: pg.Pool; publicUrl: URL; enab
     enabled,
     /** Without mail, someone who forgot has to ask; the page says so instead of promising a message that never comes. */
     selfService: enabled && Boolean(mail),
-    invite: (person: User, inviter: string) => issue(person, (title, url) => ({
-      subject: t("{0} added you to {1}", inviter, title),
-      text: t("{0} added you to {1}. Choose a password to sign in:\n\n{2}\n\nThe link works once, within 7 days.", inviter, title, url)
-    })),
-    reissue: (person: User, admin: string) => issue(person, (title, url) => ({
-      subject: t("Choose a new password for {0}", title),
-      text: t("{0} asked for you to choose a new password for {1}:\n\n{2}\n\nThe link works once, within 7 days.", admin, title, url)
-    })),
+    invite: (person: User, inviter: string) =>
+      issue(person, (title, url) => ({
+        subject: t("{0} added you to {1}", inviter, title),
+        text: t(
+          "{0} added you to {1}. Choose a password to sign in:\n\n{2}\n\nThe link works once, within 7 days.",
+          inviter,
+          title,
+          url
+        )
+      })),
+    reissue: (person: User, admin: string) =>
+      issue(person, (title, url) => ({
+        subject: t("Choose a new password for {0}", title),
+        text: t(
+          "{0} asked for you to choose a new password for {1}:\n\n{2}\n\nThe link works once, within 7 days.",
+          admin,
+          title,
+          url
+        )
+      })),
     async forgotten(person: User): Promise<void> {
       const { url } = await create(person.id, FORGOTTEN_HOURS);
       const title = await siteTitle();
-      await deliver(person.email, t("Choose a new password for {0}", title), t("Someone asked to reset the password of your account on {0}. Choose a new one here:\n\n{1}\n\nThe link works once, within an hour. If it was not you, you can ignore this.", title, url), url);
+      await deliver(
+        person.email,
+        t("Choose a new password for {0}", title),
+        t(
+          "Someone asked to reset the password of your account on {0}. Choose a new one here:\n\n{1}\n\nThe link works once, within an hour. If it was not you, you can ignore this.",
+          title,
+          url
+        ),
+        url
+      );
     },
     async userOf(token: string): Promise<User | null> {
       const { rows } = await pool.query(
@@ -76,9 +120,17 @@ export function createPasswordLinks(input: { pool: pg.Pool; publicUrl: URL; enab
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
-        const { rows: links } = await client.query<{ user_id: string }>(`DELETE FROM pandocs.password_links WHERE token_hash = $1 AND expires_at > now() RETURNING user_id`, [hashToken(token)]);
+        const { rows: links } = await client.query<{ user_id: string }>(
+          `DELETE FROM pandocs.password_links WHERE token_hash = $1 AND expires_at > now() RETURNING user_id`,
+          [hashToken(token)]
+        );
         const userId = links[0]?.user_id;
-        const { rows } = userId ? await client.query(`UPDATE pandocs.users SET password_hash = $1, updated_at = now() WHERE id = $2 AND status = 'active' RETURNING *`, [passwordHash, userId]) : { rows: [] };
+        const { rows } = userId
+          ? await client.query(
+              `UPDATE pandocs.users SET password_hash = $1, updated_at = now() WHERE id = $2 AND status = 'active' RETURNING *`,
+              [passwordHash, userId]
+            )
+          : { rows: [] };
         if (rows[0]) await client.query(`DELETE FROM pandocs.sessions WHERE user_id = $1`, [userId]);
         await client.query("COMMIT");
         return rows[0] ? mapUser(rows[0]) : null;

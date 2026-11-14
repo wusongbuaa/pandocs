@@ -34,7 +34,15 @@ describe.skipIf(!hasGit)("talking to a Git host", () => {
     expect(workspace.head).toBeNull();
     expect(workspace.author).toBeNull();
     expect(workspace.files.size).toBe(0);
-    const commit = await workspace.commit({ write: [{ path: "guide.md", bytes: bytes("# Guide\n") }, { path: "a/b/c.md", bytes: bytes("Deep\n") }], remove: [], message: "First commit\n\nWith a body", author });
+    const commit = await workspace.commit({
+      write: [
+        { path: "guide.md", bytes: bytes("# Guide\n") },
+        { path: "a/b/c.md", bytes: bytes("Deep\n") }
+      ],
+      remove: [],
+      message: "First commit\n\nWith a body",
+      author
+    });
     await workspace.dispose();
     expect(await git.head(remote)).toBe(commit);
     expect(host.head(name)).toBe(commit);
@@ -49,14 +57,21 @@ describe.skipIf(!hasGit)("talking to a Git host", () => {
     const other = { ...remote, branch: "docs/next" };
     expect(await git.head(other)).toBeNull();
     const workspace = await git.open(other);
-    const commit = await workspace.commit({ write: [{ path: "guide.md", bytes: bytes("Guide\n") }], remove: [], message: "Hello", author });
+    const commit = await workspace.commit({
+      write: [{ path: "guide.md", bytes: bytes("Guide\n") }],
+      remove: [],
+      message: "Hello",
+      author
+    });
     await workspace.dispose();
     expect(host.head(name, "docs/next")).toBe(commit);
   });
 
   it("reads files exactly as they are, each by the identifier Git gives it, and who last committed", async () => {
     const binary = new Uint8Array([0, 1, 2, 255, 254, 10, 13, 10]);
-    const commit = host.person(name).commit({ "guide.md": "One\r\nTwo\n", "picture.png": binary, "名前 with space.md": "Hello\n" }, "Add some files");
+    const commit = host
+      .person(name)
+      .commit({ "guide.md": "One\r\nTwo\n", "picture.png": binary, "名前 with space.md": "Hello\n" }, "Add some files");
     const workspace = await git.open(remote);
     expect(workspace.head).toBe(commit);
     expect(workspace.author).toEqual({ name: "Grace", subject: "Add some files" });
@@ -88,13 +103,29 @@ describe.skipIf(!hasGit)("talking to a Git host", () => {
   });
 
   it("commits on top of what is there, leaving alone what it never downloaded", async () => {
-    host.person(name).commit({ "keep.md": "Keep\n", "change.md": "One\n", "gone.md": "Gone\n", "my file.md": "Mine\n" }, "Files");
+    host
+      .person(name)
+      .commit({ "keep.md": "Keep\n", "change.md": "One\n", "gone.md": "Gone\n", "my file.md": "Mine\n" }, "Files");
     const workspace = await git.open(remote);
-    const commit = await workspace.commit({ write: [{ path: "change.md", bytes: bytes("Two\n") }, { path: "docs/新しい file.md", bytes: bytes("New\n") }], remove: ["gone.md", "my file.md"], message: "Change things", author });
+    const commit = await workspace.commit({
+      write: [
+        { path: "change.md", bytes: bytes("Two\n") },
+        { path: "docs/新しい file.md", bytes: bytes("New\n") }
+      ],
+      remove: ["gone.md", "my file.md"],
+      message: "Change things",
+      author
+    });
     await workspace.dispose();
     expect(host.head(name)).toBe(commit);
     const person = host.person(name);
-    expect(person.files).toEqual(["change.md", "docs/\"\\346\\226\\260\\343\\201\\227\\343\\201\\204 file.md\"".replace(/^docs\/"(.*)"$/u, "\"docs/$1\""), "keep.md"].sort());
+    expect(person.files).toEqual(
+      [
+        "change.md",
+        'docs/"\\346\\226\\260\\343\\201\\227\\343\\201\\204 file.md"'.replace(/^docs\/"(.*)"$/u, '"docs/$1"'),
+        "keep.md"
+      ].sort()
+    );
     expect(person.read("keep.md")).toBe("Keep\n");
     expect(person.read("change.md")).toBe("Two\n");
     expect(person.read("docs/新しい file.md")).toBe("New\n");
@@ -106,7 +137,14 @@ describe.skipIf(!hasGit)("talking to a Git host", () => {
     const workspace = await git.open(remote);
     person.pull();
     const theirs = person.commit({ "other.md": "Theirs\n" }, "In between");
-    await expect(workspace.commit({ write: [{ path: "guide.md", bytes: bytes("Two\n") }], remove: [], message: "Too late", author })).rejects.toThrow(/./u);
+    await expect(
+      workspace.commit({
+        write: [{ path: "guide.md", bytes: bytes("Two\n") }],
+        remove: [],
+        message: "Too late",
+        author
+      })
+    ).rejects.toThrow(/./u);
     await workspace.dispose();
     expect(host.head(name)).toBe(theirs);
   });
@@ -130,7 +168,12 @@ describe.skipIf(!hasGit)("talking to a Git host", () => {
     expect(workspace.head).toBe(first);
     expect(workspace.files.get("guide.md")).toBe(gitBlobId(bytes("One\n"), "sha256"));
     expect(Buffer.from(await workspace.read("guide.md")).toString()).toBe("One\n");
-    const commit = await workspace.commit({ write: [{ path: "guide.md", bytes: bytes("Two\n") }], remove: ["gone.md"], message: "Second", author });
+    const commit = await workspace.commit({
+      write: [{ path: "guide.md", bytes: bytes("Two\n") }],
+      remove: ["gone.md"],
+      message: "Second",
+      author
+    });
     await workspace.dispose();
     expect(commit).toHaveLength(64);
     const again = host.person(`${name}-sha256`);
@@ -158,7 +201,9 @@ describe.skipIf(!hasGit)("talking to a Git host", () => {
   });
 
   it("says something useful when the repository is not there", async () => {
-    await expect(git.head({ ...remote, repository: host.url("nothing-here") })).rejects.toThrow(/not found|nothing-here/iu);
+    await expect(git.head({ ...remote, repository: host.url("nothing-here") })).rejects.toThrow(
+      /not found|nothing-here/iu
+    );
   });
 
   describe("with a token", () => {
@@ -172,7 +217,12 @@ describe.skipIf(!hasGit)("talking to a Git host", () => {
       expect(await git.head(authed)).toBe(host.head(name));
       const workspace = await git.open(authed);
       expect(Buffer.from(await workspace.read("guide.md")).toString()).toBe("One\n");
-      await workspace.commit({ write: [{ path: "guide.md", bytes: bytes("Two\n") }], remove: [], message: "Second", author });
+      await workspace.commit({
+        write: [{ path: "guide.md", bytes: bytes("Two\n") }],
+        remove: [],
+        message: "Second",
+        author
+      });
       await workspace.dispose();
       expect(host.person(name).read("guide.md")).toBe("Two\n");
     });
@@ -196,7 +246,9 @@ describe.skipIf(!hasGit)("talking to a Git host", () => {
       const wrapper = join(dir, "git");
       writeFileSync(wrapper, `#!/bin/sh\necho "fatal: could not use ${token}" >&2\nexit 1\n`);
       chmodSync(wrapper, 0o755);
-      const message = await createGitPort({ allowPrivate: true, binary: wrapper }).head({ ...remote, token }).catch((error: Error) => error.message);
+      const message = await createGitPort({ allowPrivate: true, binary: wrapper })
+        .head({ ...remote, token })
+        .catch((error: Error) => error.message);
       expect(message).toContain("could not use");
       expect(message).not.toContain(token);
       rmSync(dir, { recursive: true, force: true });
@@ -215,7 +267,12 @@ describe.skipIf(!hasGit)("talking to a Git host", () => {
       await logged.head(authed);
       const workspace = await logged.open(authed);
       await workspace.read("guide.md");
-      await workspace.commit({ write: [{ path: "guide.md", bytes: bytes("Two\n") }], remove: [], message: "Second", author });
+      await workspace.commit({
+        write: [{ path: "guide.md", bytes: bytes("Two\n") }],
+        remove: [],
+        message: "Second",
+        author
+      });
       await workspace.dispose();
       const commands = readFileSync(log, "utf8");
       expect(commands).toContain("ls-remote");
@@ -235,7 +292,11 @@ describe.skipIf(!hasGit)("talking to a Git host", () => {
         collector.listen(0, "127.0.0.1", done);
       });
       const redirector = createServer((request, response) => {
-        response.writeHead(302, { Location: `http://127.0.0.1:${(collector.address() as AddressInfo).port}${request.url ?? "/"}` }).end();
+        response
+          .writeHead(302, {
+            Location: `http://127.0.0.1:${(collector.address() as AddressInfo).port}${request.url ?? "/"}`
+          })
+          .end();
       });
       await new Promise<void>(done => {
         redirector.listen(0, "127.0.0.1", done);
@@ -254,11 +315,14 @@ describe.skipIf(!hasGit)("talking to a Git host", () => {
   describe("on a server that may not reach private networks", () => {
     const careful = createGitPort({ allowPrivate: false });
 
-    it.each(["127.0.0.1", "localhost", "[::1]", "10.0.0.8", "192.168.1.1", "169.254.169.254"])("refuses %s before connecting", async address => {
-      const repository = `http://${address}:9/repo.git`;
-      await expect(careful.head({ repository, branch: "main", token: "t" })).rejects.toThrow(/private network/iu);
-      await expect(careful.open({ repository, branch: "main", token: "t" })).rejects.toThrow(/private network/iu);
-    });
+    it.each(["127.0.0.1", "localhost", "[::1]", "10.0.0.8", "192.168.1.1", "169.254.169.254"])(
+      "refuses %s before connecting",
+      async address => {
+        const repository = `http://${address}:9/repo.git`;
+        await expect(careful.head({ repository, branch: "main", token: "t" })).rejects.toThrow(/private network/iu);
+        await expect(careful.open({ repository, branch: "main", token: "t" })).rejects.toThrow(/private network/iu);
+      }
+    );
 
     it("did not even connect to this one", async () => {
       await expect(careful.head(remote)).rejects.toThrow(/private network/iu);
@@ -269,7 +333,9 @@ describe.skipIf(!hasGit)("talking to a Git host", () => {
   it("says so if there is no Git to run", async () => {
     expect(gitIsInstalled()).toBe(true);
     expect(gitIsInstalled("/nothing/here/git")).toBe(false);
-    await expect(createGitPort({ allowPrivate: true, binary: "/nothing/here/git" }).head(remote)).rejects.toThrow(/cannot run Git/iu);
+    await expect(createGitPort({ allowPrivate: true, binary: "/nothing/here/git" }).head(remote)).rejects.toThrow(
+      /cannot run Git/iu
+    );
     expect(existsSync("/nothing/here/git")).toBe(false);
   });
 });

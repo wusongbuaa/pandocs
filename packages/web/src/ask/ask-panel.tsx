@@ -15,7 +15,17 @@ import { renderMarkdown, type RenderedMarkdown } from "../markdown/pipeline";
 import { toast } from "../ui/toast";
 import { t } from "../i18n";
 import { CITATION_PREFIX, numberCitations, type AskSource } from "./citations";
-import { ask, clearConversation, closeAsk, isAsking, rateAnswer, stopAsking, useAsk, type AskStep, type AskTurn } from "./store";
+import {
+  ask,
+  clearConversation,
+  closeAsk,
+  isAsking,
+  rateAnswer,
+  stopAsking,
+  useAsk,
+  type AskStep,
+  type AskTurn
+} from "./store";
 
 /** What a model writes is plain Markdown: none of the blocks that need a page around them. */
 const NO_BLOCKS = createBlockRegistry([]);
@@ -35,9 +45,12 @@ function useThrottled<T>(value: T, ms: number): T {
       setShown(latest.current);
     }, ms);
   }, [shown, value, ms]);
-  React.useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
+  React.useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    []
+  );
   return shown;
 }
 
@@ -49,7 +62,9 @@ function Answer({ markdown, citations }: { markdown: string; citations: readonly
     void renderMarkdown(shown, { title: "", registry: NO_BLOCKS }).then(result => {
       if (current) setRendered(result.hast);
     });
-    return () => { current = false; };
+    return () => {
+      current = false;
+    };
   }, [shown]);
   const byNumber = React.useMemo(() => new Map(citations.map(citation => [citation.n, citation])), [citations]);
   if (!rendered) return null;
@@ -63,9 +78,22 @@ function Answer({ markdown, citations }: { markdown: string; citations: readonly
       // A picture in an answer could carry what it read to anywhere on the internet, just by loading.
       img: () => null,
       a: ({ href, children, ...rest }: React.ComponentProps<"a">) => {
-        const citation = href?.startsWith(CITATION_PREFIX) ? byNumber.get(Number(href.slice(CITATION_PREFIX.length))) : undefined;
-        if (citation) return <sup className="pd-ask__cite"><Link href={citation.url} title={citation.title}>{citation.n}</Link></sup>;
-        return <a href={href} {...rest}>{children}</a>;
+        const citation = href?.startsWith(CITATION_PREFIX)
+          ? byNumber.get(Number(href.slice(CITATION_PREFIX.length)))
+          : undefined;
+        if (citation)
+          return (
+            <sup className="pd-ask__cite">
+              <Link href={citation.url} title={citation.title}>
+                {citation.n}
+              </Link>
+            </sup>
+          );
+        return (
+          <a href={href} {...rest}>
+            {children}
+          </a>
+        );
       }
     } as never
   });
@@ -86,24 +114,81 @@ function TurnView({ turn, onRetry }: { turn: AskTurn; onRetry(question: string):
   return (
     <article className="pd-ask__turn">
       <p className="pd-ask__question">{turn.question}</p>
-      {turn.steps.length > 0 ? <ul className="pd-ask__steps">{turn.steps.map((step, at) => <li key={at}>{stepText(step)}</li>)}</ul> : null}
-      {turn.text ? <div className="pd-ask__answer rp-doc" aria-live="polite"><Answer markdown={markdown} citations={citations} /></div> : null}
+      {turn.steps.length > 0 ? (
+        <ul className="pd-ask__steps">
+          {turn.steps.map((step, at) => (
+            <li key={at}>{stepText(step)}</li>
+          ))}
+        </ul>
+      ) : null}
+      {turn.text ? (
+        <div className="pd-ask__answer rp-doc" aria-live="polite">
+          <Answer markdown={markdown} citations={citations} />
+        </div>
+      ) : null}
       {working && !turn.text ? <p className="pd-ask__working">{t("Looking through the documents…")}</p> : null}
       {turn.status === "failed" ? <p className="pd-ask__failed">{turn.error}</p> : null}
       {turn.status === "stopped" ? <p className="pd-ask__working">{t("Stopped.")}</p> : null}
       {citations.length > 0 && !working ? (
         <ol className="pd-ask__sources" aria-label={t("Sources")}>
-          {citations.map(citation => <li key={citation.n}><Link href={citation.url}>{citation.title}</Link></li>)}
+          {citations.map(citation => (
+            <li key={citation.n}>
+              <Link href={citation.url}>{citation.title}</Link>
+            </li>
+          ))}
         </ol>
       ) : null}
       {!working ? (
         <div className="pd-ask__actions">
-          {turn.text ? <Tip label={t("Copy the answer")}><button type="button" className="pd-icon-button pd-icon-button--small" aria-label={t("Copy the answer")} onClick={() => { copy(turn.text.replace(/\s*\[\d{1,3}\](?!\()/gu, "")); toast(t("Copied")); }}><Copy size={14} aria-hidden="true" /></button></Tip> : null}
-          <Tip label={t("Ask again")}><button type="button" className="pd-icon-button pd-icon-button--small" aria-label={t("Ask again")} onClick={() => onRetry(turn.question)}><RotateCw size={14} aria-hidden="true" /></button></Tip>
+          {turn.text ? (
+            <Tip label={t("Copy the answer")}>
+              <button
+                type="button"
+                className="pd-icon-button pd-icon-button--small"
+                aria-label={t("Copy the answer")}
+                onClick={() => {
+                  copy(turn.text.replace(/\s*\[\d{1,3}\](?!\()/gu, ""));
+                  toast(t("Copied"));
+                }}
+              >
+                <Copy size={14} aria-hidden="true" />
+              </button>
+            </Tip>
+          ) : null}
+          <Tip label={t("Ask again")}>
+            <button
+              type="button"
+              className="pd-icon-button pd-icon-button--small"
+              aria-label={t("Ask again")}
+              onClick={() => onRetry(turn.question)}
+            >
+              <RotateCw size={14} aria-hidden="true" />
+            </button>
+          </Tip>
           {turn.answerId ? (
             <>
-              <Tip label={t("This helped")}><button type="button" className="pd-icon-button pd-icon-button--small" aria-label={t("This helped")} aria-pressed={turn.rating === true} onClick={() => rateAnswer(turn.key, turn.answerId!, true)}><ThumbsUp size={14} aria-hidden="true" /></button></Tip>
-              <Tip label={t("This did not help")}><button type="button" className="pd-icon-button pd-icon-button--small" aria-label={t("This did not help")} aria-pressed={turn.rating === false} onClick={() => rateAnswer(turn.key, turn.answerId!, false)}><ThumbsDown size={14} aria-hidden="true" /></button></Tip>
+              <Tip label={t("This helped")}>
+                <button
+                  type="button"
+                  className="pd-icon-button pd-icon-button--small"
+                  aria-label={t("This helped")}
+                  aria-pressed={turn.rating === true}
+                  onClick={() => rateAnswer(turn.key, turn.answerId!, true)}
+                >
+                  <ThumbsUp size={14} aria-hidden="true" />
+                </button>
+              </Tip>
+              <Tip label={t("This did not help")}>
+                <button
+                  type="button"
+                  className="pd-icon-button pd-icon-button--small"
+                  aria-label={t("This did not help")}
+                  aria-pressed={turn.rating === false}
+                  onClick={() => rateAnswer(turn.key, turn.answerId!, false)}
+                >
+                  <ThumbsDown size={14} aria-hidden="true" />
+                </button>
+              </Tip>
             </>
           ) : null}
         </div>
@@ -157,8 +242,15 @@ export default function AskPanel() {
   const send = (text: string) => {
     const words = text.trim();
     if (!words || asking) return;
-    const first = pathname.split("/").filter(Boolean).find(segment => app.bootstrap.spaces.some(space => space.slug === segment));
-    void ask(words, { lang: page.lang || undefined, space: data?.kind === "document" ? data.space.slug : first, document: data?.kind === "document" ? data.entry.id : undefined });
+    const first = pathname
+      .split("/")
+      .filter(Boolean)
+      .find(segment => app.bootstrap.spaces.some(space => space.slug === segment));
+    void ask(words, {
+      lang: page.lang || undefined,
+      space: data?.kind === "document" ? data.space.slug : first,
+      document: data?.kind === "document" ? data.entry.id : undefined
+    });
     setQuestion("");
   };
 
@@ -167,16 +259,34 @@ export default function AskPanel() {
       <header className="pd-panel__head">
         <h2>{t("Ask AI")}</h2>
         <div className="pd-panel__head-tools">
-          {turns.length > 0 ? <button type="button" className="pd-panel__head-button" onClick={clearConversation}>{t("Start over")}</button> : null}
-          <button type="button" className="pd-icon-button" aria-label={t("Close")} onClick={closeAsk}><X size={16} aria-hidden="true" /></button>
+          {turns.length > 0 ? (
+            <button type="button" className="pd-panel__head-button" onClick={clearConversation}>
+              {t("Start over")}
+            </button>
+          ) : null}
+          <button type="button" className="pd-icon-button" aria-label={t("Close")} onClick={closeAsk}>
+            <X size={16} aria-hidden="true" />
+          </button>
         </div>
       </header>
       <div className="pd-panel__body pd-ask__body">
-        {turns.length === 0 ? <p className="pd-panel__empty">{t("Ask about anything in these documents. Answers come from pages you can read, with links to them.")}</p> : null}
-        {turns.map(turn => <TurnView key={turn.key} turn={turn} onRetry={send} />)}
+        {turns.length === 0 ? (
+          <p className="pd-panel__empty">
+            {t("Ask about anything in these documents. Answers come from pages you can read, with links to them.")}
+          </p>
+        ) : null}
+        {turns.map(turn => (
+          <TurnView key={turn.key} turn={turn} onRetry={send} />
+        ))}
         <div ref={end} />
       </div>
-      <form className="pd-ask__form" onSubmit={event => { event.preventDefault(); send(question); }}>
+      <form
+        className="pd-ask__form"
+        onSubmit={event => {
+          event.preventDefault();
+          send(question);
+        }}
+      >
         <textarea
           ref={input}
           rows={2}
@@ -193,9 +303,15 @@ export default function AskPanel() {
             }
           }}
         />
-        {asking
-          ? <button type="button" className="pd-icon-button" aria-label={t("Stop")} onClick={stopAsking}><Square size={14} aria-hidden="true" /></button>
-          : <button type="submit" className="pd-icon-button" aria-label={t("Send")} disabled={!question.trim()}><Send size={14} aria-hidden="true" /></button>}
+        {asking ? (
+          <button type="button" className="pd-icon-button" aria-label={t("Stop")} onClick={stopAsking}>
+            <Square size={14} aria-hidden="true" />
+          </button>
+        ) : (
+          <button type="submit" className="pd-icon-button" aria-label={t("Send")} disabled={!question.trim()}>
+            <Send size={14} aria-hidden="true" />
+          </button>
+        )}
       </form>
       <p className="pd-ask__note">{t("AI can get things wrong. Check the pages it links to.")}</p>
     </aside>

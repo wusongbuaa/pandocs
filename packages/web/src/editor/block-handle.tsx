@@ -33,7 +33,11 @@ export function BlockHandle({ editor }: { editor: Editor }) {
     const onMove = (event: MouseEvent) => {
       if (!editor.view.dom.isConnected) return;
       const box = editor.view.dom.getBoundingClientRect();
-      const inRange = event.clientY >= box.top && event.clientY <= box.bottom && event.clientX >= box.left - GUTTER && event.clientX <= box.right;
+      const inRange =
+        event.clientY >= box.top &&
+        event.clientY <= box.bottom &&
+        event.clientX >= box.left - GUTTER &&
+        event.clientX <= box.right;
       if (!inRange) {
         setHovered(null);
         return;
@@ -70,12 +74,35 @@ export function BlockHandle({ editor }: { editor: Editor }) {
     if (!node) return;
     const at = hovered.pos + node.nodeSize;
     // Typing `/` is what opens the menu, so a new block starts with it.
-    editor.chain().insertContentAt(at, { type: "paragraph", content: [{ type: "text", text: "/" }] }).focus(at + 2).run();
+    editor
+      .chain()
+      .insertContentAt(at, { type: "paragraph", content: [{ type: "text", text: "/" }] })
+      .focus(at + 2)
+      .run();
   };
   return (
     <div className="pd-block-handle" style={{ top: hovered.top, left: hovered.left }} contentEditable={false}>
-      <Tip label={t("Add below")}><button type="button" className="pd-icon-button pd-icon-button--small" aria-label={t("Add below")} onClick={addBelow}><Plus size={15} aria-hidden="true" /></button></Tip>
-      <Tip label={t("Drag")}><button type="button" className="pd-icon-button pd-icon-button--small pd-block-handle__grip" draggable aria-label={t("Drag this block")} onDragStart={startDrag}><GripVertical size={15} aria-hidden="true" /></button></Tip>
+      <Tip label={t("Add below")}>
+        <button
+          type="button"
+          className="pd-icon-button pd-icon-button--small"
+          aria-label={t("Add below")}
+          onClick={addBelow}
+        >
+          <Plus size={15} aria-hidden="true" />
+        </button>
+      </Tip>
+      <Tip label={t("Drag")}>
+        <button
+          type="button"
+          className="pd-icon-button pd-icon-button--small pd-block-handle__grip"
+          draggable
+          aria-label={t("Drag this block")}
+          onDragStart={startDrag}
+        >
+          <GripVertical size={15} aria-hidden="true" />
+        </button>
+      </Tip>
     </div>
   );
 }

@@ -20,7 +20,20 @@ export interface PandocsDocProps {
 }
 
 /** The `<pandocs-doc>` element for React. Set a height with `style` or `className`. */
-export function PandocsDoc({ server, app, space, path, theme, lang, sidebar, getToken, onNavigate, onError, className, style }: PandocsDocProps) {
+export function PandocsDoc({
+  server,
+  app,
+  space,
+  path,
+  theme,
+  lang,
+  sidebar,
+  getToken,
+  onNavigate,
+  onError,
+  className,
+  style
+}: PandocsDocProps) {
   const ref = React.useRef<PandocsDocElement | null>(null);
   const latest = React.useRef({ getToken, onNavigate, onError });
   latest.current = { getToken, onNavigate, onError };
@@ -29,7 +42,8 @@ export function PandocsDoc({ server, app, space, path, theme, lang, sidebar, get
     const element = ref.current;
     if (!element) return undefined;
     element.getToken = () => latest.current.getToken();
-    const navigate = (event: Event) => latest.current.onNavigate?.((event as CustomEvent<PandocsNavigateDetail>).detail.path);
+    const navigate = (event: Event) =>
+      latest.current.onNavigate?.((event as CustomEvent<PandocsNavigateDetail>).detail.path);
     const fail = (event: Event) => latest.current.onError?.((event as CustomEvent<{ error: unknown }>).detail.error);
     element.addEventListener("pandocs-navigate", navigate);
     element.addEventListener("pandocs-error", fail);

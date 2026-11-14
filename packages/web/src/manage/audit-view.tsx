@@ -83,69 +83,135 @@ const CATEGORIES: readonly { readonly value: AuditCategory | ""; readonly label:
 const PAGE_SIZE = 50;
 
 function detailOf({ action, detail }: AuditEntry): string {
-  const text = (key: string) => (typeof detail[key] === "string" ? detail[key] as string : "");
+  const text = (key: string) => (typeof detail[key] === "string" ? (detail[key] as string) : "");
   if (action === "document.move") return `${text("from")} → ${text("to")}`;
   if (action === "document.commit") return t("Version {0}", String(detail.revision ?? ""));
   if (action === "document.purge") return text("title");
   if (action.startsWith("document.translat")) return text("lang");
   if (action.endsWith(".member.set")) {
     const role = text("role");
-    return t("{0}: {1}", text("subjectName") || text("subject"), role ? ROLE_LABELS[role as keyof typeof ROLE_LABELS] ?? role : t("removed"));
+    return t(
+      "{0}: {1}",
+      text("subjectName") || text("subject"),
+      role ? (ROLE_LABELS[role as keyof typeof ROLE_LABELS] ?? role) : t("removed")
+    );
   }
   if (action.startsWith("site.user.")) return text("email");
   if (action.startsWith("site.embed_app.")) return text("slug");
   if (action === "site.update") return Array.isArray(detail.fields) ? detail.fields.join(t(", ")) : "";
-  if (action === "space.create" || action === "space.delete" || action === "space.purge" || action === "space.restore") return text("slug");
+  if (action === "space.create" || action === "space.delete" || action === "space.purge" || action === "space.restore")
+    return text("slug");
   return "";
 }
 
 function AuditTable({ path, title, description }: { path: string; title: string; description: string }) {
   const [category, setCategory] = React.useState<AuditCategory | "">("");
   const [entries, setEntries] = React.useState<readonly AuditEntry[]>([]);
-  const [state, setState] = React.useState<{ loading: boolean; more: boolean; error: string | null }>({ loading: true, more: false, error: null });
-  const load = React.useCallback(async (before: string | undefined, previous: readonly AuditEntry[]) => {
-    setState(current => ({ ...current, loading: true, error: null }));
-    const query = new URLSearchParams({ limit: String(PAGE_SIZE), ...(category ? { category } : {}), ...(before ? { before } : {}) });
-    try {
-      const page = await api.get<AuditEntry[]>(`${path}?${query}`);
-      setEntries([...previous, ...page]);
-      setState({ loading: false, more: page.length === PAGE_SIZE, error: null });
-    } catch (error) {
-      setState({ loading: false, more: false, error: failureMessage(error, t("Could not load this. Try again later.")) });
-    }
-  }, [category, path]);
-  React.useEffect(() => { void load(undefined, []); }, [load]);
+  const [state, setState] = React.useState<{ loading: boolean; more: boolean; error: string | null }>({
+    loading: true,
+    more: false,
+    error: null
+  });
+  const load = React.useCallback(
+    async (before: string | undefined, previous: readonly AuditEntry[]) => {
+      setState(current => ({ ...current, loading: true, error: null }));
+      const query = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        ...(category ? { category } : {}),
+        ...(before ? { before } : {})
+      });
+      try {
+        const page = await api.get<AuditEntry[]>(`${path}?${query}`);
+        setEntries([...previous, ...page]);
+        setState({ loading: false, more: page.length === PAGE_SIZE, error: null });
+      } catch (error) {
+        setState({
+          loading: false,
+          more: false,
+          error: failureMessage(error, t("Could not load this. Try again later."))
+        });
+      }
+    },
+    [category, path]
+  );
+  React.useEffect(() => {
+    void load(undefined, []);
+  }, [load]);
   return (
     <>
       <ManageHead title={title} description={description} />
       <Filter label={t("Filter by type")} value={category} items={CATEGORIES} onChange={setCategory} />
       {state.error ? <p className="pd-manage__error">{state.error}</p> : null}
-      {!state.loading && !state.error && entries.length === 0 ? <EmptyState>{t("Nothing recorded yet.")}</EmptyState> : null}
+      {!state.loading && !state.error && entries.length === 0 ? (
+        <EmptyState>{t("Nothing recorded yet.")}</EmptyState>
+      ) : null}
       {entries.length > 0 ? (
         <table>
-          <thead><tr><th>{t("Time")}</th><th>{t("Who")}</th><th>{t("What")}</th><th>{t("Page")}</th><th>{t("Channel")}</th></tr></thead>
+          <thead>
+            <tr>
+              <th>{t("Time")}</th>
+              <th>{t("Who")}</th>
+              <th>{t("What")}</th>
+              <th>{t("Page")}</th>
+              <th>{t("Channel")}</th>
+            </tr>
+          </thead>
           <tbody>
             {entries.map(entry => (
               <tr key={entry.id}>
                 <td className="pd-table__nowrap">{formatTime(entry.createdAt)}</td>
-                <td className="pd-table__nowrap">{entry.actorName}{entry.actorKind === "agent" ? t(" (agent)") : ""}</td>
-                <td>{ACTIONS[entry.action] ?? entry.action}{detailOf(entry) ? <div className="pd-table__note">{detailOf(entry)}</div> : null}</td>
-                <td>{entry.documentTitle ? (entry.spaceSlug && entry.documentPath ? <a href={pageUrl(documentRoute(entry.spaceSlug, entry.documentPath))}>{entry.documentTitle}</a> : entry.documentTitle) : <span className="pd-muted">—</span>}</td>
+                <td className="pd-table__nowrap">
+                  {entry.actorName}
+                  {entry.actorKind === "agent" ? t(" (agent)") : ""}
+                </td>
+                <td>
+                  {ACTIONS[entry.action] ?? entry.action}
+                  {detailOf(entry) ? <div className="pd-table__note">{detailOf(entry)}</div> : null}
+                </td>
+                <td>
+                  {entry.documentTitle ? (
+                    entry.spaceSlug && entry.documentPath ? (
+                      <a href={pageUrl(documentRoute(entry.spaceSlug, entry.documentPath))}>{entry.documentTitle}</a>
+                    ) : (
+                      entry.documentTitle
+                    )
+                  ) : (
+                    <span className="pd-muted">—</span>
+                  )}
+                </td>
                 <td className="pd-table__nowrap">{channelLabel(entry.channel)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       ) : null}
-      {state.more ? <p><Button variant="outline" disabled={state.loading} onClick={() => void load(entries.at(-1)?.id, entries)}>{t("Load more")}</Button></p> : null}
+      {state.more ? (
+        <p>
+          <Button variant="outline" disabled={state.loading} onClick={() => void load(entries.at(-1)?.id, entries)}>
+            {t("Load more")}
+          </Button>
+        </p>
+      ) : null}
     </>
   );
 }
 
 export function AuditView({ space }: { space: Space }) {
-  return <AuditTable path={`spaces/${space.slug}/audit`} title={t("{0}: audit log", space.name)} description={t("Who did what in this space, and when.")} />;
+  return (
+    <AuditTable
+      path={`spaces/${space.slug}/audit`}
+      title={t("{0}: audit log", space.name)}
+      description={t("Who did what in this space, and when.")}
+    />
+  );
 }
 
 export function SiteAuditView() {
-  return <AuditTable path="audit" title={t("Site audit log")} description={t("Changes to every space and to the site settings.")} />;
+  return (
+    <AuditTable
+      path="audit"
+      title={t("Site audit log")}
+      description={t("Changes to every space and to the site settings.")}
+    />
+  );
 }

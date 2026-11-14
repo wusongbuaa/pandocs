@@ -15,17 +15,26 @@ describe("keeping a space and a repository the same", () => {
   let spaceNo = 0;
   let space = "";
 
-  const connect = async (body: object = {}, principal: Principal = USERS.admin) => h.call(principal, "PUT", `spaces/${space}/git-sync`, { repository: REPOSITORY, token: "secret-token", ...body });
+  const connect = async (body: object = {}, principal: Principal = USERS.admin) =>
+    h.call(principal, "PUT", `spaces/${space}/git-sync`, { repository: REPOSITORY, token: "secret-token", ...body });
   /** It is due now, and whatever is due gets looked at. */
   const sync = async () => {
     await h.pool.query(`UPDATE pandocs.git_syncs SET due_at = now()`);
-    while (await h.services.gitSync.tick()) { /* until none are due */ }
+    while (await h.services.gitSync.tick()) {
+      /* until none are due */
+    }
   };
   /** Long enough ago that nothing counts as having just changed. */
   const settle = () => h.pool.query(`UPDATE pandocs.documents SET updated_at = now() - interval '1 hour'`);
   const create = async (path: string, markdown: string, more: object = {}) => {
     const slash = path.lastIndexOf("/");
-    const made = await h.call(USERS.admin, "POST", `spaces/${space}/documents`, { title: more && "title" in more ? more.title : path, slug: path.slice(slash + 1), markdown, ...(slash > 0 ? { parentPath: path.slice(0, slash) } : {}), ...more });
+    const made = await h.call(USERS.admin, "POST", `spaces/${space}/documents`, {
+      title: more && "title" in more ? more.title : path,
+      slug: path.slice(slash + 1),
+      markdown,
+      ...(slash > 0 ? { parentPath: path.slice(0, slash) } : {}),
+      ...more
+    });
     expect(made.error).toBeUndefined();
     return made.data.document as { id: string; path: string };
   };
@@ -37,23 +46,38 @@ describe("keeping a space and a repository the same", () => {
     return Object.fromEntries(rows.map(row => [row.path, row.markdown]));
   };
   const pageOf = async (path: string) => {
-    const { rows } = await h.pool.query(`SELECT d.* FROM pandocs.documents d JOIN pandocs.spaces s ON s.id = d.space_id WHERE s.slug = $1 AND d.path = $2 AND d.deleted_at IS NULL`, [space, path]);
+    const { rows } = await h.pool.query(
+      `SELECT d.* FROM pandocs.documents d JOIN pandocs.spaces s ON s.id = d.space_id WHERE s.slug = $1 AND d.path = $2 AND d.deleted_at IS NULL`,
+      [space, path]
+    );
     return rows[0] as { id: string; title: string; sort_order: number; current_revision_no: number } | undefined;
   };
   const edit = async (path: string, markdown: string) => {
     const page = await pageOf(path);
-    const saved = await h.write(USERS.admin, "PUT", `documents/${page!.id}/content`, { markdown, expectedRevision: page!.current_revision_no });
+    const saved = await h.write(USERS.admin, "PUT", `documents/${page!.id}/content`, {
+      markdown,
+      expectedRevision: page!.current_revision_no
+    });
     expect(saved.error).toBeUndefined();
   };
   const notes = async () => {
     const { data } = await h.call(USERS.admin, "GET", `spaces/${space}/git-sync/runs`);
     return (data as { notes: { file: string; reason: string }[] }[]).flatMap(run => run.notes);
   };
-  const status = async () => (await h.call(USERS.admin, "GET", `spaces/${space}/git-sync`)).data.sync as { lastError: string | null; lastCommit: string | null; lastSuccessAt: string | null; hasToken: boolean; hookPath: string };
+  const status = async () =>
+    (await h.call(USERS.admin, "GET", `spaces/${space}/git-sync`)).data.sync as {
+      lastError: string | null;
+      lastCommit: string | null;
+      lastSuccessAt: string | null;
+      hasToken: boolean;
+      hookPath: string;
+    };
 
   beforeAll(async () => {
     await resetPandocs(fixture.getConnectionString());
-    h = createHarness(fixture.getConnectionString(), { git: { head: remote => repo.head(remote), open: remote => repo.open(remote) } });
+    h = createHarness(fixture.getConnectionString(), {
+      git: { head: remote => repo.head(remote), open: remote => repo.open(remote) }
+    });
   });
   beforeEach(async () => {
     repo = new FakeRepository();
@@ -84,7 +108,9 @@ describe("keeping a space and a repository the same", () => {
     it("keeps a token when the address stays, and drops it when the address changes, so that it cannot be sent somewhere else", async () => {
       await connect();
       expect((await connect({ token: undefined, branch: "docs" })).data.hasToken).toBe(true);
-      expect((await connect({ token: undefined, repository: "https://evil.example.com/collect.git" })).data.hasToken).toBe(false);
+      expect(
+        (await connect({ token: undefined, repository: "https://evil.example.com/collect.git" })).data.hasToken
+      ).toBe(false);
       await sync();
       expect(repo.remotes.at(-1)).toMatchObject({ repository: "https://evil.example.com/collect.git", token: "" });
     });
@@ -174,9 +200,14 @@ describe("keeping a space and a repository the same", () => {
       await connect();
       repo.commit({ "a.md": "# A\n\nFrom Git.\n", "b.md": "# B\n\nFrom Git too.\n" });
       // As if this run had stalled past its lease and another replica had started over meanwhile.
-      repo.onRead = async () => void await h.pool.query(`UPDATE pandocs.git_syncs SET lease_owner = gen_random_uuid()`);
+      repo.onRead = async () =>
+        void (await h.pool.query(`UPDATE pandocs.git_syncs SET lease_owner = gen_random_uuid()`));
       await sync();
-      const { rows: [state] } = await h.pool.query(`SELECT consecutive_failures, last_error, (SELECT count(*) FROM pandocs.git_sync_files f WHERE f.sync_id = s.id)::int AS remembered FROM pandocs.git_syncs s`);
+      const {
+        rows: [state]
+      } = await h.pool.query(
+        `SELECT consecutive_failures, last_error, (SELECT count(*) FROM pandocs.git_sync_files f WHERE f.sync_id = s.id)::int AS remembered FROM pandocs.git_syncs s`
+      );
       expect(state).toEqual({ consecutive_failures: 0, last_error: null, remembered: 0 });
       expect(repo.pushes).toEqual([]);
       expect(Object.keys(await pages()).length).toBeLessThanOrEqual(1);
@@ -215,12 +246,17 @@ describe("keeping a space and a repository the same", () => {
       await sync();
       await h.pool.query(`UPDATE pandocs.git_syncs SET due_at = now() + interval '1 hour'`);
       await edit("guide", "Two\n");
-      const { rows } = await h.pool.query<{ soon: boolean }>(`SELECT due_at < now() + interval '6 seconds' AS soon FROM pandocs.git_syncs`);
+      const { rows } = await h.pool.query<{ soon: boolean }>(
+        `SELECT due_at < now() + interval '6 seconds' AS soon FROM pandocs.git_syncs`
+      );
       expect(rows[0]!.soon).toBe(true);
     });
 
     it("sends pictures with the pages, linked so that they work in the repository too", async () => {
-      const asset = (await h.call(USERS.admin, "POST", `spaces/${space}/assets?filename=a.png`, PNG)).data as { path: string; sha256: string };
+      const asset = (await h.call(USERS.admin, "POST", `spaces/${space}/assets?filename=a.png`, PNG)).data as {
+        path: string;
+        sha256: string;
+      };
       await create("top", `![a](${asset.path})\n`);
       await create("deep", "");
       await create("deep/down", `![a](${asset.path})\n`);
@@ -296,7 +332,10 @@ describe("keeping a space and a repository the same", () => {
       await sync();
       expect((await pages()).guide).toBe("Two\n");
       const page = await pageOf("guide");
-      const { rows } = await h.pool.query(`SELECT actor_name, channel, message FROM pandocs.revisions WHERE document_id = $1 AND no = $2`, [page!.id, page!.current_revision_no]);
+      const { rows } = await h.pool.query(
+        `SELECT actor_name, channel, message FROM pandocs.revisions WHERE document_id = $1 AND no = $2`,
+        [page!.id, page!.current_revision_no]
+      );
       expect(rows[0]).toMatchObject({ channel: "git", message: "Fix the guide" });
       expect(rows[0].actor_name).toContain("Grace");
       expect(repo.pushes).toHaveLength(pushes);
@@ -322,7 +361,7 @@ describe("keeping a space and a repository the same", () => {
       repo.commit({
         "plain.md": "No heading here\n",
         "headed.md": "```sh\n# not this\n```\n\n# The heading\n",
-        "matter.md": "---\ntitle: \"From front matter\"\n---\n\n# Not this\n",
+        "matter.md": '---\ntitle: "From front matter"\n---\n\n# Not this\n',
         "a/b/c.md": "Deep\n"
       });
       await sync();
@@ -410,9 +449,15 @@ describe("keeping a space and a repository the same", () => {
       await connect();
       await sync();
       const { id } = (await pageOf("old"))!;
-      repo.commit({ "old.md": null, "guides/new.md": base.replace("Third paragraph.", "Third paragraph, edited.") }, "Move and improve");
+      repo.commit(
+        { "old.md": null, "guides/new.md": base.replace("Third paragraph.", "Third paragraph, edited.") },
+        "Move and improve"
+      );
       await sync();
-      expect(await pages()).toEqual({ guides: "", "guides/new": "# Guide\n\nFirst paragraph.\n\nSecond paragraph.\n\nThird paragraph, edited.\n" });
+      expect(await pages()).toEqual({
+        guides: "",
+        "guides/new": "# Guide\n\nFirst paragraph.\n\nSecond paragraph.\n\nThird paragraph, edited.\n"
+      });
       const page = (await pageOf("guides/new"))!;
       expect(page.id).toBe(id);
       expect(page.current_revision_no).toBe(2);
@@ -454,7 +499,9 @@ describe("keeping a space and a repository the same", () => {
       repo.commit({ "a.md": null, "a/x.md": null, "a/y.md": null, "b.md": "Top\n", "b/x.md": "X\n", "b/y.md": "Y\n" });
       await sync();
       expect(Object.keys(await pages())).toEqual(["b", "b/x", "b/y"]);
-      expect({ a: (await pageOf("b"))!.id, x: (await pageOf("b/x"))!.id, y: (await pageOf("b/y"))!.id }).toEqual(before);
+      expect({ a: (await pageOf("b"))!.id, x: (await pageOf("b/x"))!.id, y: (await pageOf("b/y"))!.id }).toEqual(
+        before
+      );
       expect(repo.paths).toEqual([".pandocs/pages.json", "b.md", "b/x.md", "b/y.md"]);
     });
 
@@ -545,7 +592,10 @@ describe("keeping a space and a repository the same", () => {
       const page = (await pageOf("guide"))!;
       expect(page.title).toBe("Renamed there");
       expect(page.sort_order).toBe(5000);
-      const { rows } = await h.pool.query(`SELECT label FROM pandocs.document_labels WHERE document_id = $1 ORDER BY label`, [page.id]);
+      const { rows } = await h.pool.query(
+        `SELECT label FROM pandocs.document_labels WHERE document_id = $1 ORDER BY label`,
+        [page.id]
+      );
       expect(rows.map(row => row.label)).toEqual(["alpha", "beta"]);
       // It goes back in the form this side writes it, and a later rename here is not undone by an older file.
       await h.call(USERS.admin, "PATCH", `documents/${page.id}`, { title: "Renamed here" });
@@ -568,13 +618,21 @@ describe("keeping a space and a repository the same", () => {
       expect((await status()).lastError).toBeNull();
       repo.commit({ ".pandocs/pages.json": JSON.stringify({ pages: { guide: { restricted: true, title: "T" } } }) });
       await sync();
-      const { rows } = await h.pool.query(`SELECT restricted, title FROM pandocs.documents WHERE path = 'guide' AND space_id = (SELECT id FROM pandocs.spaces WHERE slug = $1)`, [space]);
+      const { rows } = await h.pool.query(
+        `SELECT restricted, title FROM pandocs.documents WHERE path = 'guide' AND space_id = (SELECT id FROM pandocs.spaces WHERE slug = $1)`,
+        [space]
+      );
       expect(rows[0]).toEqual({ restricted: false, title: "T" });
     });
 
     it("stores pictures a file points to by its own path, and does not rewrite the file for it", async () => {
       await connect();
-      repo.commit({ "docs/images/a b.png": PNG, "docs/guide.md": "![a](images/a%20b.png)\n\n```md\n![not this](images/none.png)\n```\n\n![up](../logo.png \"Logo\")\n", "logo.png": PNG });
+      repo.commit({
+        "docs/images/a b.png": PNG,
+        "docs/guide.md":
+          '![a](images/a%20b.png)\n\n```md\n![not this](images/none.png)\n```\n\n![up](../logo.png "Logo")\n',
+        "logo.png": PNG
+      });
       await connect({ folder: "docs" });
       await sync();
       const sha = createHash("sha256").update(PNG).digest("hex");
@@ -607,7 +665,13 @@ describe("keeping a space and a repository the same", () => {
       expect(found).toEqual(["broken", "good", "missing"]);
       expect((await pages()).missing).toBe("![a](not-there.png)\n");
       const said = await notes();
-      expect(said.map(note => note.file).sort()).toEqual(["bad name.md", "binary.md", "broken.md", "huge.md", "missing.md"]);
+      expect(said.map(note => note.file).sort()).toEqual([
+        "bad name.md",
+        "binary.md",
+        "broken.md",
+        "huge.md",
+        "missing.md"
+      ]);
       expect((await status()).lastError).toBeNull();
     });
 
@@ -624,7 +688,13 @@ describe("keeping a space and a repository the same", () => {
 
     it("has no interest in tooling folders or anything that is not Markdown", async () => {
       await connect();
-      repo.commit({ ".github/CONTRIBUTING.md": "x\n", "notes.txt": "x\n", "page.mdx": "x\n", "page.MD": "x\n", "real.md": "Real\n" });
+      repo.commit({
+        ".github/CONTRIBUTING.md": "x\n",
+        "notes.txt": "x\n",
+        "page.mdx": "x\n",
+        "page.MD": "x\n",
+        "real.md": "Real\n"
+      });
       await sync();
       expect(Object.keys(await pages())).toEqual(["real"]);
       expect(await notes()).toEqual([]);
@@ -648,7 +718,11 @@ describe("keeping a space and a repository the same", () => {
       repo.commit({ "both.md": "Repository\n", "repository-only.md": "Repository only\n" });
       await connect({ firstSource: "space" });
       await sync();
-      expect(await pages()).toEqual({ both: "Space\n", "repository-only": "Repository only\n", "space-only": "Space only\n" });
+      expect(await pages()).toEqual({
+        both: "Space\n",
+        "repository-only": "Repository only\n",
+        "space-only": "Space only\n"
+      });
       expect(repo.read("both.md")).toBe("Space\n");
       expect(repo.read("space-only.md")).toBe("Space only\n");
       expect(await notes()).toEqual([]);
@@ -660,7 +734,11 @@ describe("keeping a space and a repository the same", () => {
       repo.commit({ "both.md": "Repository\n", "repository-only.md": "Repository only\n" });
       await connect({ firstSource: "repository" });
       await sync();
-      expect(await pages()).toEqual({ both: "Repository\n", "repository-only": "Repository only\n", "space-only": "Space only\n" });
+      expect(await pages()).toEqual({
+        both: "Repository\n",
+        "repository-only": "Repository only\n",
+        "space-only": "Space only\n"
+      });
       expect(repo.read("both.md")).toBe("Repository\n");
       expect(repo.read("space-only.md")).toBe("Space only\n");
     });
@@ -723,11 +801,21 @@ describe("keeping a space and a repository the same", () => {
   });
 
   describe("a space where everything goes through review", () => {
-    const protect = () => h.call(USERS.admin, "PATCH", `spaces/${space}`, { mergeRules: { requiredApprovals: 1, requireChangeSets: true } });
-    const openSets = async () => (await h.call(USERS.admin, "GET", `spaces/${space}/change-sets?status=open`)).data as { id: string; title: string; authorName: string }[];
+    const protect = () =>
+      h.call(USERS.admin, "PATCH", `spaces/${space}`, {
+        mergeRules: { requiredApprovals: 1, requireChangeSets: true }
+      });
+    const openSets = async () =>
+      (await h.call(USERS.admin, "GET", `spaces/${space}/change-sets?status=open`)).data as {
+        id: string;
+        title: string;
+        authorName: string;
+      }[];
     const mergeAll = async () => {
       const [changeSet] = await openSets();
-      const reviewed = await h.call(USERS.editor, "POST", `change-sets/${changeSet!.id}/reviews`, { verdict: "approved" });
+      const reviewed = await h.call(USERS.editor, "POST", `change-sets/${changeSet!.id}/reviews`, {
+        verdict: "approved"
+      });
       expect(reviewed.error).toBeUndefined();
       const merged = await h.write(USERS.admin, "POST", `change-sets/${changeSet!.id}/merge`, {});
       expect(merged.error).toBeUndefined();
@@ -787,7 +875,11 @@ describe("keeping a space and a repository the same", () => {
       const page = (await pageOf("guide"))!;
       const [changeSet] = await openSets();
       const mine = await h.call(USERS.admin, "POST", `spaces/${space}/change-sets`, { title: "Mine" });
-      await h.call(USERS.admin, "POST", `change-sets/${mine.data.id}/pages`, { document: page.id, baseRevision: page.current_revision_no, markdown: "First.\n\nSecond from here.\n" });
+      await h.call(USERS.admin, "POST", `change-sets/${mine.data.id}/pages`, {
+        document: page.id,
+        baseRevision: page.current_revision_no,
+        markdown: "First.\n\nSecond from here.\n"
+      });
       await h.call(USERS.editor, "POST", `change-sets/${mine.data.id}/reviews`, { verdict: "approved" });
       expect((await h.write(USERS.admin, "POST", `change-sets/${mine.data.id}/merge`, {})).error).toBeUndefined();
       await h.call(USERS.editor, "POST", `change-sets/${changeSet!.id}/reviews`, { verdict: "approved" });
@@ -849,7 +941,12 @@ describe("keeping a space and a repository the same", () => {
       await connect();
       repo.failure = new Error("could not resolve host");
       await sync();
-      const waits = async () => (await h.pool.query<{ wait: number }>(`SELECT extract(epoch FROM due_at - now())::int AS wait FROM pandocs.git_syncs`)).rows[0]!.wait;
+      const waits = async () =>
+        (
+          await h.pool.query<{ wait: number }>(
+            `SELECT extract(epoch FROM due_at - now())::int AS wait FROM pandocs.git_syncs`
+          )
+        ).rows[0]!.wait;
       expect((await status()).lastError).toContain("could not resolve host");
       const first = await waits();
       await sync();
@@ -928,7 +1025,9 @@ describe("keeping a space and a repository the same", () => {
 
     it("picks up a job left behind by a worker that died", async () => {
       await connect();
-      await h.pool.query(`UPDATE pandocs.git_syncs SET due_at = now(), lease_owner = 'gone', lease_until = now() + interval '1 hour'`);
+      await h.pool.query(
+        `UPDATE pandocs.git_syncs SET due_at = now(), lease_owner = 'gone', lease_until = now() + interval '1 hour'`
+      );
       expect(await h.services.gitSync.tick()).toBe(false);
       await h.pool.query(`UPDATE pandocs.git_syncs SET lease_until = now() - interval '1 second'`);
       expect(await h.services.gitSync.tick()).toBe(true);
@@ -938,8 +1037,13 @@ describe("keeping a space and a repository the same", () => {
       await create("guide", "One\n");
       await connect();
       await sync();
-      const { rows: [row] } = await h.pool.query(`SELECT id FROM pandocs.git_syncs`);
-      await h.pool.query(`INSERT INTO pandocs.git_sync_runs (sync_id, started_at, pushed) SELECT $1, now() - make_interval(hours => n), 1 FROM generate_series(1, 60) AS n`, [row.id]);
+      const {
+        rows: [row]
+      } = await h.pool.query(`SELECT id FROM pandocs.git_syncs`);
+      await h.pool.query(
+        `INSERT INTO pandocs.git_sync_runs (sync_id, started_at, pushed) SELECT $1, now() - make_interval(hours => n), 1 FROM generate_series(1, 60) AS n`,
+        [row.id]
+      );
       repo.commit({ "guide.md": "Two\n" });
       await sync();
       const { rows } = await h.pool.query(`SELECT count(*)::int AS count FROM pandocs.git_sync_runs`);
@@ -954,10 +1058,14 @@ describe("keeping a space and a repository the same", () => {
       const token = (await status()).hookPath.split("/").pop()!;
       await h.pool.query(`UPDATE pandocs.git_syncs SET due_at = now() + interval '1 hour'`);
       expect(await h.services.gitSync.hook("wrong")).toBe(false);
-      const { rows: before } = await h.pool.query<{ due: boolean }>(`SELECT due_at <= now() AS due FROM pandocs.git_syncs`);
+      const { rows: before } = await h.pool.query<{ due: boolean }>(
+        `SELECT due_at <= now() AS due FROM pandocs.git_syncs`
+      );
       expect(before[0]!.due).toBe(false);
       expect(await h.services.gitSync.hook(token)).toBe(true);
-      const { rows: after } = await h.pool.query<{ due: boolean }>(`SELECT due_at <= now() AS due FROM pandocs.git_syncs`);
+      const { rows: after } = await h.pool.query<{ due: boolean }>(
+        `SELECT due_at <= now() AS due FROM pandocs.git_syncs`
+      );
       expect(after[0]!.due).toBe(true);
     });
 

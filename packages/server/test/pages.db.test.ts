@@ -14,7 +14,11 @@ describe("what the server answers outside the API", () => {
     server = await startServer(postgres.getConnectionString());
     admin = await signInFirstAdmin(server);
     await admin.json("POST", "/api/v1/spaces", { slug: "handbook", name: "手册", defaultRole: "viewer" });
-    await admin.json("POST", "/api/v1/spaces/handbook/documents", { title: "入门", slug: "start", markdown: "第一段。\n" });
+    await admin.json("POST", "/api/v1/spaces/handbook/documents", {
+      title: "入门",
+      slug: "start",
+      markdown: "第一段。\n"
+    });
   });
   afterAll(() => server.close());
 
@@ -49,10 +53,18 @@ describe("what the server answers outside the API", () => {
   });
 
   it("gives a page written with front matter as a title and its text, without the settings or the title twice", async () => {
-    await admin.json("POST", "/api/v1/spaces/handbook/documents", { title: "指南", slug: "with-settings", markdown: "---\ntitle: 指南\n---\n\n# 指南\n\n正文。\n" });
+    await admin.json("POST", "/api/v1/spaces/handbook/documents", {
+      title: "指南",
+      slug: "with-settings",
+      markdown: "---\ntitle: 指南\n---\n\n# 指南\n\n正文。\n"
+    });
     expect(await (await admin.request("/handbook/with-settings.md")).text()).toMatch(/\n\n# 指南\n\n正文。\n$/u);
     expect(await (await admin.request("/handbook/with-settings.md")).text()).not.toContain("title: 指南");
-    await admin.json("POST", "/api/v1/spaces/handbook/documents", { title: "说明", slug: "settings-only", markdown: "---\noutline: false\n---\n\n正文。\n" });
+    await admin.json("POST", "/api/v1/spaces/handbook/documents", {
+      title: "说明",
+      slug: "settings-only",
+      markdown: "---\noutline: false\n---\n\n正文。\n"
+    });
     expect(await (await admin.request("/handbook/settings-only.md")).text()).toMatch(/\n\n# 说明\n\n正文。\n$/u);
   });
 
@@ -63,27 +75,45 @@ describe("what the server answers outside the API", () => {
     const markdown = await admin.request("/handbook/start.md");
     expect(markdown.headers.get("content-type")).toContain("text/markdown");
     const text = await markdown.text();
-    expect(text.startsWith(`> For the complete documentation index, see [llms.txt](${PUBLIC_URL}/llms.txt).\n`)).toBe(true);
-    expect(text).toMatch(/^> Something wrong on this page\? POST .* to http:\/\/pandocs\.test\/api\/v1\/documents\/[0-9a-f-]+\/feedback\.$/mu);
+    expect(text.startsWith(`> For the complete documentation index, see [llms.txt](${PUBLIC_URL}/llms.txt).\n`)).toBe(
+      true
+    );
+    expect(text).toMatch(
+      /^> Something wrong on this page\? POST .* to http:\/\/pandocs\.test\/api\/v1\/documents\/[0-9a-f-]+\/feedback\.$/mu
+    );
     expect(text.endsWith("\n\n# 入门\n\n第一段。\n")).toBe(true);
     const { token } = (await admin.json("POST", "/api/v1/account/tokens", { name: "读", scopes: ["read"] })).data;
     const auth = { headers: { authorization: `Bearer ${token}` } };
-    expect(await (await visitor.request("/handbook/llms.txt", auth)).text()).toContain(`[入门](${PUBLIC_URL}/handbook/start.md)`);
+    expect(await (await visitor.request("/handbook/llms.txt", auth)).text()).toContain(
+      `[入门](${PUBLIC_URL}/handbook/start.md)`
+    );
     expect(await (await visitor.request("/llms-full.txt", auth)).text()).toContain("第一段。");
     expect((await visitor.request("/no-such-space/llms.txt", auth)).status).toBe(404);
   });
 
   it("gives someone copying a page from the site the page and nothing else", async () => {
-    const copied = await admin.request("/handbook/start.md", { headers: { host: "pandocs.test", referer: `${PUBLIC_URL}/handbook/start` } });
+    const copied = await admin.request("/handbook/start.md", {
+      headers: { host: "pandocs.test", referer: `${PUBLIC_URL}/handbook/start` }
+    });
     expect(await copied.text()).toBe("# 入门\n\n第一段。\n");
-    const elsewhere = await admin.request("/handbook/start.md", { headers: { host: "pandocs.test", referer: "https://somewhere.example/" } });
+    const elsewhere = await admin.request("/handbook/start.md", {
+      headers: { host: "pandocs.test", referer: "https://somewhere.example/" }
+    });
     expect(await elsewhere.text()).toContain("llms.txt");
   });
 
   it("gives what reads a page's Markdown links that work wherever it ends up", async () => {
-    const { data } = await admin.json("POST", "/api/v1/spaces/handbook/documents", { title: "Links", slug: "links", markdown: "See [the start](./start.md).\n" });
-    expect(await (await admin.request("/handbook/links.md")).text()).toContain(`[the start](${PUBLIC_URL}/handbook/start.md)`);
-    const copied = await admin.request("/handbook/links.md", { headers: { host: "pandocs.test", referer: `${PUBLIC_URL}/handbook/links` } });
+    const { data } = await admin.json("POST", "/api/v1/spaces/handbook/documents", {
+      title: "Links",
+      slug: "links",
+      markdown: "See [the start](./start.md).\n"
+    });
+    expect(await (await admin.request("/handbook/links.md")).text()).toContain(
+      `[the start](${PUBLIC_URL}/handbook/start.md)`
+    );
+    const copied = await admin.request("/handbook/links.md", {
+      headers: { host: "pandocs.test", referer: `${PUBLIC_URL}/handbook/links` }
+    });
     expect(await copied.text()).toContain("[the start](./start.md)");
     await admin.json("DELETE", `/api/v1/documents/${data.document.id as string}`);
   });
@@ -93,8 +123,21 @@ describe("what the server answers outside the API", () => {
       const response = await admin.request("/handbook/start", { headers: { accept } });
       return { type: response.headers.get("content-type"), vary: response.headers.get("vary") };
     };
-    for (const accept of ["text/markdown", "text/markdown, text/html, */*", "text/html;q=0.5, text/markdown"]) expect(await asked(accept)).toEqual({ type: "text/markdown; charset=utf-8", vary: expect.stringContaining("Accept") });
-    for (const accept of ["text/html,application/xhtml+xml,*/*;q=0.8", "text/html, text/markdown", "*/*", "text/markdown;q=0"]) expect(await asked(accept)).toEqual({ type: "text/html; charset=utf-8", vary: expect.stringContaining("Accept") });
+    for (const accept of ["text/markdown", "text/markdown, text/html, */*", "text/html;q=0.5, text/markdown"])
+      expect(await asked(accept)).toEqual({
+        type: "text/markdown; charset=utf-8",
+        vary: expect.stringContaining("Accept")
+      });
+    for (const accept of [
+      "text/html,application/xhtml+xml,*/*;q=0.8",
+      "text/html, text/markdown",
+      "*/*",
+      "text/markdown;q=0"
+    ])
+      expect(await asked(accept)).toEqual({
+        type: "text/html; charset=utf-8",
+        vary: expect.stringContaining("Accept")
+      });
     const refused = await server.client().request("/handbook/start", { headers: { accept: "text/markdown" } });
     expect(refused.status).toBe(401);
   });
@@ -111,19 +154,38 @@ describe("what the server answers outside the API", () => {
   });
 
   it("has the llms.txt files of a language under that language", async () => {
-    const { data: created } = await admin.json("POST", "/api/v1/spaces/handbook/documents", { title: "附录", slug: "appendix", markdown: "原文。\n" });
-    await admin.json("PATCH", "/api/v1/site", { defaultLang: "zh", locales: [{ lang: "zh", label: "简体中文" }, { lang: "en", label: "English" }] });
-    await admin.json("PUT", `/api/v1/documents/${created.document.id as string}/translations/en`, { title: "Appendix", markdown: "The original.\n", sourceRevision: 1, machine: false });
+    const { data: created } = await admin.json("POST", "/api/v1/spaces/handbook/documents", {
+      title: "附录",
+      slug: "appendix",
+      markdown: "原文。\n"
+    });
+    await admin.json("PATCH", "/api/v1/site", {
+      defaultLang: "zh",
+      locales: [
+        { lang: "zh", label: "简体中文" },
+        { lang: "en", label: "English" }
+      ]
+    });
+    await admin.json("PUT", `/api/v1/documents/${created.document.id as string}/translations/en`, {
+      title: "Appendix",
+      markdown: "The original.\n",
+      sourceRevision: 1,
+      machine: false
+    });
     const index = await (await admin.request("/en/llms.txt")).text();
     expect(index).toContain(`[Appendix](${PUBLIC_URL}/en/handbook/appendix.md)`);
     expect(index).toContain(`[入门](${PUBLIC_URL}/en/handbook/start.md)`);
-    expect(await (await admin.request("/en/handbook/llms.txt")).text()).toContain(`[Appendix](${PUBLIC_URL}/en/handbook/appendix.md)`);
+    expect(await (await admin.request("/en/handbook/llms.txt")).text()).toContain(
+      `[Appendix](${PUBLIC_URL}/en/handbook/appendix.md)`
+    );
     const full = await (await admin.request("/en/llms-full.txt")).text();
     expect(full).toContain("The original.");
     expect(full).not.toContain("原文。");
     expect(full).toContain("第一段。");
     expect((await admin.request("/handbook/extra/llms.txt")).status).toBe(404);
-    expect(await (await admin.request("/en/handbook/appendix.md")).text()).toContain(`[llms.txt](${PUBLIC_URL}/en/llms.txt)`);
+    expect(await (await admin.request("/en/handbook/appendix.md")).text()).toContain(
+      `[llms.txt](${PUBLIC_URL}/en/llms.txt)`
+    );
     await admin.json("DELETE", `/api/v1/documents/${created.document.id as string}`);
     await admin.json("PATCH", "/api/v1/site", { defaultLang: "zh", locales: [{ lang: "zh", label: "简体中文" }] });
   });
@@ -134,7 +196,15 @@ describe("what the server answers outside the API", () => {
     expect(robots.status).toBe(200);
     expect(await robots.text()).toBe("User-agent: *\nDisallow: /\n");
     expect((await visitor.request("/sitemap.xml")).status).toBe(404);
-    expect((await visitor.request("/mcp/public", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).status).toBe(404);
+    expect(
+      (
+        await visitor.request("/mcp/public", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}"
+        })
+      ).status
+    ).toBe(404);
   });
 
   it("answers health checks without a login", async () => {
@@ -163,12 +233,22 @@ describe("what the server answers outside the API", () => {
   });
 
   it("gives an agent reading a page where to find its API description", async () => {
-    const upload = await admin.request("/api/v1/spaces/handbook/assets?filename=api.yaml", { method: "POST", headers: { "content-type": "application/yaml" }, body: "openapi: 3.1.0\n" });
-    const { path } = (await upload.json() as { data: { path: string } }).data;
+    const upload = await admin.request("/api/v1/spaces/handbook/assets?filename=api.yaml", {
+      method: "POST",
+      headers: { "content-type": "application/yaml" },
+      body: "openapi: 3.1.0\n"
+    });
+    const { path } = ((await upload.json()) as { data: { path: string } }).data;
     expect(path).toMatch(/^assets\/[a-f0-9]{64}\./u);
-    await admin.json("POST", "/api/v1/spaces/handbook/documents", { title: "接口", slug: "api-page", markdown: `::openapi{src="${path}"}\n` });
+    await admin.json("POST", "/api/v1/spaces/handbook/documents", {
+      title: "接口",
+      slug: "api-page",
+      markdown: `::openapi{src="${path}"}\n`
+    });
     const markdown = await admin.request("/handbook/api-page.md", { headers: { authorization: "" } });
-    expect(await markdown.text()).toMatch(new RegExp(`::openapi\\{src="${PUBLIC_URL}/api/v1/spaces/handbook/assets/[a-f0-9]{64}"\\}`, "u"));
+    expect(await markdown.text()).toMatch(
+      new RegExp(`::openapi\\{src="${PUBLIC_URL}/api/v1/spaces/handbook/assets/[a-f0-9]{64}"\\}`, "u")
+    );
   });
 
   it("has the site's own stylesheet there before anyone signs in", async () => {

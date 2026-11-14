@@ -37,7 +37,9 @@ function showFailure(container: HTMLElement, error: unknown): void {
   const notice = document.createElement("div");
   notice.className = "pd-notice";
   const title = document.createElement("h1");
-  title.textContent = denied ? t("You do not have access to these documents") : t("The documents cannot be opened right now");
+  title.textContent = denied
+    ? t("You do not have access to these documents")
+    : t("The documents cannot be opened right now");
   const detail = document.createElement("p");
   detail.textContent = denied ? t("Ask an administrator for access.") : t("Refresh the page in a moment.");
   notice.append(title, detail);
@@ -46,7 +48,7 @@ function showFailure(container: HTMLElement, error: unknown): void {
 
 function renderedState(): RenderedState | null {
   const content = document.getElementById(STATE_ELEMENT_ID)?.textContent;
-  return content ? JSON.parse(content) as RenderedState : null;
+  return content ? (JSON.parse(content) as RenderedState) : null;
 }
 
 async function start(): Promise<void> {

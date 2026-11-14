@@ -7,7 +7,11 @@ const RECONNECT_MS = 2000;
  * Only replicas with that draft open hear about it. What goes through here is only ever a shortcut: everything is also
  * written to the database, where a replica that missed something finds it.
  */
-export function createLiveRelay(deps: { readonly connectionString: string; readonly publish: (channel: string, payload: string) => Promise<unknown>; readonly onReconnect: () => void }) {
+export function createLiveRelay(deps: {
+  readonly connectionString: string;
+  readonly publish: (channel: string, payload: string) => Promise<unknown>;
+  readonly onReconnect: () => void;
+}) {
   const handlers = new Map<string, (payload: string) => void>();
   let client: pg.Client | null = null;
   let connecting: Promise<void> | null = null;

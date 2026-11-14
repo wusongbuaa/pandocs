@@ -9,7 +9,10 @@ import { launchBrowser, pandocsDescribe } from "./fixture.js";
 
 const postgres = usePostgresFixture();
 const ROOT = resolve(import.meta.dirname, "../..");
-const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64"
+);
 
 /** A browser with no cookies, on the real server. */
 pandocsDescribe("reading a public space with no login", () => {
@@ -26,11 +29,13 @@ pandocsDescribe("reading a public space with no login", () => {
     const page = await context.newPage();
     page.on("pageerror", error => problems.push(error.message));
     page.on("console", message => {
-      if (message.type() === "error" && !message.text().includes("favicon") && !message.text().includes("401")) problems.push(message.text());
+      if (message.type() === "error" && !message.text().includes("favicon") && !message.text().includes("401"))
+        problems.push(message.text());
     });
     // A page that keeps asking for what a visitor cannot have is broken, even if nothing shows it.
     page.on("response", response => {
-      if (response.url().includes("/api/") && response.status() >= 400) refused.push(`${response.status()} ${new URL(response.url()).pathname}`);
+      if (response.url().includes("/api/") && response.status() >= 400)
+        refused.push(`${response.status()} ${new URL(response.url()).pathname}`);
     });
     await page.goto(`${origin}${path}`);
     return page;
@@ -50,12 +55,34 @@ pandocsDescribe("reading a public space with no login", () => {
     http.on("upgrade", server.runtime.live.handleUpgrade);
     await admin.json("POST", "/api/v1/spaces", { slug: "shop", name: "书店", defaultRole: "none" });
     await admin.json("POST", "/api/v1/spaces", { slug: "inside", name: "内部", defaultRole: "none" });
-    const upload = await admin.request("/api/v1/spaces/shop/assets?filename=a.png", { method: "POST", headers: { "content-type": "image/png" }, body: PNG });
+    const upload = await admin.request("/api/v1/spaces/shop/assets?filename=a.png", {
+      method: "POST",
+      headers: { "content-type": "image/png" },
+      body: PNG
+    });
     const image = ((await upload.json()) as { data: { path: string } }).data.path;
-    const { id } = (await admin.json("POST", "/api/v1/spaces/shop/documents", { title: "退货流程", slug: "returns", markdown: `# 退货流程\n\n七天内可以退货。\n\n![示意图](${image})\n\n## 怎么退\n\n到店办理。\n` })).data.document;
-    await admin.json("POST", "/api/v1/spaces/shop/documents", { title: "进货价", slug: "cost", markdown: "保密内容\n", restricted: true });
-    await admin.json("POST", "/api/v1/spaces/inside/documents", { title: "内部", slug: "note", markdown: "只给同事看\n" });
-    await admin.json("POST", `/api/v1/documents/${id}/threads`, { anchor: { kind: "quote", quote: "七天" }, body: "内部讨论的内容" });
+    const { id } = (
+      await admin.json("POST", "/api/v1/spaces/shop/documents", {
+        title: "退货流程",
+        slug: "returns",
+        markdown: `# 退货流程\n\n七天内可以退货。\n\n![示意图](${image})\n\n## 怎么退\n\n到店办理。\n`
+      })
+    ).data.document;
+    await admin.json("POST", "/api/v1/spaces/shop/documents", {
+      title: "进货价",
+      slug: "cost",
+      markdown: "保密内容\n",
+      restricted: true
+    });
+    await admin.json("POST", "/api/v1/spaces/inside/documents", {
+      title: "内部",
+      slug: "note",
+      markdown: "只给同事看\n"
+    });
+    await admin.json("POST", `/api/v1/documents/${id}/threads`, {
+      anchor: { kind: "quote", quote: "七天" },
+      body: "内部讨论的内容"
+    });
     await admin.json("PATCH", "/api/v1/spaces/shop", { publicRead: true });
     browser = await launchBrowser();
   }, 240_000);
@@ -80,7 +107,8 @@ pandocsDescribe("reading a public space with no login", () => {
     const page = await open("/shop/returns");
     await browserExpect(page.getByText("七天内可以退货")).toBeVisible({ timeout: 20_000 });
     await browserExpect(page.getByRole("link", { name: "登录", exact: true })).toBeVisible();
-    for (const name of ["评论", "编辑", "历史", "关注"]) await browserExpect(page.getByRole("button", { name, exact: true })).toBeVisible();
+    for (const name of ["评论", "编辑", "历史", "关注"])
+      await browserExpect(page.getByRole("button", { name, exact: true })).toBeVisible();
     // Only the ways in: nothing of the discussion itself, and nothing only editors get.
     await browserExpect(page.getByRole("button", { name: "分享" })).toHaveCount(0);
     await browserExpect(page.getByText("内部讨论的内容")).toHaveCount(0);
@@ -121,7 +149,8 @@ pandocsDescribe("reading a public space with no login", () => {
     await page.mouse.up();
     const toolbar = page.getByRole("toolbar", { name: "选中文字的操作" });
     await browserExpect(toolbar).toBeVisible();
-    for (const name of ["建议修改", "智能辅助"]) await browserExpect(toolbar.getByRole("button", { name, exact: true })).toHaveCount(0);
+    for (const name of ["建议修改", "智能辅助"])
+      await browserExpect(toolbar.getByRole("button", { name, exact: true })).toHaveCount(0);
     await toolbar.getByRole("button", { name: "评论", exact: true }).click();
     await browserExpect(dialog.getByText("登录后可以评论选中的文字。")).toBeVisible();
     await page.context().close();
@@ -171,9 +200,13 @@ pandocsDescribe("reading a public space with no login", () => {
     const page = await open("/shop/returns");
     await browserExpect(page.getByText("七天内可以退货")).toBeVisible({ timeout: 20_000 });
     await browserExpect(page.getByRole("link", { name: "进货价" })).toHaveCount(0);
-    const answer = await page.evaluate(async () => (await fetch("/api/v1/search?q=%E9%80%80%E8%B4%A7")).json() as Promise<{ data: { title: string }[] }>);
+    const answer = await page.evaluate(
+      async () => (await fetch("/api/v1/search?q=%E9%80%80%E8%B4%A7")).json() as Promise<{ data: { title: string }[] }>
+    );
     expect(answer.data.map(hit => hit.title)).toEqual(["退货流程"]);
-    const hidden = await page.evaluate(async () => (await fetch("/api/v1/search?q=%E4%BF%9D%E5%AF%86")).json() as Promise<{ data: unknown[] }>);
+    const hidden = await page.evaluate(
+      async () => (await fetch("/api/v1/search?q=%E4%BF%9D%E5%AF%86")).json() as Promise<{ data: unknown[] }>
+    );
     expect(hidden.data).toEqual([]);
     refused.length = 0;
     await page.context().close();
@@ -217,7 +250,10 @@ pandocsDescribe("reading a public space with no login", () => {
     await page.goto(`${origin}/_/account`);
     await page.waitForURL(/\/login\?next=/u);
     const visitor = await open("/shop/returns");
-    await browserExpect(visitor.getByRole("link", { name: "登录", exact: true })).toHaveAttribute("href", "/login?next=%2Fshop%2Freturns");
+    await browserExpect(visitor.getByRole("link", { name: "登录", exact: true })).toHaveAttribute(
+      "href",
+      "/login?next=%2Fshop%2Freturns"
+    );
     await visitor.context().close();
     await context.close();
   }, 60_000);

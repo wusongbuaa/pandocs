@@ -25,7 +25,10 @@ function treeBuilder(title: string) {
   };
 }
 
-export function treeFromOutline(title: string, outline: readonly { readonly id: string; readonly text: string; readonly depth: number }[]): MindmapNode {
+export function treeFromOutline(
+  title: string,
+  outline: readonly { readonly id: string; readonly text: string; readonly depth: number }[]
+): MindmapNode {
   const tree = treeBuilder(title);
   for (const entry of outline) tree.heading(entry.depth, entry.text, entry.id);
   return tree.root;
@@ -46,7 +49,8 @@ export function treeFromMarkdown(source: string, title = ""): MindmapNode {
   for (const block of parseDocument(source).tree.children) {
     if (block.type === "heading") tree.heading(block.depth, inlineMarkdown(block).trim());
     else if (block.type === "list") addList(block, tree.current());
-    else if (block.type === "paragraph") tree.current().children.push({ text: inlineMarkdown(block).trim(), children: [] });
+    else if (block.type === "paragraph")
+      tree.current().children.push({ text: inlineMarkdown(block).trim(), children: [] });
   }
   return !title && tree.root.children.length === 1 ? tree.root.children[0]! : tree.root;
 }

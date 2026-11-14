@@ -26,7 +26,15 @@ pandocsDescribe("the first time anyone uses a site", () => {
     page.on("pageerror", error => problems.push(error.message));
     page.on("console", message => {
       // Firefox also notes every stream a page still had open when it is left.
-      if (message.type() === "error" && !message.text().includes("favicon") && !message.text().includes("404") && !message.text().includes("410") && !message.text().includes("401") && !message.text().includes("was interrupted while the page was loading")) problems.push(message.text());
+      if (
+        message.type() === "error" &&
+        !message.text().includes("favicon") &&
+        !message.text().includes("404") &&
+        !message.text().includes("410") &&
+        !message.text().includes("401") &&
+        !message.text().includes("was interrupted while the page was loading")
+      )
+        problems.push(message.text());
     });
     await page.goto(`${origin}${path}`);
     return page;
@@ -92,13 +100,19 @@ pandocsDescribe("the first time anyone uses a site", () => {
     await admin.goto(`${origin}/team-handbook/`);
     await browserExpect(admin.locator(".rp-home-background")).toBeAttached({ timeout: 15_000 });
     // A background on the root element stops the body's from reaching the canvas, and the body then paints over the gradient.
-    expect(await admin.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+    expect(await admin.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe(
+      "rgba(0, 0, 0, 0)"
+    );
     expect(await admin.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(255, 255, 255)");
   });
 
   it("opens the new page dialog from the front page of an empty space, and says what an empty page is for", async () => {
     await admin.evaluate(async () => {
-      await fetch("/api/v1/spaces", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ slug: "empty", name: "空的", defaultRole: "viewer" }) });
+      await fetch("/api/v1/spaces", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ slug: "empty", name: "空的", defaultRole: "viewer" })
+      });
     });
     await admin.goto(`${origin}/empty/`);
     await admin.getByRole("link", { name: "新建文档" }).click();
@@ -108,7 +122,11 @@ pandocsDescribe("the first time anyone uses a site", () => {
     await dialog.getByRole("button", { name: "取消" }).click();
 
     await admin.evaluate(async () => {
-      await fetch("/api/v1/spaces/team-handbook/documents", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Blank", slug: "blank", markdown: "" }) });
+      await fetch("/api/v1/spaces/team-handbook/documents", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: "Blank", slug: "blank", markdown: "" })
+      });
     });
     await admin.goto(`${origin}/team-handbook/blank`);
     await browserExpect(admin.getByText("这个页面还是空的")).toBeVisible({ timeout: 15_000 });
@@ -126,7 +144,9 @@ pandocsDescribe("the first time anyone uses a site", () => {
     await dialog.getByRole("button", { name: "添加", exact: true }).click();
 
     const linkDialog = admin.getByRole("dialog");
-    await browserExpect(linkDialog.getByRole("heading", { name: "把这个链接发给 Bob" })).toBeVisible({ timeout: 15_000 });
+    await browserExpect(linkDialog.getByRole("heading", { name: "把这个链接发给 Bob" })).toBeVisible({
+      timeout: 15_000
+    });
     const link = (await linkDialog.locator(".pd-token").textContent())!;
     expect(link).toContain("/set-password/");
     await linkDialog.getByRole("button", { name: "完成" }).click();
@@ -164,9 +184,17 @@ pandocsDescribe("the first time anyone uses a site", () => {
 
   it("offers no AI on a site with no model, and shows what is waiting for someone", async () => {
     const id = await admin.evaluate(async () => {
-      const made = await fetch("/api/v1/spaces/team-handbook/documents", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Reviewed", slug: "reviewed", markdown: "Words to change.\n" }) });
-      const { data } = await made.json() as { data: { document: { id: string } } };
-      await fetch(`/api/v1/documents/${data.document.id}/proposals`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ baseRevision: 1, ops: [{ op: "str_replace", pattern: "change", content: "keep" }] }) });
+      const made = await fetch("/api/v1/spaces/team-handbook/documents", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: "Reviewed", slug: "reviewed", markdown: "Words to change.\n" })
+      });
+      const { data } = (await made.json()) as { data: { document: { id: string } } };
+      await fetch(`/api/v1/documents/${data.document.id}/proposals`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ baseRevision: 1, ops: [{ op: "str_replace", pattern: "change", content: "keep" }] })
+      });
       return data.document.id;
     });
     expect(id).toBeTruthy();
@@ -184,7 +212,9 @@ pandocsDescribe("the first time anyone uses a site", () => {
 
   it("fits the editor's toolbar on a phone", async () => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "zh-CN" });
-    await context.addCookies((await admin.context().cookies()).map(({ name, value }) => ({ name, value, url: origin })));
+    await context.addCookies(
+      (await admin.context().cookies()).map(({ name, value }) => ({ name, value, url: origin }))
+    );
     const phone = await context.newPage();
     await phone.goto(`${origin}/team-handbook/getting-started?mode=edit`);
     const save = phone.getByRole("button", { name: "保存", exact: true });

@@ -56,10 +56,16 @@ export function parseFeishuAddress(text: string): Target {
   if (node) return { kind: "wiki", token: node[1]! };
   const document = /\/docx\/([A-Za-z0-9]+)/u.exec(pathname);
   if (document) return { kind: "docx", token: document[1]! };
-  throw new PermanentIngestError("IMPORT_ADDRESS_INVALID", t("That is not the address of a document or knowledge base. It should contain /wiki/ or /docx/."));
+  throw new PermanentIngestError(
+    "IMPORT_ADDRESS_INVALID",
+    t("That is not the address of a document or knowledge base. It should contain /wiki/ or /docx/.")
+  );
 }
 
-const NO_ACCESS = () => t("The app has no access to this. Add it to the document or the knowledge base, and check its permissions. The documentation says how.");
+const NO_ACCESS = () =>
+  t(
+    "The app has no access to this. Add it to the document or the knowledge base, and check its permissions. The documentation says how."
+  );
 
 function createClient(config: FeishuConfig, fetcher: typeof fetch, sleep: (ms: number) => Promise<void>) {
   const base = config.baseUrl.replace(/\/+$/u, "");
@@ -80,9 +86,21 @@ function createClient(config: FeishuConfig, fetcher: typeof fetch, sleep: (ms: n
       headers: { "content-type": "application/json; charset=utf-8" },
       body: JSON.stringify({ app_id: config.appId, app_secret: config.appSecret })
     });
-    const payload = await response.json().catch(() => null) as { code?: number; msg?: string; tenant_access_token?: string; expire?: number } | null;
-    if (!payload?.tenant_access_token) throw new PermanentIngestError("FEISHU_APP_REFUSED", t("Feishu did not accept the app's credentials: {0}", String(payload?.msg ?? response.status)));
-    token = { value: payload.tenant_access_token, until: Date.now() + (payload.expire ?? 7200) * 1000 - TOKEN_MARGIN_MS };
+    const payload = (await response.json().catch(() => null)) as {
+      code?: number;
+      msg?: string;
+      tenant_access_token?: string;
+      expire?: number;
+    } | null;
+    if (!payload?.tenant_access_token)
+      throw new PermanentIngestError(
+        "FEISHU_APP_REFUSED",
+        t("Feishu did not accept the app's credentials: {0}", String(payload?.msg ?? response.status))
+      );
+    token = {
+      value: payload.tenant_access_token,
+      until: Date.now() + (payload.expire ?? 7200) * 1000 - TOKEN_MARGIN_MS
+    };
     return token.value;
   };
 
@@ -95,7 +113,15 @@ function createClient(config: FeishuConfig, fetcher: typeof fetch, sleep: (ms: n
       await paced(kind);
       const response = await fetcher(`${base}${path}`, { headers: { authorization: `Bearer ${await accessToken()}` } });
       const isJson = (response.headers.get("content-type") ?? "").includes("json");
-      const code = isJson && !response.ok ? (await response.clone().json().catch(() => null) as { code?: number } | null)?.code : undefined;
+      const code =
+        isJson && !response.ok
+          ? (
+              (await response
+                .clone()
+                .json()
+                .catch(() => null)) as { code?: number } | null
+            )?.code
+          : undefined;
       if (code !== undefined && TOKEN_EXPIRED.has(code) && attempt < MAX_ATTEMPTS) {
         token = null;
         continue;
@@ -104,57 +130,96 @@ function createClient(config: FeishuConfig, fetcher: typeof fetch, sleep: (ms: n
         await sleep(WAIT_AFTER_LIMIT_MS * attempt);
         continue;
       }
-      if (!tolerant && (response.status === 403 || (code !== undefined && ACCESS_DENIED.has(code)))) throw new PermanentIngestError("FEISHU_NO_ACCESS", NO_ACCESS());
+      if (!tolerant && (response.status === 403 || (code !== undefined && ACCESS_DENIED.has(code))))
+        throw new PermanentIngestError("FEISHU_NO_ACCESS", NO_ACCESS());
       return response;
     }
   };
 
   const json = async <T>(kind: keyof typeof SPACING_MS, path: string): Promise<T> => {
     const response = await request(kind, path);
-    const payload = await response.json().catch(() => null) as { code?: number; msg?: string; data?: T } | null;
+    const payload = (await response.json().catch(() => null)) as { code?: number; msg?: string; data?: T } | null;
     if (payload?.code !== 0 || !payload.data) {
-      if (payload?.code !== undefined && ACCESS_DENIED.has(payload.code)) throw new PermanentIngestError("FEISHU_NO_ACCESS", NO_ACCESS());
-      throw new Error(t("Feishu answered {0}: {1}", String(payload?.code ?? response.status), String(payload?.msg ?? "")));
+      if (payload?.code !== undefined && ACCESS_DENIED.has(payload.code))
+        throw new PermanentIngestError("FEISHU_NO_ACCESS", NO_ACCESS());
+      throw new Error(
+        t("Feishu answered {0}: {1}", String(payload?.code ?? response.status), String(payload?.msg ?? ""))
+      );
     }
     return payload.data;
   };
 
   return {
-    node: async (nodeToken: string) => (await json<{ node: WikiNode }>("wiki", `/open-apis/wiki/v2/spaces/get_node?token=${encodeURIComponent(nodeToken)}`)).node,
+    node: async (nodeToken: string) =>
+      (
+        await json<{ node: WikiNode }>(
+          "wiki",
+          `/open-apis/wiki/v2/spaces/get_node?token=${encodeURIComponent(nodeToken)}`
+        )
+      ).node,
     async children(spaceId: string, parent: string | null): Promise<WikiNode[]> {
       const items: WikiNode[] = [];
       let pageToken: string | undefined;
       do {
-        const query = new URLSearchParams({ page_size: "50", ...(parent ? { parent_node_token: parent } : {}), ...(pageToken ? { page_token: pageToken } : {}) });
-        const data = await json<{ items?: WikiNode[]; has_more?: boolean; page_token?: string }>("wiki", `/open-apis/wiki/v2/spaces/${encodeURIComponent(spaceId)}/nodes?${query}`);
+        const query = new URLSearchParams({
+          page_size: "50",
+          ...(parent ? { parent_node_token: parent } : {}),
+          ...(pageToken ? { page_token: pageToken } : {})
+        });
+        const data = await json<{ items?: WikiNode[]; has_more?: boolean; page_token?: string }>(
+          "wiki",
+          `/open-apis/wiki/v2/spaces/${encodeURIComponent(spaceId)}/nodes?${query}`
+        );
         items.push(...(data.items ?? []));
         pageToken = data.has_more ? data.page_token : undefined;
       } while (pageToken);
       return items;
     },
-    documentTitle: async (id: string) => (await json<{ document: { title?: string } }>("docs", `/open-apis/docx/v1/documents/${encodeURIComponent(id)}`)).document.title ?? "",
+    documentTitle: async (id: string) =>
+      (await json<{ document: { title?: string } }>("docs", `/open-apis/docx/v1/documents/${encodeURIComponent(id)}`))
+        .document.title ?? "",
     async blocks(id: string): Promise<FeishuBlock[]> {
       const items: FeishuBlock[] = [];
       let pageToken: string | undefined;
       do {
-        const query = new URLSearchParams({ page_size: "500", document_revision_id: "-1", ...(pageToken ? { page_token: pageToken } : {}) });
-        const data = await json<{ items?: FeishuBlock[]; has_more?: boolean; page_token?: string }>("docs", `/open-apis/docx/v1/documents/${encodeURIComponent(id)}/blocks?${query}`);
+        const query = new URLSearchParams({
+          page_size: "500",
+          document_revision_id: "-1",
+          ...(pageToken ? { page_token: pageToken } : {})
+        });
+        const data = await json<{ items?: FeishuBlock[]; has_more?: boolean; page_token?: string }>(
+          "docs",
+          `/open-apis/docx/v1/documents/${encodeURIComponent(id)}/blocks?${query}`
+        );
         items.push(...(data.items ?? []));
         pageToken = data.has_more ? data.page_token : undefined;
       } while (pageToken);
       return items;
     },
     async media(fileToken: string): Promise<{ bytes: Uint8Array; name: string | null } | null> {
-      const response = await request("docs", `/open-apis/drive/v1/medias/${encodeURIComponent(fileToken)}/download`, true);
+      const response = await request(
+        "docs",
+        `/open-apis/drive/v1/medias/${encodeURIComponent(fileToken)}/download`,
+        true
+      );
       if (!response.ok) return null;
       const disposition = response.headers.get("content-disposition") ?? "";
       const encoded = /filename\*=UTF-8''([^;]+)/iu.exec(disposition)?.[1];
       const plain = /filename="?([^";]+)"?/iu.exec(disposition)?.[1];
-      return { bytes: new Uint8Array(await response.arrayBuffer()), name: encoded ? decodeURIComponent(encoded) : plain ?? null };
+      return {
+        bytes: new Uint8Array(await response.arrayBuffer()),
+        name: encoded ? decodeURIComponent(encoded) : (plain ?? null)
+      };
     },
     async whiteboard(id: string): Promise<Uint8Array | null> {
-      const response = await request("docs", `/open-apis/board/v1/whiteboards/${encodeURIComponent(id)}/download_as_image`, true);
-      return response.ok && (response.headers.get("content-type") ?? "").startsWith("image/") ? new Uint8Array(await response.arrayBuffer()) : null;
+      const response = await request(
+        "docs",
+        `/open-apis/board/v1/whiteboards/${encodeURIComponent(id)}/download_as_image`,
+        true
+      );
+      return response.ok && (response.headers.get("content-type") ?? "").startsWith("image/")
+        ? new Uint8Array(await response.arrayBuffer())
+        : null;
     }
   };
 }
@@ -168,10 +233,20 @@ const LABELS: Readonly<Record<string, () => string>> = {
   doc: () => t("A document in the old format")
 };
 
-const ORIGINALS: Readonly<Record<string, string>> = { sheet: "sheets", bitable: "base", mindnote: "mindnotes", slides: "slides", file: "file", doc: "docs" };
+const ORIGINALS: Readonly<Record<string, string>> = {
+  sheet: "sheets",
+  bitable: "base",
+  mindnote: "mindnotes",
+  slides: "slides",
+  file: "file",
+  doc: "docs"
+};
 
 /** Reads through the app's own credentials, so what it can read is what anyone who can edit a space here can bring in. */
-export function createFeishuImporter(config: FeishuConfig, deps: { readonly fetch?: typeof fetch; readonly sleep?: (ms: number) => Promise<void> } = {}): BulkImporter {
+export function createFeishuImporter(
+  config: FeishuConfig,
+  deps: { readonly fetch?: typeof fetch; readonly sleep?: (ms: number) => Promise<void> } = {}
+): BulkImporter {
   const fetcher = deps.fetch ?? fetch;
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>(done => setTimeout(done, ms)));
 
@@ -186,7 +261,14 @@ export function createFeishuImporter(config: FeishuConfig, deps: { readonly fetc
       const seen = new Set<string>();
       let count = 0;
 
-      const toItem = (node: WikiNode): Item => ({ title: node.title?.trim() || t("Untitled"), objType: node.obj_type, objToken: node.obj_token, nodeToken: node.node_token, children: [], path: "" });
+      const toItem = (node: WikiNode): Item => ({
+        title: node.title?.trim() || t("Untitled"),
+        objType: node.obj_type,
+        objToken: node.obj_token,
+        nodeToken: node.node_token,
+        children: [],
+        path: ""
+      });
       const walk = async (spaceId: string, parent: string | null, depth: number): Promise<Item[]> => {
         const items: Item[] = [];
         for (const node of await client.children(spaceId, parent)) {
@@ -198,7 +280,8 @@ export function createFeishuImporter(config: FeishuConfig, deps: { readonly fetc
             continue;
           }
           const item = toItem(node);
-          if (node.has_child && depth < MAX_DEPTH) item.children.push(...await walk(spaceId, node.node_token, depth + 1));
+          if (node.has_child && depth < MAX_DEPTH)
+            item.children.push(...(await walk(spaceId, node.node_token, depth + 1)));
           items.push(item);
         }
         return items;
@@ -206,14 +289,24 @@ export function createFeishuImporter(config: FeishuConfig, deps: { readonly fetc
 
       let roots: Item[];
       if (target.kind === "docx") {
-        roots = [{ title: await client.documentTitle(target.token) || t("Untitled"), objType: "docx", objToken: target.token, nodeToken: null, children: [], path: "" }];
+        roots = [
+          {
+            title: (await client.documentTitle(target.token)) || t("Untitled"),
+            objType: "docx",
+            objToken: target.token,
+            nodeToken: null,
+            children: [],
+            path: ""
+          }
+        ];
       } else if (target.kind === "space") {
         roots = await walk(target.id, null, 0);
       } else {
         const node = await client.node(target.token);
         seen.add(node.obj_token);
         const item = toItem(node);
-        if (includeChildren && node.has_child && node.space_id) item.children.push(...await walk(node.space_id, node.node_token, 1));
+        if (includeChildren && node.has_child && node.space_id)
+          item.children.push(...(await walk(node.space_id, node.node_token, 1)));
         roots = [item];
       }
 
@@ -268,7 +361,9 @@ export function createFeishuImporter(config: FeishuConfig, deps: { readonly fetc
             // A page to hold its place, so what is below it has somewhere to go, with the way back to the real thing.
             const what = LABELS[item.objType]?.() ?? item.objType;
             sink.note(item.title, t("{0} cannot be imported, so its page only links to the original", what));
-            const original = item.nodeToken ? originalUrl : `${origin}/${ORIGINALS[item.objType] ?? item.objType}/${item.objToken}`;
+            const original = item.nodeToken
+              ? originalUrl
+              : `${origin}/${ORIGINALS[item.objType] ?? item.objType}/${item.objToken}`;
             markdown = `:::note\n\n${t("{0} is not here. See the [original]({1}).", what, original)}\n\n:::\n`;
           }
           await sink.page({ path: item.path, title: item.title, markdown, sortOrder: (order + 1) * 10 });

@@ -19,7 +19,9 @@ describe("the publishing process", () => {
   it("starts with the role that says what it is for, and stops when told", async () => {
     const seen = join(dir, "seen");
     const running = startPublisherProcess({
-      args: script(`require("fs").writeFileSync(${JSON.stringify(seen)}, process.env.PANDOCS_ROLES + "|" + process.env.OTHER); setInterval(() => {}, 1000);`),
+      args: script(
+        `require("fs").writeFileSync(${JSON.stringify(seen)}, process.env.PANDOCS_ROLES + "|" + process.env.OTHER); setInterval(() => {}, 1000);`
+      ),
       env: { PATH: process.env.PATH, OTHER: "kept" },
       log: () => undefined
     });
@@ -41,17 +43,26 @@ describe("the publishing process", () => {
       log: event => events.push(event)
     });
     try {
-      await vi.waitFor(() => expect(readFileSync(count, "utf8").length).toBeGreaterThanOrEqual(3), { timeout: 8000, interval: 20 });
+      await vi.waitFor(() => expect(readFileSync(count, "utf8").length).toBeGreaterThanOrEqual(3), {
+        timeout: 8000,
+        interval: 20
+      });
     } finally {
       running.stop();
     }
-    const delays = events.filter(event => event.event === "publisher.process_exited").map(event => event.restartInMs as number);
+    const delays = events
+      .filter(event => event.event === "publisher.process_exited")
+      .map(event => event.restartInMs as number);
     expect(delays.slice(0, 2)).toEqual([20, 40]);
   });
 
   it("does not stay behind when the process that started it dies, or it would hold the lock", async () => {
     const pidFile = join(dir, "pid");
-    const parent = spawn(process.execPath, ["-e", `
+    const parent = spawn(
+      process.execPath,
+      [
+        "-e",
+        `
       const { spawn } = require("child_process");
       spawn(process.execPath, ["-e", ${JSON.stringify(`
         require("fs").writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));
@@ -59,8 +70,14 @@ describe("the publishing process", () => {
         setInterval(() => {}, 1000);
       `)}], { stdio: ["ignore", "inherit", "inherit", "ipc"] });
       setInterval(() => {}, 1000);
-    `], { stdio: "ignore" });
-    await vi.waitFor(() => expect(existsSync(pidFile) && readFileSync(pidFile, "utf8").length > 0).toBe(true), { timeout: 5000, interval: 20 });
+    `
+      ],
+      { stdio: "ignore" }
+    );
+    await vi.waitFor(() => expect(existsSync(pidFile) && readFileSync(pidFile, "utf8").length > 0).toBe(true), {
+      timeout: 5000,
+      interval: 20
+    });
     const child = Number(readFileSync(pidFile, "utf8"));
     expect(() => process.kill(child, 0)).not.toThrow();
     parent.kill("SIGKILL");
@@ -71,14 +88,21 @@ describe("the publishing process", () => {
 describe("the publisher role", () => {
   it("needs somewhere to publish to", () => {
     expect(() => readConfig({ ...BASE_ENV, PANDOCS_ROLES: "publisher" })).toThrow("PANDOCS_PUBLISH_DIR");
-    const config = readConfig({ ...BASE_ENV, PANDOCS_ROLES: "publisher", PANDOCS_PUBLISH_DIR: "/mnt/x", PANDOCS_PUBLISH_SPACES: "*" });
+    const config = readConfig({
+      ...BASE_ENV,
+      PANDOCS_ROLES: "publisher",
+      PANDOCS_PUBLISH_DIR: "/mnt/x",
+      PANDOCS_PUBLISH_SPACES: "*"
+    });
     expect([...config.roles]).toEqual(["publisher"]);
     expect(config.publish).toMatchObject({ dir: "/mnt/x", spaces: "*" });
   });
 
   it("has to be told which spaces, since anyone with the mount can read them", () => {
     expect(() => readConfig({ ...BASE_ENV, PANDOCS_PUBLISH_DIR: "/mnt/x" })).toThrow("PANDOCS_PUBLISH_SPACES");
-    expect(readConfig({ ...BASE_ENV, PANDOCS_PUBLISH_DIR: "/mnt/x", PANDOCS_PUBLISH_SPACES: "a, b" }).publish?.spaces).toEqual(["a", "b"]);
+    expect(
+      readConfig({ ...BASE_ENV, PANDOCS_PUBLISH_DIR: "/mnt/x", PANDOCS_PUBLISH_SPACES: "a, b" }).publish?.spaces
+    ).toEqual(["a", "b"]);
   });
 
   it("rejects a role it does not know", () => {

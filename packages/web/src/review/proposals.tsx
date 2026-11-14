@@ -5,7 +5,11 @@ import type { ProposalSummary } from "../types";
 import { relativeTime } from "../ui/time";
 import { t } from "../i18n";
 
-const STATUS: Readonly<Record<ProposalSummary["status"], string>> = { pending: t("Pending"), accepted: t("Accepted"), rejected: t("Rejected") };
+const STATUS: Readonly<Record<ProposalSummary["status"], string>> = {
+  pending: t("Pending"),
+  accepted: t("Accepted"),
+  rejected: t("Rejected")
+};
 
 export function ProposalsTab({ onOpen }: { onOpen: (id: string) => void }) {
   const { proposals } = useAnnotations();
@@ -20,7 +24,9 @@ export function ProposalsTab({ onOpen }: { onOpen: (id: string) => void }) {
             {proposal.authorKind === "agent" ? <Bot size={13} aria-label={t("Agent")} /> : null}
             <time>{relativeTime(proposal.createdAt)}</time>
           </span>
-          <span className="pd-proposal-card__body">{proposal.rationale || t("{0} {0|change|changes}", proposal.ops.length)}</span>
+          <span className="pd-proposal-card__body">
+            {proposal.rationale || t("{0} {0|change|changes}", proposal.ops.length)}
+          </span>
         </button>
       ))}
     </>

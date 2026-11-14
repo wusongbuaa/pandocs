@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { issueMessage } from "../src/issue-message.js";
 
-const said = (schema: z.ZodType, value: unknown) => schema.safeParse(value, { error: issueMessage }).error?.issues[0]?.message;
+const said = (schema: z.ZodType, value: unknown) =>
+  schema.safeParse(value, { error: issueMessage }).error?.issues[0]?.message;
 
 describe("what a rejected value says", () => {
   it("covers what the schemas here reject", () => {

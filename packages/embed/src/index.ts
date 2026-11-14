@@ -21,9 +21,11 @@ export interface PandocsNavigateDetail {
 
 const OBSERVED = ["space", "path", "theme"] as const;
 /** Allows what a document needs, and stops it navigating the page around it. */
-const SANDBOX = "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads";
+const SANDBOX =
+  "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads";
 
-const BaseElement: typeof HTMLElement = typeof HTMLElement === "undefined" ? (class {} as typeof HTMLElement) : HTMLElement;
+const BaseElement: typeof HTMLElement =
+  typeof HTMLElement === "undefined" ? (class {} as typeof HTMLElement) : HTMLElement;
 
 export class PandocsDocElement extends BaseElement {
   static readonly observedAttributes = OBSERVED;
@@ -42,7 +44,9 @@ export class PandocsDocElement extends BaseElement {
     else if (message?.type === "pandocs:ready") this.dispatchEvent(new CustomEvent("pandocs-ready"));
     else if (message?.type === "pandocs:navigate" && typeof message.path === "string") {
       this.reflect(message.path);
-      this.dispatchEvent(new CustomEvent<PandocsNavigateDetail>("pandocs-navigate", { detail: { path: message.path } }));
+      this.dispatchEvent(
+        new CustomEvent<PandocsNavigateDetail>("pandocs-navigate", { detail: { path: message.path } })
+      );
     }
   };
 
@@ -87,7 +91,10 @@ export class PandocsDocElement extends BaseElement {
     const base = new URL(server);
     this.origin = base.origin;
     this.currentPath = this.pagePath();
-    const address = new URL(`${base.pathname.replace(/\/$/u, "")}/embed/${encodeURIComponent(app)}${this.currentPath}`, base.origin);
+    const address = new URL(
+      `${base.pathname.replace(/\/$/u, "")}/embed/${encodeURIComponent(app)}${this.currentPath}`,
+      base.origin
+    );
     address.searchParams.set("host", location.origin);
     const theme = this.getAttribute("theme");
     if (theme) address.searchParams.set("theme", theme);
@@ -128,4 +135,5 @@ export class PandocsDocElement extends BaseElement {
   }
 }
 
-if (typeof customElements !== "undefined" && !customElements.get("pandocs-doc")) customElements.define("pandocs-doc", PandocsDocElement);
+if (typeof customElements !== "undefined" && !customElements.get("pandocs-doc"))
+  customElements.define("pandocs-doc", PandocsDocElement);

@@ -23,33 +23,60 @@ import { WebhooksView } from "./webhooks-view";
 
 function View({ spec }: { spec: ManageSpec }) {
   switch (spec.view) {
-    case "inbox": return <InboxView />;
-    case "drafts": return <DraftsView />;
-    case "account": return <AccountView />;
-    case "api-reference": return <ApiReference url={`${API_BASE}/openapi.yaml`} full tryable />;
-    case "users": return <UsersView />;
-    case "embed-apps": return <EmbedAppsView />;
-    case "spaces": return <SpacesView />;
-    case "site": return <SiteView />;
-    case "site-audit": return <SiteAuditView />;
-    case "site-insights": return <InsightsView />;
-    case "site-webhooks": return <WebhooksView />;
-    case "webhooks": return <WebhooksView space={spec.space} />;
-    case "git-sync": return <GitSyncView space={spec.space} />;
-    case "insights": return <InsightsView space={spec.space} />;
-    case "pages": return <PagesView space={spec.space} />;
-    case "change-sets": return <ChangeSetsView space={spec.space} />;
-    case "templates": return <TemplatesView space={spec.space} />;
-    case "members": return <MembersView space={spec.space} />;
-    case "trash": return <TrashView space={spec.space} />;
-    case "imports": return <ImportsView space={spec.space} />;
-    case "glossary": return <GlossaryView space={spec.space} />;
-    case "audit": return <AuditView space={spec.space} />;
-    case "settings": return <SpaceSettingsView space={spec.space} />;
+    case "inbox":
+      return <InboxView />;
+    case "drafts":
+      return <DraftsView />;
+    case "account":
+      return <AccountView />;
+    case "api-reference":
+      return <ApiReference url={`${API_BASE}/openapi.yaml`} full tryable />;
+    case "users":
+      return <UsersView />;
+    case "embed-apps":
+      return <EmbedAppsView />;
+    case "spaces":
+      return <SpacesView />;
+    case "site":
+      return <SiteView />;
+    case "site-audit":
+      return <SiteAuditView />;
+    case "site-insights":
+      return <InsightsView />;
+    case "site-webhooks":
+      return <WebhooksView />;
+    case "webhooks":
+      return <WebhooksView space={spec.space} />;
+    case "git-sync":
+      return <GitSyncView space={spec.space} />;
+    case "insights":
+      return <InsightsView space={spec.space} />;
+    case "pages":
+      return <PagesView space={spec.space} />;
+    case "change-sets":
+      return <ChangeSetsView space={spec.space} />;
+    case "templates":
+      return <TemplatesView space={spec.space} />;
+    case "members":
+      return <MembersView space={spec.space} />;
+    case "trash":
+      return <TrashView space={spec.space} />;
+    case "imports":
+      return <ImportsView space={spec.space} />;
+    case "glossary":
+      return <GlossaryView space={spec.space} />;
+    case "audit":
+      return <AuditView space={spec.space} />;
+    case "settings":
+      return <SpaceSettingsView space={spec.space} />;
   }
 }
 
 /** The product's own pages. They sit in the theme's document layout, with its sidebar for the navigation between them. */
 export default function ManagePage({ spec }: { spec: ManageSpec }) {
-  return <div className="pd-manage"><View spec={spec} /></div>;
+  return (
+    <div className="pd-manage">
+      <View spec={spec} />
+    </div>
+  );
 }

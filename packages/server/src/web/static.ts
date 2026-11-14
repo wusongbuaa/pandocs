@@ -48,13 +48,21 @@ export function createStaticFiles(root: string, options: { readonly cacheHtml: b
       }
       const file = normalize(join(base, relative));
       // `ssr/` is what renders pages here, and is of no use to a browser.
-      if (!file.startsWith(base) || relative === "" || relative === "index.html" || file.startsWith(join(base, "ssr", sep)) || !(await isFile(file))) return null;
+      if (
+        !file.startsWith(base) ||
+        relative === "" ||
+        relative === "index.html" ||
+        file.startsWith(join(base, "ssr", sep)) ||
+        !(await isFile(file))
+      )
+        return null;
       const accepted = acceptEncoding.toLowerCase();
-      const variant = accepted.includes("br") && await isFile(`${file}.br`)
-        ? { path: `${file}.br`, encoding: "br" }
-        : accepted.includes("gzip") && await isFile(`${file}.gz`)
-          ? { path: `${file}.gz`, encoding: "gzip" }
-          : { path: file, encoding: undefined };
+      const variant =
+        accepted.includes("br") && (await isFile(`${file}.br`))
+          ? { path: `${file}.br`, encoding: "br" }
+          : accepted.includes("gzip") && (await isFile(`${file}.gz`))
+            ? { path: `${file}.gz`, encoding: "gzip" }
+            : { path: file, encoding: undefined };
       const headers: Record<string, string> = {
         "Content-Type": TYPES[extname(file)] ?? "application/octet-stream",
         // Names under assets/ carry a hash of their content. Anything else can change in place.

@@ -3,7 +3,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { Editor } from "@tiptap/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseDocument, squashWhitespace, visibleText } from "@pandocs/markdown";
-import { createDialectExtensions, createDialectManager, createDialectMarked, createMarkdownExtension } from "@pandocs/editor-model";
+import {
+  createDialectExtensions,
+  createDialectManager,
+  createDialectMarked,
+  createMarkdownExtension
+} from "@pandocs/editor-model";
 import { createWriteBack } from "../src/editor/write-back";
 import { FileTree, parseFileTree } from "../src/markdown/file-tree";
 import { layoutFromFrontMatter } from "../src/markdown/front-matter";
@@ -15,16 +20,21 @@ import { renderDocument } from "./support";
 
 afterEach(cleanup);
 
-const domText = (root: Element) => buildTextMap(root).segments.map(segment => segment.node.nodeValue ?? "").join("");
+const domText = (root: Element) =>
+  buildTextMap(root)
+    .segments.map(segment => segment.node.nodeValue ?? "")
+    .join("");
 
 describe("addresses in a block's own attributes", () => {
   it("lead nowhere when they could run script, and work as usual otherwise", async () => {
-    const { body } = await renderDocument([
-      '::file[Report]{src="javascript:alert(1)"}',
-      '::video{src="data:text/html,<script>alert(1)</script>" poster="javascript:alert(2)"}',
-      '::file[Elsewhere]{src="https://example.com/report.pdf"}',
-      '::file[Here]{src="assets/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.pdf"}'
-    ].join("\n\n"));
+    const { body } = await renderDocument(
+      [
+        '::file[Report]{src="javascript:alert(1)"}',
+        '::video{src="data:text/html,<script>alert(1)</script>" poster="javascript:alert(2)"}',
+        '::file[Elsewhere]{src="https://example.com/report.pdf"}',
+        '::file[Here]{src="assets/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.pdf"}'
+      ].join("\n\n")
+    );
     const links = [...body.querySelectorAll("a.pd-file")].map(link => link.getAttribute("href"));
     expect(links[0]).toBe("about:blank");
     expect(links[1]).toBe("https://example.com/report.pdf");
@@ -56,7 +66,9 @@ describe("comment offsets stay right around the new content", () => {
 
 describe("demonstration blocks in the page", () => {
   // The theme's tabs read the group's choice from here, and Node's own `localStorage` hides happy-dom's.
-  beforeEach(() => vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => undefined, removeItem: () => undefined }));
+  beforeEach(() =>
+    vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => undefined, removeItem: () => undefined })
+  );
   afterEach(() => vi.unstubAllGlobals());
 
   const MARKDOWN = [
@@ -104,7 +116,9 @@ describe("demonstration blocks in the page", () => {
   });
 
   it("number a screenshot's marks and list them below it, as text and never as markup", async () => {
-    const { body } = await renderDocument('```hotspots src="assets/a.png" alt="控制台"\n[{"x":10,"y":20,"title":"<img src=x onerror=alert(1)>","text":"从这里开始"}]\n```\n');
+    const { body } = await renderDocument(
+      '```hotspots src="assets/a.png" alt="控制台"\n[{"x":10,"y":20,"title":"<img src=x onerror=alert(1)>","text":"从这里开始"}]\n```\n'
+    );
     const mark = body.querySelector<HTMLElement>(".pd-hotspots__mark")!;
     expect(mark.textContent).toBe("1");
     expect(mark.style.left).toBe("10%");
@@ -155,7 +169,12 @@ describe("the editor keeps the new syntax as written", () => {
   });
   const open = (body: string) => {
     const marked = createDialectMarked();
-    const editor = new Editor({ element: document.createElement("div"), extensions: [...createDialectExtensions(), createMarkdownExtension(marked)], content: body, contentType: "markdown" } as never);
+    const editor = new Editor({
+      element: document.createElement("div"),
+      extensions: [...createDialectExtensions(), createMarkdownExtension(marked)],
+      content: body,
+      contentType: "markdown"
+    } as never);
     editor.view.dispatch(editor.state.tr);
     opened.push(editor);
     return { editor, writeBack: createWriteBack(editor, marked, body) };
@@ -171,9 +190,17 @@ describe("the editor keeps the new syntax as written", () => {
   });
 
   it("writes every block back the same after editing elsewhere", () => {
-    const blocks = ["水 H~2~O 面积 10^2^ 公式 $$E=mc^2$$", "$$\n\\sum_i x_i\n$$", '![图](/a.png "align=center")', "```tree\nsrc\n└── a.ts\n```"];
+    const blocks = [
+      "水 H~2~O 面积 10^2^ 公式 $$E=mc^2$$",
+      "$$\n\\sum_i x_i\n$$",
+      '![图](/a.png "align=center")',
+      "```tree\nsrc\n└── a.ts\n```"
+    ];
     const { editor, writeBack } = open(`${blocks.join("\n\n")}\n`);
-    editor.commands.insertContentAt(editor.state.doc.content.size - 1, { type: "paragraph", content: [{ type: "text", text: "新增的段落" }] });
+    editor.commands.insertContentAt(editor.state.doc.content.size - 1, {
+      type: "paragraph",
+      content: [{ type: "text", text: "新增的段落" }]
+    });
     const markdown = writeBack.markdown();
     for (const block of blocks) expect(markdown).toContain(block);
     expect(markdown).toContain("新增的段落");
@@ -205,7 +232,9 @@ describe("the editor keeps the new syntax as written", () => {
     expect(image.getAttribute("style")).toContain("200px");
     // Each is an attribute of its own in the editor, so that two people changing different ones keep both, and the Markdown is as it was.
     expect(editor.getJSON().content?.[0]?.attrs).toMatchObject({ title: "说明", align: "right", width: 200 });
-    expect(createDialectManager().manager.serialize(editor.getJSON()).trim()).toBe('![图](/a.png "说明 align=right width=200")');
+    expect(createDialectManager().manager.serialize(editor.getJSON()).trim()).toBe(
+      '![图](/a.png "说明 align=right width=200")'
+    );
   });
 });
 
@@ -233,16 +262,25 @@ describe("image layout", () => {
 
 describe("file trees", () => {
   it("read what the tree command prints", () => {
-    const nodes = parseFileTree(["src", "├── index.ts", "├── pages  # 页面", "│   └── home.tsx", "└── README.md"].join("\n"));
+    const nodes = parseFileTree(
+      ["src", "├── index.ts", "├── pages  # 页面", "│   └── home.tsx", "└── README.md"].join("\n")
+    );
     expect(nodes).toHaveLength(1);
     expect(nodes[0]!.folder).toBe(true);
-    expect(nodes[0]!.children.map(node => [node.name, node.folder, node.comment])).toEqual([["index.ts", false, ""], ["pages", true, "页面"], ["README.md", false, ""]]);
+    expect(nodes[0]!.children.map(node => [node.name, node.folder, node.comment])).toEqual([
+      ["index.ts", false, ""],
+      ["pages", true, "页面"],
+      ["README.md", false, ""]
+    ]);
     expect(nodes[0]!.children[1]!.children[0]!.name).toBe("home.tsx");
   });
 
   it("read plain indented lists, and a trailing slash marks an empty folder", () => {
     const nodes = parseFileTree(["docs/", "  - a.md", "  - sub/", "    - b.md", "empty/"].join("\n"));
-    expect(nodes.map(node => [node.name, node.folder])).toEqual([["docs", true], ["empty", true]]);
+    expect(nodes.map(node => [node.name, node.folder])).toEqual([
+      ["docs", true],
+      ["empty", true]
+    ]);
     expect(nodes[0]!.children.map(node => node.name)).toEqual(["a.md", "sub"]);
     expect(nodes[0]!.children[1]!.children[0]!.name).toBe("b.md");
   });
@@ -268,7 +306,9 @@ describe("reading time", () => {
 
 describe("page layout from front matter", () => {
   it("passes through what chooses a layout, and nothing else", () => {
-    const layout = layoutFromFrontMatter("---\npageType: home\noutline: false\nsecret: x\nhero:\n  name: 手册\n  actions:\n    - text: 开始\n      link: /a\n      theme: alt\nfeatures:\n  - title: 一\n    details: 说明\n    span: 6\n---\n\n正文\n");
+    const layout = layoutFromFrontMatter(
+      "---\npageType: home\noutline: false\nsecret: x\nhero:\n  name: 手册\n  actions:\n    - text: 开始\n      link: /a\n      theme: alt\nfeatures:\n  - title: 一\n    details: 说明\n    span: 6\n---\n\n正文\n"
+    );
     expect(layout).toEqual({
       pageType: "home",
       outline: false,
@@ -278,7 +318,9 @@ describe("page layout from front matter", () => {
   });
 
   it("cannot be used to put HTML or scripts on the page", () => {
-    const layout = layoutFromFrontMatter('---\nhero:\n  name: <img src=x onerror=alert(1)>\n  actions:\n    - text: 点我\n      link: javascript:alert(1)\n  image:\n    src: javascript:alert(1)\nfeatures:\n  - title: <b>一</b>\n    icon: <svg onload=alert(1)>\n    link: data:text/html,x\n---\n');
+    const layout = layoutFromFrontMatter(
+      "---\nhero:\n  name: <img src=x onerror=alert(1)>\n  actions:\n    - text: 点我\n      link: javascript:alert(1)\n  image:\n    src: javascript:alert(1)\nfeatures:\n  - title: <b>一</b>\n    icon: <svg onload=alert(1)>\n    link: data:text/html,x\n---\n"
+    );
     expect(JSON.stringify(layout)).not.toMatch(/[<>]|javascript:|data:text/u);
     expect((layout.hero as { actions: unknown[] }).actions).toEqual([]);
   });
@@ -293,14 +335,23 @@ describe("page layout from front matter", () => {
 describe("tabs and folded blocks in a page", () => {
   beforeEach(() => {
     const stored = new Map<string, string>();
-    vi.stubGlobal("localStorage", { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => void stored.set(key, value), removeItem: (key: string) => void stored.delete(key) });
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => void stored.set(key, value),
+      removeItem: (key: string) => void stored.delete(key)
+    });
   });
   afterEach(() => vi.unstubAllGlobals());
 
   it("are tabs a keyboard can reach and move between", async () => {
-    const { body } = await renderDocument("::::tabs\n\n:::tab[甲]\n\n甲的内容\n\n:::\n\n:::tab[乙]\n\n乙的内容\n\n:::\n\n::::");
+    const { body } = await renderDocument(
+      "::::tabs\n\n:::tab[甲]\n\n甲的内容\n\n:::\n\n:::tab[乙]\n\n乙的内容\n\n:::\n\n::::"
+    );
     const tabs = within(body).getAllByRole("tab");
-    expect(tabs.map(tab => [tab.textContent, tab.getAttribute("aria-selected"), tab.tabIndex])).toEqual([["甲", "true", 0], ["乙", "false", -1]]);
+    expect(tabs.map(tab => [tab.textContent, tab.getAttribute("aria-selected"), tab.tabIndex])).toEqual([
+      ["甲", "true", 0],
+      ["乙", "false", -1]
+    ]);
     expect(within(body).getByRole("tabpanel").textContent).toContain("甲的内容");
     tabs[0]!.focus();
     fireEvent.keyDown(tabs[0]!, { key: "ArrowRight" });
@@ -312,12 +363,17 @@ describe("tabs and folded blocks in a page", () => {
   });
 
   it("follow each other in a group by label, whatever their number and order", async () => {
-    const { body } = await renderDocument([
-      '::::tabs{group="os"}\n\n:::tab[macOS]\n\n苹果\n\n:::\n\n:::tab[Windows]\n\n视窗\n\n:::\n\n::::',
-      '::::tabs{group="os"}\n\n:::tab[Linux]\n\n企鹅\n\n:::\n\n:::tab[Windows]\n\n视窗二\n\n:::\n\n:::tab[macOS]\n\n苹果二\n\n:::\n\n::::'
-    ].join("\n\n"));
-    const [first, second] = within(body).getAllByRole("tablist").map(list => within(list).getAllByRole("tab"));
-    const selected = (tabs: HTMLElement[]) => tabs.find(tab => tab.getAttribute("aria-selected") === "true")!.textContent;
+    const { body } = await renderDocument(
+      [
+        '::::tabs{group="os"}\n\n:::tab[macOS]\n\n苹果\n\n:::\n\n:::tab[Windows]\n\n视窗\n\n:::\n\n::::',
+        '::::tabs{group="os"}\n\n:::tab[Linux]\n\n企鹅\n\n:::\n\n:::tab[Windows]\n\n视窗二\n\n:::\n\n:::tab[macOS]\n\n苹果二\n\n:::\n\n::::'
+      ].join("\n\n")
+    );
+    const [first, second] = within(body)
+      .getAllByRole("tablist")
+      .map(list => within(list).getAllByRole("tab"));
+    const selected = (tabs: HTMLElement[]) =>
+      tabs.find(tab => tab.getAttribute("aria-selected") === "true")!.textContent;
     fireEvent.click(first!.find(tab => tab.textContent === "Windows")!);
     await waitFor(() => expect(selected(second!)).toBe("Windows"));
     fireEvent.click(second!.find(tab => tab.textContent === "Linux")!);
@@ -327,7 +383,9 @@ describe("tabs and folded blocks in a page", () => {
   });
 
   it("open what hides the target of a link to it", async () => {
-    const { body } = await renderDocument("::::tabs\n\n:::tab[甲]\n\n甲的内容\n\n:::\n\n:::tab[乙]\n\n### 乙的小节\n\n乙的内容\n\n:::\n\n::::\n\n:::details[更多]\n\n### 折叠的小节\n\n折叠的内容\n\n:::");
+    const { body } = await renderDocument(
+      "::::tabs\n\n:::tab[甲]\n\n甲的内容\n\n:::\n\n:::tab[乙]\n\n### 乙的小节\n\n乙的内容\n\n:::\n\n::::\n\n:::details[更多]\n\n### 折叠的小节\n\n折叠的内容\n\n:::"
+    );
     const { revealTarget } = await import("../src/markdown/reveal");
     const inTab = body.querySelector("h3")!;
     act(() => revealTarget(inTab));
@@ -349,21 +407,42 @@ describe("tabs and folded blocks in a page", () => {
     // As the theme lays out a page.
     body.classList.add("rp-doc");
     const details = body.querySelector("details")!;
-    act(() => { window.dispatchEvent(new Event("beforeprint")); });
+    act(() => {
+      window.dispatchEvent(new Event("beforeprint"));
+    });
     expect(details.open).toBe(true);
-    act(() => { window.dispatchEvent(new Event("afterprint")); });
+    act(() => {
+      window.dispatchEvent(new Event("afterprint"));
+    });
     expect(details.open).toBe(false);
     // Saving as PDF prints again inside a print that has started, as a browser's own PDF does.
-    act(() => { window.dispatchEvent(new Event("beforeprint")); });
-    act(() => { window.dispatchEvent(new Event("beforeprint")); });
-    act(() => { window.dispatchEvent(new Event("afterprint")); });
+    act(() => {
+      window.dispatchEvent(new Event("beforeprint"));
+    });
+    act(() => {
+      window.dispatchEvent(new Event("beforeprint"));
+    });
+    act(() => {
+      window.dispatchEvent(new Event("afterprint"));
+    });
     expect(details.open).toBe(false);
   });
 });
 
 describe("the page's menu beside its title", () => {
   // The other actions on that row ask the server about the page.
-  beforeEach(() => vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { code: "NOT_FOUND", message: "" } }), { status: 404, headers: { "content-type": "application/json" } }))));
+  beforeEach(() =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ error: { code: "NOT_FOUND", message: "" } }), {
+            status: 404,
+            headers: { "content-type": "application/json" }
+          })
+      )
+    )
+  );
   afterEach(() => vi.unstubAllGlobals());
 
   it("is a menu with a name, opened and moved through from the keyboard", async () => {
@@ -386,7 +465,9 @@ describe("a comment on text folded away", () => {
   beforeEach(() => {
     vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => undefined, removeItem: () => undefined });
     scrolled.mockReset();
-    Element.prototype.scrollIntoView = function (this: Element) { scrolled(this.textContent); };
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled(this.textContent);
+    };
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -408,13 +489,17 @@ describe("a comment on text folded away", () => {
     // Still growing: a scroll now would stop where the prompt starts.
     await new Promise(resolve => setTimeout(resolve, 100));
     expect(scrolled).not.toHaveBeenCalled();
-    act(() => { body.querySelector(".rp-prompt__content")!.dispatchEvent(new Event("transitionend")); });
+    act(() => {
+      body.querySelector(".rp-prompt__content")!.dispatchEvent(new Event("transitionend"));
+    });
     await waitFor(() => expect(scrolled).toHaveBeenCalledTimes(1));
     expect(scrolled.mock.calls[0]![0]).toContain("核验30");
   });
 
   it("opens the tab it is in, and then scrolls", async () => {
-    const { body } = await renderDocument("::::tabs\n\n:::tab[甲]\n\n甲的内容\n\n:::\n\n:::tab[乙]\n\n乙的内容在这里\n\n:::\n\n::::");
+    const { body } = await renderDocument(
+      "::::tabs\n\n:::tab[甲]\n\n甲的内容\n\n:::\n\n:::tab[乙]\n\n乙的内容在这里\n\n:::\n\n::::"
+    );
     await scrollToText(body, "乙的内容在这里");
     await waitFor(() => expect(scrolled).toHaveBeenCalledTimes(1));
     expect(within(body).getByRole("tab", { name: "乙" }).getAttribute("aria-selected")).toBe("true");

@@ -31,7 +31,9 @@ function linkTheTheme(mode: string): Plugin {
     transformIndexHtml: {
       order: "post",
       handler(html, { bundle }) {
-        const chunks = new Map(Object.values(bundle ?? {}).flatMap(file => (file.type === "chunk" ? [[file.fileName, file] as const] : [])));
+        const chunks = new Map(
+          Object.values(bundle ?? {}).flatMap(file => (file.type === "chunk" ? [[file.fileName, file] as const] : []))
+        );
         const start = [...chunks.values()].find(chunk => chunk.facadeModuleId?.endsWith("/src/mount.tsx"));
         if (!start) return [];
         const scripts = new Set<string>();
@@ -44,15 +46,30 @@ function linkTheTheme(mode: string): Plugin {
           chunk.imports.forEach(visit);
         };
         visit(start.fileName);
-        const links = (rel: string, files: Set<string>) => [...files].filter(file => !html.includes(`/${file}"`)).map(file => ({ tag: "link", attrs: { rel, crossorigin: true, href: `/${file}` }, injectTo: "head" as const }));
+        const links = (rel: string, files: Set<string>) =>
+          [...files]
+            .filter(file => !html.includes(`/${file}"`))
+            .map(file => ({
+              tag: "link",
+              attrs: { rel, crossorigin: true, href: `/${file}` },
+              injectTo: "head" as const
+            }));
         // Formulas without their CSS show twice over. Only pages with some need it, and the server knows which those are.
-        const math = [...chunks.values()].find(chunk => chunk.facadeModuleId?.endsWith("/src/markdown/katex.ts"))?.viteMetadata?.importedCss ?? [];
+        const math =
+          [...chunks.values()].find(chunk => chunk.facadeModuleId?.endsWith("/src/markdown/katex.ts"))?.viteMetadata
+            ?.importedCss ?? [];
         return [
           ...links("stylesheet", styles),
           // After the theme's, for the site's own colour and rules to win. A comparison with an official build has no site.
-          ...(mode === "parity" ? [] : [{ tag: "link", attrs: { rel: "stylesheet", href: "/site.css" }, injectTo: "head" as const }]),
+          ...(mode === "parity"
+            ? []
+            : [{ tag: "link", attrs: { rel: "stylesheet", href: "/site.css" }, injectTo: "head" as const }]),
           ...links("modulepreload", scripts),
-          ...[...math].map(style => ({ tag: "meta", attrs: { name: "pandocs-math-styles", content: `/${style}` }, injectTo: "head" as const }))
+          ...[...math].map(style => ({
+            tag: "meta",
+            attrs: { name: "pandocs-math-styles", content: `/${style}` },
+            injectTo: "head" as const
+          }))
         ];
       }
     }
@@ -84,7 +101,12 @@ export default defineConfig(({ command, mode, isSsrBuild }) => {
     resolve: {
       alias: [
         // The comparison with an official build runs without a server behind it; see parity/README.md.
-        ...(mode === "parity" ? [{ find: /^.*\/api\/client$/u, replacement: `${appRoot}parity/client.ts` }, { find: /^.*\/styles\/density\.css$/u, replacement: `${appRoot}parity/no-density.css` }] : []),
+        ...(mode === "parity"
+          ? [
+              { find: /^.*\/api\/client$/u, replacement: `${appRoot}parity/client.ts` },
+              { find: /^.*\/styles\/density\.css$/u, replacement: `${appRoot}parity/no-density.css` }
+            ]
+          : []),
         ...vendorAliases(appRoot)
       ]
     },
@@ -92,9 +114,15 @@ export default defineConfig(({ command, mode, isSsrBuild }) => {
       port: 3100,
       // `pnpm --filter @pandocs/web dev` runs against a server started with `pnpm dev`.
       proxy: {
-        "^/(api|auth|login|logout)(/|$)": { target: process.env.PANDOCS_DEV_SERVER ?? "http://127.0.0.1:8080", changeOrigin: false },
+        "^/(api|auth|login|logout)(/|$)": {
+          target: process.env.PANDOCS_DEV_SERVER ?? "http://127.0.0.1:8080",
+          changeOrigin: false
+        },
         "^/sign-in\\.css$": { target: process.env.PANDOCS_DEV_SERVER ?? "http://127.0.0.1:8080", changeOrigin: false },
-        "^/.*(\\.md|llms(-full)?\\.txt)$": { target: process.env.PANDOCS_DEV_SERVER ?? "http://127.0.0.1:8080", changeOrigin: false }
+        "^/.*(\\.md|llms(-full)?\\.txt)$": {
+          target: process.env.PANDOCS_DEV_SERVER ?? "http://127.0.0.1:8080",
+          changeOrigin: false
+        }
       }
     },
     // The server's image holds no packages, so what renders pages brings its own.
@@ -110,7 +138,11 @@ export default defineConfig(({ command, mode, isSsrBuild }) => {
           target: "esnext",
           chunkSizeWarningLimit: 5000,
           // A chunk runs before the one importing it. Together, these two run before anything has created a schema, wherever that ends up.
-          rolldownOptions: { output: { codeSplitting: { groups: [{ name: "zod", test: /\/node_modules\/.*\/zod\/|\/src\/no-eval\.ts$/u }] } } }
+          rolldownOptions: {
+            output: {
+              codeSplitting: { groups: [{ name: "zod", test: /\/node_modules\/.*\/zod\/|\/src\/no-eval\.ts$/u }] }
+            }
+          }
         }
   };
 });

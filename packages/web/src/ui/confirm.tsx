@@ -24,14 +24,22 @@ export function confirm(options: Omit<ConfirmRequest, "resolve">): Promise<boole
 const ConfirmDialog = React.lazy(() => import("./confirm-dialog"));
 
 export function ConfirmHost() {
-  const current = React.useSyncExternalStore(listener => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  }, () => request, () => null);
+  const current = React.useSyncExternalStore(
+    listener => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => request,
+    () => null
+  );
   if (!current) return null;
   const finish = (result: boolean) => {
     current.resolve(result);
     publish(null);
   };
-  return <React.Suspense fallback={null}><ConfirmDialog request={current} onFinish={finish} /></React.Suspense>;
+  return (
+    <React.Suspense fallback={null}>
+      <ConfirmDialog request={current} onFinish={finish} />
+    </React.Suspense>
+  );
 }

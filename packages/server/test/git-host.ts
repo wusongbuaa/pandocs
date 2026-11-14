@@ -8,9 +8,16 @@ import { dirname, join } from "node:path";
 export const hasGit = spawnSync("git", ["--version"]).status === 0;
 
 /** Nothing about the machine running the tests should change how Git behaves in them. */
-const quietEnv = { PATH: process.env.PATH, HOME: tmpdir(), GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0" };
+const quietEnv = {
+  PATH: process.env.PATH,
+  HOME: tmpdir(),
+  GIT_CONFIG_NOSYSTEM: "1",
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_TERMINAL_PROMPT: "0"
+};
 
-export const runGit = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, env: quietEnv, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+export const runGit = (cwd: string, ...args: string[]) =>
+  execFileSync("git", args, { cwd, env: quietEnv, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 
 export interface HostRequest {
   readonly method: string;
@@ -20,7 +27,10 @@ export interface HostRequest {
 
 /** Someone with their own clone, working as people do. */
 export class Person {
-  constructor(private readonly dir: string, private readonly name: string) {}
+  constructor(
+    private readonly dir: string,
+    private readonly name: string
+  ) {}
 
   commit(files: Readonly<Record<string, string | Uint8Array | null>>, message: string, branch = "main"): string {
     for (const [path, content] of Object.entries(files)) {
@@ -33,7 +43,17 @@ export class Person {
       }
     }
     runGit(this.dir, "add", "-A");
-    runGit(this.dir, "-c", `user.name=${this.name}`, "-c", "user.email=someone@example.com", "commit", "--quiet", "-m", message);
+    runGit(
+      this.dir,
+      "-c",
+      `user.name=${this.name}`,
+      "-c",
+      "user.email=someone@example.com",
+      "commit",
+      "--quiet",
+      "-m",
+      message
+    );
     runGit(this.dir, "push", "--quiet", "origin", `HEAD:refs/heads/${branch}`);
     return runGit(this.dir, "rev-parse", "HEAD");
   }
@@ -72,9 +92,13 @@ export class GitHost {
   async start(): Promise<void> {
     this.server = createServer((request, response) => {
       const url = new URL(request.url ?? "/", "http://host.test");
-      this.requests.push({ method: request.method ?? "", url: url.pathname + url.search, authorization: request.headers.authorization });
+      this.requests.push({
+        method: request.method ?? "",
+        url: url.pathname + url.search,
+        authorization: request.headers.authorization
+      });
       if (this.requiredAuthorization !== null && request.headers.authorization !== this.requiredAuthorization) {
-        response.writeHead(401, { "WWW-Authenticate": "Basic realm=\"test\"" }).end();
+        response.writeHead(401, { "WWW-Authenticate": 'Basic realm="test"' }).end();
         return;
       }
       const child = spawn("git", ["http-backend"], {
@@ -87,7 +111,9 @@ export class GitHost {
           REQUEST_METHOD: request.method ?? "GET",
           CONTENT_TYPE: request.headers["content-type"] ?? "",
           ...(request.headers["content-length"] ? { CONTENT_LENGTH: request.headers["content-length"] } : {}),
-          ...(request.headers["content-encoding"] ? { HTTP_CONTENT_ENCODING: request.headers["content-encoding"] } : {}),
+          ...(request.headers["content-encoding"]
+            ? { HTTP_CONTENT_ENCODING: request.headers["content-encoding"] }
+            : {}),
           ...(request.headers["git-protocol"] ? { HTTP_GIT_PROTOCOL: String(request.headers["git-protocol"]) } : {}),
           REMOTE_USER: "someone",
           REMOTE_ADDR: "127.0.0.1"

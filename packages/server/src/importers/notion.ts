@@ -36,7 +36,9 @@ const stem = (file: string) => baseName(file).replace(/\.[^.]+$/u, "");
 
 function parseName(file: string): { name: string; id: string } {
   const match = NAMED_ID.exec(stem(file).replace(/_all$/u, ""));
-  return match ? { name: match[1]!.trim() || match[2]!, id: match[2]!.toLowerCase() } : { name: stem(file), id: stem(file) };
+  return match
+    ? { name: match[1]!.trim() || match[2]!, id: match[2]!.toLowerCase() }
+    : { name: stem(file), id: stem(file) };
 }
 
 /** The tree of pages, from where the files are. A page's children are in a folder named after it, next to it. */
@@ -59,16 +61,29 @@ function buildTree(names: readonly string[]): Node[] {
     }
   }
   const visit = (dir: string): Node[] => {
-    const nodes: Node[] = (inDir.get(dir) ?? []).map(file => ({ ...parseName(file), file, folder: null, children: [], path: "" }));
+    const nodes: Node[] = (inDir.get(dir) ?? []).map(file => ({
+      ...parseName(file),
+      file,
+      folder: null,
+      children: [],
+      path: ""
+    }));
     for (const folder of subdirs.get(dir) ?? []) {
       const folderName = baseName(folder);
       const partial = PARTIAL_ID.exec(folderName);
       const exact = nodes.find(node => !node.folder && `${node.name} ${node.id}` === folderName);
-      const owner = exact ?? nodes.find(node => {
-        if (node.folder || !node.file) return false;
-        if (partial) return node.name === partial[1] && node.id.startsWith(partial[2]!.toLowerCase()) && node.id.endsWith(partial[3]!.toLowerCase());
-        return node.name === folderName;
-      });
+      const owner =
+        exact ??
+        nodes.find(node => {
+          if (node.folder || !node.file) return false;
+          if (partial)
+            return (
+              node.name === partial[1] &&
+              node.id.startsWith(partial[2]!.toLowerCase()) &&
+              node.id.endsWith(partial[3]!.toLowerCase())
+            );
+          return node.name === folderName;
+        });
       const holder = owner ?? { ...parseName(folder), file: null, folder: null, children: [], path: "" };
       holder.folder = folder;
       if (!owner) nodes.push(holder);
@@ -260,7 +275,12 @@ export function createNotionImporter(): BulkImporter {
           body = await links(convertContainers(heading ? text.slice(heading[0].length) : text), node, trailing);
           if (trailing.length > 0) body = `${body.trimEnd()}\n\n${trailing.join("\n\n")}\n`;
         }
-        await sink.page({ path: node.path, title, markdown: body.endsWith("\n") || !body ? body : `${body}\n`, sortOrder: (index + 1) * 10 });
+        await sink.page({
+          path: node.path,
+          title,
+          markdown: body.endsWith("\n") || !body ? body : `${body}\n`,
+          sortOrder: (index + 1) * 10
+        });
         await emit(node.children);
       }
     };
@@ -277,13 +297,19 @@ export function createNotionImporter(): BulkImporter {
       const files = outer.names.filter(name => !name.startsWith("__MACOSX/") && !name.endsWith(".DS_Store"));
       // A big export is a zip of zips, one for each part.
       const nested = files.length > 0 && files.every(name => /\.zip$/iu.test(name)) ? files.sort() : [];
-      const archives = nested.length > 0
-        ? nested.map(name => {
-          if (outer.size(name) > MAX_NESTED_BYTES) throw new PermanentIngestError("ARCHIVE_TOO_LARGE", t("The archive is too large once unpacked"));
-          return new ZipArchive(outer.read(name, MAX_NESTED_BYTES));
-        })
-        : [outer];
-      if (!archives.some(archive => archive.names.some(name => /\.(?:md|csv)$/iu.test(name)))) throw new PermanentIngestError("IMPORT_WRONG_FORMAT", t("This does not look like a Notion export. Export as Markdown & CSV."));
+      const archives =
+        nested.length > 0
+          ? nested.map(name => {
+              if (outer.size(name) > MAX_NESTED_BYTES)
+                throw new PermanentIngestError("ARCHIVE_TOO_LARGE", t("The archive is too large once unpacked"));
+              return new ZipArchive(outer.read(name, MAX_NESTED_BYTES));
+            })
+          : [outer];
+      if (!archives.some(archive => archive.names.some(name => /\.(?:md|csv)$/iu.test(name))))
+        throw new PermanentIngestError(
+          "IMPORT_WRONG_FORMAT",
+          t("This does not look like a Notion export. Export as Markdown & CSV.")
+        );
       const trees = archives.map(archive => buildTree(archive.names));
       const count = (nodes: readonly Node[]): number => nodes.reduce((sum, node) => sum + 1 + count(node.children), 0);
       sink.expect(trees.reduce((sum, tree) => sum + count(tree), 0));

@@ -68,7 +68,12 @@ export class FakeRepository implements GitPort {
         if (this.latest !== copyOf) throw new Error("rejected: the branch has moved on");
         for (const { path, bytes } of write) this.files.set(path, bytes);
         for (const path of remove) this.files.delete(path);
-        this.pushes.push({ message, author: author.name, write: write.map(item => item.path).sort(), remove: [...remove].sort() });
+        this.pushes.push({
+          message,
+          author: author.name,
+          write: write.map(item => item.path).sort(),
+          remove: [...remove].sort()
+        });
         this.latest = this.next();
         return this.latest;
       },

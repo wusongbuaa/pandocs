@@ -35,10 +35,28 @@ interface Insights {
     readonly unhelpful: number;
   };
   readonly daily: readonly { readonly day: string; readonly people: number; readonly agents: number }[];
-  readonly pages: readonly { readonly documentId: string; readonly space: string; readonly path: string; readonly title: string; readonly people: number; readonly agents: number; readonly helpful: number; readonly unhelpful: number; readonly reports: number }[];
+  readonly pages: readonly {
+    readonly documentId: string;
+    readonly space: string;
+    readonly path: string;
+    readonly title: string;
+    readonly people: number;
+    readonly agents: number;
+    readonly helpful: number;
+    readonly unhelpful: number;
+    readonly reports: number;
+  }[];
   readonly searches: readonly SearchTerm[];
   readonly emptySearches: readonly SearchTerm[];
-  readonly questions: readonly { readonly id: string; readonly question: string; readonly answer: string; readonly citations: readonly { readonly title: string; readonly url: string }[]; readonly answered: boolean; readonly helpful: boolean | null; readonly createdAt: string }[];
+  readonly questions: readonly {
+    readonly id: string;
+    readonly question: string;
+    readonly answer: string;
+    readonly citations: readonly { readonly title: string; readonly url: string }[];
+    readonly answered: boolean;
+    readonly helpful: boolean | null;
+    readonly createdAt: string;
+  }[];
 }
 
 interface Feedback {
@@ -80,15 +98,24 @@ function Days({ daily, days }: { daily: Insights["daily"]; days: number }) {
     <figure className="pd-days">
       <div className="pd-days__bars" role="img" aria-label={t("Pages read each day")}>
         {period.map(row => (
-          <div key={row.day} className="pd-days__day" title={t("{0}: {1} by people, {2} by agents and tools", row.day, row.people, row.agents)}>
+          <div
+            key={row.day}
+            className="pd-days__day"
+            title={t("{0}: {1} by people, {2} by agents and tools", row.day, row.people, row.agents)}
+          >
             <span className="pd-days__agents" style={{ height: `${(row.agents / highest) * 100}%` }} />
             <span className="pd-days__people" style={{ height: `${(row.people / highest) * 100}%` }} />
           </div>
         ))}
       </div>
       <figcaption>
-        <span className="pd-days__key pd-days__key--people" />{t("People")}<span className="pd-days__key pd-days__key--agents" />{t("Agents and tools")}
-        <span className="pd-days__range">{period[0]!.day} – {period.at(-1)!.day}</span>
+        <span className="pd-days__key pd-days__key--people" />
+        {t("People")}
+        <span className="pd-days__key pd-days__key--agents" />
+        {t("Agents and tools")}
+        <span className="pd-days__range">
+          {period[0]!.day} – {period.at(-1)!.day}
+        </span>
       </figcaption>
     </figure>
   );
@@ -98,11 +125,21 @@ function PagesTable({ pages }: { pages: Insights["pages"] }) {
   if (pages.length === 0) return <EmptyState>{t("Nothing has been read in this time.")}</EmptyState>;
   return (
     <table className="pd-table">
-      <thead><tr><th>{t("Page")}</th><th className="pd-table__number">{t("People")}</th><th className="pd-table__number">{t("Agents and tools")}</th><th className="pd-table__number">{t("Helpful")}</th><th className="pd-table__number">{t("Not helpful")}</th></tr></thead>
+      <thead>
+        <tr>
+          <th>{t("Page")}</th>
+          <th className="pd-table__number">{t("People")}</th>
+          <th className="pd-table__number">{t("Agents and tools")}</th>
+          <th className="pd-table__number">{t("Helpful")}</th>
+          <th className="pd-table__number">{t("Not helpful")}</th>
+        </tr>
+      </thead>
       <tbody>
         {pages.map(page => (
           <tr key={page.documentId}>
-            <td><Link href={documentRoute(page.space, page.path)}>{page.title}</Link></td>
+            <td>
+              <Link href={documentRoute(page.space, page.path)}>{page.title}</Link>
+            </td>
             <td className="pd-table__number">{page.people}</td>
             <td className="pd-table__number">{page.agents}</td>
             <td className="pd-table__number">{page.helpful}</td>
@@ -118,9 +155,23 @@ function TermsTable({ terms, emptyText }: { terms: readonly SearchTerm[]; emptyT
   if (terms.length === 0) return <EmptyState>{emptyText}</EmptyState>;
   return (
     <table className="pd-table">
-      <thead><tr><th>{t("Searched for")}</th><th className="pd-table__number">{t("People")}</th><th className="pd-table__number">{t("Agents and tools")}</th><th className="pd-table__number">{t("Found nothing")}</th></tr></thead>
+      <thead>
+        <tr>
+          <th>{t("Searched for")}</th>
+          <th className="pd-table__number">{t("People")}</th>
+          <th className="pd-table__number">{t("Agents and tools")}</th>
+          <th className="pd-table__number">{t("Found nothing")}</th>
+        </tr>
+      </thead>
       <tbody>
-        {terms.map(row => <tr key={row.term}><td>{row.term}</td><td className="pd-table__number">{row.people}</td><td className="pd-table__number">{row.agents}</td><td className="pd-table__number">{row.empty}</td></tr>)}
+        {terms.map(row => (
+          <tr key={row.term}>
+            <td>{row.term}</td>
+            <td className="pd-table__number">{row.people}</td>
+            <td className="pd-table__number">{row.agents}</td>
+            <td className="pd-table__number">{row.empty}</td>
+          </tr>
+        ))}
       </tbody>
     </table>
   );
@@ -141,7 +192,16 @@ function Questions({ questions }: { questions: Insights["questions"] }) {
               <time>{formatTime(row.createdAt)}</time>
             </summary>
             <p className="pd-questions__answer">{row.answer}</p>
-            {row.citations.length > 0 ? <p className="pd-questions__sources">{row.citations.map((citation, at) => <React.Fragment key={at}>{at > 0 ? t(", ") : ""}<Link href={citation.url}>{citation.title}</Link></React.Fragment>)}</p> : null}
+            {row.citations.length > 0 ? (
+              <p className="pd-questions__sources">
+                {row.citations.map((citation, at) => (
+                  <React.Fragment key={at}>
+                    {at > 0 ? t(", ") : ""}
+                    <Link href={citation.url}>{citation.title}</Link>
+                  </React.Fragment>
+                ))}
+              </p>
+            ) : null}
           </details>
         </li>
       ))}
@@ -166,26 +226,49 @@ function FeedbackList({ scope }: { scope: string }) {
   return (
     <>
       <div>
-        <Filter label={t("Filter feedback")} value={status} items={[{ value: "open", label: t("To look at") }, { value: "resolved", label: t("Dealt with") }]} onChange={setStatus} />
+        <Filter
+          label={t("Filter feedback")}
+          value={status}
+          items={[
+            { value: "open", label: t("To look at") },
+            { value: "resolved", label: t("Dealt with") }
+          ]}
+          onChange={setStatus}
+        />
       </div>
       <LoadedContent loaded={loaded}>
-        {items => (items.length === 0 ? <EmptyState>{status === "open" ? t("Nothing to look at. Votes without words are counted with the pages.") : t("Nothing has been dealt with yet.")}</EmptyState> : (
-          <ul className="pd-questions">
-            {items.map(item => (
-              <li key={item.id} className="pd-feedback">
-                <div className="pd-feedback__head">
-                  <Link href={documentRoute(item.space, item.path)}>{item.title}</Link>
-                  <span className={clsx("pd-tag", item.kind === "report" && "pd-tag--warning")}>{kinds[item.kind]}</span>
-                  <span className="pd-muted">{item.reporter ?? t("A reader")}{item.audience === "agent" ? t(" (agent)") : ""}</span>
-                  <time>{formatTime(item.createdAt)}</time>
-                </div>
-                {item.quote ? <blockquote>{item.quote}</blockquote> : null}
-                <p>{item.body}</p>
-                <Button variant="outline" onClick={() => void settle(item.id, status === "open")}>{status === "open" ? t("Mark as dealt with") : t("Open again")}</Button>
-              </li>
-            ))}
-          </ul>
-        ))}
+        {items =>
+          items.length === 0 ? (
+            <EmptyState>
+              {status === "open"
+                ? t("Nothing to look at. Votes without words are counted with the pages.")
+                : t("Nothing has been dealt with yet.")}
+            </EmptyState>
+          ) : (
+            <ul className="pd-questions">
+              {items.map(item => (
+                <li key={item.id} className="pd-feedback">
+                  <div className="pd-feedback__head">
+                    <Link href={documentRoute(item.space, item.path)}>{item.title}</Link>
+                    <span className={clsx("pd-tag", item.kind === "report" && "pd-tag--warning")}>
+                      {kinds[item.kind]}
+                    </span>
+                    <span className="pd-muted">
+                      {item.reporter ?? t("A reader")}
+                      {item.audience === "agent" ? t(" (agent)") : ""}
+                    </span>
+                    <time>{formatTime(item.createdAt)}</time>
+                  </div>
+                  {item.quote ? <blockquote>{item.quote}</blockquote> : null}
+                  <p>{item.body}</p>
+                  <Button variant="outline" onClick={() => void settle(item.id, status === "open")}>
+                    {status === "open" ? t("Mark as dealt with") : t("Open again")}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )
+        }
       </LoadedContent>
     </>
   );
@@ -205,19 +288,43 @@ export function InsightsView({ space }: { space?: Space }) {
   ];
   return (
     <>
-      <ManageHead title={space ? t("{0}: insights", space.name) : t("Site insights")} description={t("Counts only, with nothing about who: no addresses, cookies or names.")}>
-        <Filter label={t("Period")} value={days} items={PERIODS.map(period => ({ value: period, label: t("{0} days", period) }))} onChange={setDays} />
+      <ManageHead
+        title={space ? t("{0}: insights", space.name) : t("Site insights")}
+        description={t("Counts only, with nothing about who: no addresses, cookies or names.")}
+      >
+        <Filter
+          label={t("Period")}
+          value={days}
+          items={PERIODS.map(period => ({ value: period, label: t("{0} days", period) }))}
+          onChange={setDays}
+        />
       </ManageHead>
       <LoadedContent loaded={loaded}>
         {data => (
           <>
-            {data.collecting ? null : <p className="pd-doc-notice">{t("This site is set to keep no reading numbers, search terms or questions.")}</p>}
+            {data.collecting ? null : (
+              <p className="pd-doc-notice">
+                {t("This site is set to keep no reading numbers, search terms or questions.")}
+              </p>
+            )}
             <div className="pd-insights">
               <Number_ label={t("Read by people")} value={data.totals.people} />
               <Number_ label={t("Read by agents and tools")} value={data.totals.agents} />
-              <Number_ label={t("Searches")} value={data.totals.searches} note={data.totals.emptySearches ? t("{0} found nothing", data.totals.emptySearches) : undefined} />
-              <Number_ label={t("Questions to AI")} value={data.totals.questions} note={data.totals.unanswered ? t("{0} not in the pages", data.totals.unanswered) : undefined} />
-              <Number_ label={t("Found a page helpful")} value={data.totals.helpful} note={data.totals.unhelpful ? t("{0} did not", data.totals.unhelpful) : undefined} />
+              <Number_
+                label={t("Searches")}
+                value={data.totals.searches}
+                note={data.totals.emptySearches ? t("{0} found nothing", data.totals.emptySearches) : undefined}
+              />
+              <Number_
+                label={t("Questions to AI")}
+                value={data.totals.questions}
+                note={data.totals.unanswered ? t("{0} not in the pages", data.totals.unanswered) : undefined}
+              />
+              <Number_
+                label={t("Found a page helpful")}
+                value={data.totals.helpful}
+                note={data.totals.unhelpful ? t("{0} did not", data.totals.unhelpful) : undefined}
+              />
             </div>
             <Days daily={data.daily} days={days} />
             <Filter label={t("What to show")} value={section} items={sections} onChange={setSection} />

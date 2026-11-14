@@ -9,17 +9,37 @@ import { t } from "../i18n";
 const FollowOptions = React.lazy(() => import("./follow-options"));
 
 /** Being told when a page, or anything in its space, changes. It costs a request per page, so it waits until the page is showing. */
-export function FollowButton({ documentId, space, spaceName }: { documentId: string; space: string; spaceName: string }) {
+export function FollowButton({
+  documentId,
+  space,
+  spaceName
+}: {
+  documentId: string;
+  space: string;
+  spaceName: string;
+}) {
   const [following, setFollowing] = React.useState({ document: false, space: false });
   React.useEffect(() => {
     let current = true;
-    api.get<typeof following>(`documents/${documentId}/subscription`).then(state => { if (current) setFollowing(state); }, () => undefined);
-    return () => { current = false; };
+    api.get<typeof following>(`documents/${documentId}/subscription`).then(
+      state => {
+        if (current) setFollowing(state);
+      },
+      () => undefined
+    );
+    return () => {
+      current = false;
+    };
   }, [documentId]);
   const change = async (what: keyof typeof following, on: boolean) => {
     setFollowing(state => ({ ...state, [what]: on }));
     try {
-      await api.send(on ? "PUT" : "DELETE", what === "document" ? `documents/${documentId}/subscription` : `spaces/${encodeURIComponent(space)}/subscription`);
+      await api.send(
+        on ? "PUT" : "DELETE",
+        what === "document"
+          ? `documents/${documentId}/subscription`
+          : `spaces/${encodeURIComponent(space)}/subscription`
+      );
     } catch (error) {
       setFollowing(state => ({ ...state, [what]: !on }));
       toast(failureMessage(error), "error");
@@ -35,7 +55,14 @@ export function FollowButton({ documentId, space, spaceName }: { documentId: str
         </Popover.Trigger>
       </Tip>
       <Popover.Content className="pd-follow" align="start" sideOffset={6}>
-        <React.Suspense fallback={null}><FollowOptions document={following.document} space={following.space} spaceName={spaceName} onChange={change} /></React.Suspense>
+        <React.Suspense fallback={null}>
+          <FollowOptions
+            document={following.document}
+            space={following.space}
+            spaceName={spaceName}
+            onChange={change}
+          />
+        </React.Suspense>
       </Popover.Content>
     </Popover.Root>
   );

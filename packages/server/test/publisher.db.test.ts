@@ -1,5 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from "node:fs";
 import { open } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,7 +19,12 @@ import { signInFirstAdmin, startServer, type Client, type TestServer } from "./s
 
 const postgres = usePostgresFixture();
 const SPACE = "shop";
-const PNG = new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"));
+const PNG = new Uint8Array(
+  Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64"
+  )
+);
 
 describe("publishing spaces to a shared directory", () => {
   let server: TestServer;
@@ -19,16 +33,32 @@ describe("publishing spaces to a shared directory", () => {
   let spaceNumber = 0;
   let space = SPACE;
 
-  const publisher = (spaces: readonly string[] | "*" = [space], packIntervalMs = 0) => createPublisher({ services: server.runtime.services, dir, spaces, packIntervalMs, log: () => undefined });
+  const publisher = (spaces: readonly string[] | "*" = [space], packIntervalMs = 0) =>
+    createPublisher({ services: server.runtime.services, dir, spaces, packIntervalMs, log: () => undefined });
   const at = (...parts: string[]) => join(dir, space, ...parts);
   const read = (...parts: string[]) => readFileSync(at(...parts), "utf8");
-  const manifest = () => JSON.parse(read(".pandocs/MANIFEST.json")) as { cursor: string; files: { path: string; sha256: string; title?: string }[] };
+  const manifest = () =>
+    JSON.parse(read(".pandocs/MANIFEST.json")) as {
+      cursor: string;
+      files: { path: string; sha256: string; title?: string }[];
+    };
   const create = async (slug: string, markdown = `${slug} 的内容\n`, extra: object = {}) => {
-    const result = await admin.json("POST", `/api/v1/spaces/${space}/documents`, { title: slug, slug, markdown, ...extra });
+    const result = await admin.json("POST", `/api/v1/spaces/${space}/documents`, {
+      title: slug,
+      slug,
+      markdown,
+      ...extra
+    });
     expect(result.status).toBe(201);
     return result.data.document as { id: string; path: string };
   };
-  const save = (id: string, markdown: string, expectedRevision: number) => admin.json("PUT", `/api/v1/documents/${id}/content`, { markdown, expectedRevision }, { "idempotency-key": crypto.randomUUID() });
+  const save = (id: string, markdown: string, expectedRevision: number) =>
+    admin.json(
+      "PUT",
+      `/api/v1/documents/${id}/content`,
+      { markdown, expectedRevision },
+      { "idempotency-key": crypto.randomUUID() }
+    );
 
   beforeAll(async () => {
     server = await startServer(postgres.getConnectionString());
@@ -37,15 +67,21 @@ describe("publishing spaces to a shared directory", () => {
   afterAll(() => server.close());
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), "pandocs-publish-"));
-    space = `${SPACE}${spaceNumber += 1}`;
-    expect((await admin.json("POST", "/api/v1/spaces", { slug: space, name: "书店", defaultRole: "viewer" })).status).toBe(201);
+    space = `${SPACE}${(spaceNumber += 1)}`;
+    expect(
+      (await admin.json("POST", "/api/v1/spaces", { slug: space, name: "书店", defaultRole: "viewer" })).status
+    ).toBe(201);
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   it("writes pages as files, with what readers need to find their way around", async () => {
     await create("开始");
     await create("子页", "子页的内容\n", { parentPath: "开始" });
-    const upload = (await admin.request(`/api/v1/spaces/${space}/assets?filename=a.png`, { method: "POST", headers: { "content-type": "image/png" }, body: PNG }));
+    const upload = await admin.request(`/api/v1/spaces/${space}/assets?filename=a.png`, {
+      method: "POST",
+      headers: { "content-type": "image/png" },
+      body: PNG
+    });
     const image = ((await upload.json()) as { data: { path: string } }).data.path;
     await create("有图", `![图](${image})\n`);
 
@@ -58,7 +94,12 @@ describe("publishing spaces to a shared directory", () => {
     expect(read(".pandocs/README.md")).toContain("Do not write here");
     const current = JSON.parse(read(".pandocs/CURRENT"));
     expect(current).toMatchObject({ cursor: manifest().cursor, files: 4 });
-    expect(read(".pandocs/CHANGES.ndjson").trim().split("\n").map(line => JSON.parse(line).path)).toContain("开始.md");
+    expect(
+      read(".pandocs/CHANGES.ndjson")
+        .trim()
+        .split("\n")
+        .map(line => JSON.parse(line).path)
+    ).toContain("开始.md");
     expect(readdirSync(at()).filter(name => name.startsWith(".tmp"))).toEqual([]);
   });
 
@@ -70,7 +111,11 @@ describe("publishing spaces to a shared directory", () => {
       const unpacked = spawnSync("tar", ["-xzf", at(".pandocs/pack.tar.gz"), "-C", out]);
       expect(unpacked.stderr.toString()).toBe("");
       expect(readFileSync(join(out, "一页.md"), "utf8")).toBe("一页 的内容\n");
-      expect(JSON.parse(readFileSync(join(out, ".pandocs/MANIFEST.json"), "utf8")).files.map((file: { path: string }) => file.path)).toEqual(["一页.md"]);
+      expect(
+        JSON.parse(readFileSync(join(out, ".pandocs/MANIFEST.json"), "utf8")).files.map(
+          (file: { path: string }) => file.path
+        )
+      ).toEqual(["一页.md"]);
     } finally {
       rmSync(out, { recursive: true, force: true });
     }
@@ -88,7 +133,7 @@ describe("publishing spaces to a shared directory", () => {
       expect(await round.publish(space)).toMatchObject({ written: 1, removed: 0 });
       expect(read("会变.md")).toBe("新的内容\n");
       expect(statSync(at("不变.md")).ino).toBe(untouched);
-      expect((await reader.readFile("utf8"))).toBe("会变 的内容\n");
+      expect(await reader.readFile("utf8")).toBe("会变 的内容\n");
     } finally {
       await reader.close();
     }
@@ -102,12 +147,17 @@ describe("publishing spaces to a shared directory", () => {
     const before = readFileSync(at(".pandocs/CURRENT"));
     // A wake-up can still be finishing what the commit started, and that is not what this is about.
     let stamp = 0;
-    await expect.poll(async () => {
-      const before = statSync(at(".pandocs/CURRENT")).mtimeMs;
-      await new Promise(done => setTimeout(done, 400));
-      stamp = statSync(at(".pandocs/CURRENT")).mtimeMs;
-      return stamp === before;
-    }, { timeout: 10_000 }).toBe(true);
+    await expect
+      .poll(
+        async () => {
+          const before = statSync(at(".pandocs/CURRENT")).mtimeMs;
+          await new Promise(done => setTimeout(done, 400));
+          stamp = statSync(at(".pandocs/CURRENT")).mtimeMs;
+          return stamp === before;
+        },
+        { timeout: 10_000 }
+      )
+      .toBe(true);
     expect(await round.publish(space)).toMatchObject({ written: 0, removed: 0 });
     expect(readFileSync(at(".pandocs/CURRENT"))).toEqual(before);
     expect(statSync(at(".pandocs/CURRENT")).mtimeMs).toBe(stamp);
@@ -142,7 +192,11 @@ describe("publishing spaces to a shared directory", () => {
   });
 
   it("never writes restricted pages or their images, and takes a page away when it becomes restricted", async () => {
-    const upload = await admin.request(`/api/v1/spaces/${space}/assets?filename=s.png`, { method: "POST", headers: { "content-type": "image/png" }, body: PNG });
+    const upload = await admin.request(`/api/v1/spaces/${space}/assets?filename=s.png`, {
+      method: "POST",
+      headers: { "content-type": "image/png" },
+      body: PNG
+    });
     const image = ((await upload.json()) as { data: { path: string } }).data.path;
     await create("受限", `秘密 ![图](${image})\n`, { restricted: true });
     const later = await create("后来才受限");
@@ -230,7 +284,7 @@ describe("publishing spaces to a shared directory", () => {
     it("removes a space that was deleted or taken off the list, and no other", async () => {
       await create("一页");
       const removed = space;
-      const kept = `${SPACE}${spaceNumber += 1}`;
+      const kept = `${SPACE}${(spaceNumber += 1)}`;
       await admin.json("POST", "/api/v1/spaces", { slug: kept, name: "留下", defaultRole: "viewer" });
       await admin.json("POST", `/api/v1/spaces/${kept}/documents`, { title: "留下", slug: "留下", markdown: "留下\n" });
       const all = publisher("*");
@@ -269,7 +323,13 @@ describe("publishing spaces to a shared directory", () => {
     it("wakes on a commit and has the file there about a second later", async () => {
       await create("跟着变");
       const page = (await admin.json("GET", `/api/v1/spaces/${space}/resolve?path=跟着变`)).data;
-      const runner = runPublisher({ connectionString: connection(), services: server.runtime.services, publisher: publisher("*"), debounceMs: 10, leadRetryMs: 0 });
+      const runner = runPublisher({
+        connectionString: connection(),
+        services: server.runtime.services,
+        publisher: publisher("*"),
+        debounceMs: 10,
+        leadRetryMs: 0
+      });
       const listener = createChangeListener(connection(), runner.wake, { fallbackMs: 3_600_000 });
       try {
         await vi.waitFor(() => expect(read("跟着变.md")).toBe("跟着变 的内容\n"), { timeout: 10_000, interval: 50 });
@@ -279,7 +339,10 @@ describe("publishing spaces to a shared directory", () => {
         expect(Date.now() - saved).toBeLessThan(2000);
         // Discussions never touch the files, and do not make it work for nothing.
         const stamp = statSync(at(".pandocs/CURRENT")).mtimeMs;
-        await admin.json("POST", `/api/v1/documents/${page.id}/threads`, { anchor: { kind: "document" }, body: "看一下" });
+        await admin.json("POST", `/api/v1/documents/${page.id}/threads`, {
+          anchor: { kind: "document" },
+          body: "看一下"
+        });
         await new Promise(done => setTimeout(done, 300));
         expect(statSync(at(".pandocs/CURRENT")).mtimeMs).toBe(stamp);
       } finally {
@@ -291,8 +354,23 @@ describe("publishing spaces to a shared directory", () => {
     it("lets one replica work, and the next take over when it goes", async () => {
       await create("一页");
       const secondDir = mkdtempSync(join(tmpdir(), "pandocs-publish-"));
-      const first = runPublisher({ connectionString: connection(), services: server.runtime.services, publisher: publisher("*"), leadRetryMs: 0 });
-      const second = runPublisher({ connectionString: connection(), services: server.runtime.services, publisher: createPublisher({ services: server.runtime.services, dir: secondDir, spaces: "*", log: () => undefined }), leadRetryMs: 0 });
+      const first = runPublisher({
+        connectionString: connection(),
+        services: server.runtime.services,
+        publisher: publisher("*"),
+        leadRetryMs: 0
+      });
+      const second = runPublisher({
+        connectionString: connection(),
+        services: server.runtime.services,
+        publisher: createPublisher({
+          services: server.runtime.services,
+          dir: secondDir,
+          spaces: "*",
+          log: () => undefined
+        }),
+        leadRetryMs: 0
+      });
       try {
         await first.settle();
         expect(first.leading).toBe(true);
@@ -302,12 +380,18 @@ describe("publishing spaces to a shared directory", () => {
         expect(existsSync(join(secondDir, space, "一页.md"))).toBe(false);
 
         first.stop();
-        await vi.waitFor(async () => {
-          await second.settle();
-          expect(second.leading).toBe(true);
-        }, { timeout: 5000, interval: 50 });
+        await vi.waitFor(
+          async () => {
+            await second.settle();
+            expect(second.leading).toBe(true);
+          },
+          { timeout: 5000, interval: 50 }
+        );
         // Whoever takes over compares everything, because no one was watching in between.
-        await vi.waitFor(() => expect(existsSync(join(secondDir, space, "一页.md"))).toBe(true), { timeout: 5000, interval: 50 });
+        await vi.waitFor(() => expect(existsSync(join(secondDir, space, "一页.md"))).toBe(true), {
+          timeout: 5000,
+          interval: 50
+        });
       } finally {
         first.stop();
         second.stop();
@@ -320,7 +404,17 @@ describe("publishing spaces to a shared directory", () => {
       const blocked = join(dir, "not-a-directory");
       writeFileSync(blocked, "这是个文件，写不进去");
       const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
-      const runner = runPublisher({ connectionString: connection(), services: server.runtime.services, publisher: createPublisher({ services: server.runtime.services, dir: blocked, spaces: "*", log: () => undefined }), leadRetryMs: 0 });
+      const runner = runPublisher({
+        connectionString: connection(),
+        services: server.runtime.services,
+        publisher: createPublisher({
+          services: server.runtime.services,
+          dir: blocked,
+          spaces: "*",
+          log: () => undefined
+        }),
+        leadRetryMs: 0
+      });
       try {
         await runner.settle();
         expect(logged.mock.calls.some(([line]) => String(line).includes("publisher.round_failed"))).toBe(true);
@@ -345,10 +439,18 @@ describe("the wake-up from the database", () => {
 
   it("comes back after losing its connection", async () => {
     let wakes = 0;
-    const listener = createChangeListener(connection(), () => { wakes += 1; }, { fallbackMs: 3_600_000, reconnectMs: 20 });
+    const listener = createChangeListener(
+      connection(),
+      () => {
+        wakes += 1;
+      },
+      { fallbackMs: 3_600_000, reconnectMs: 20 }
+    );
     try {
       await vi.waitFor(() => expect(wakes).toBeGreaterThan(0), { timeout: 5000, interval: 20 });
-      const { rows } = await server.pool.query<{ killed: boolean }>(`SELECT pg_terminate_backend(pid) AS killed FROM pg_stat_activity WHERE query = 'LISTEN pandocs_changes' AND pid <> pg_backend_pid()`);
+      const { rows } = await server.pool.query<{ killed: boolean }>(
+        `SELECT pg_terminate_backend(pid) AS killed FROM pg_stat_activity WHERE query = 'LISTEN pandocs_changes' AND pid <> pg_backend_pid()`
+      );
       expect(rows.length).toBeGreaterThan(0);
       await new Promise(done => setTimeout(done, 200));
       const before = wakes;
@@ -362,7 +464,13 @@ describe("the wake-up from the database", () => {
 
   it("looks for itself now and then, in case a notification never came", async () => {
     let wakes = 0;
-    const listener = createChangeListener(connection(), () => { wakes += 1; }, { fallbackMs: 30 });
+    const listener = createChangeListener(
+      connection(),
+      () => {
+        wakes += 1;
+      },
+      { fallbackMs: 30 }
+    );
     try {
       await vi.waitFor(() => expect(wakes).toBeGreaterThan(3), { timeout: 5000, interval: 20 });
     } finally {

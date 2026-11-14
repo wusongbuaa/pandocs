@@ -42,8 +42,97 @@ export interface BlockHooks {
   note(reason: string): void;
 }
 
-const CODE_LANGUAGES: readonly string[] = ["", "abap", "ada", "apache", "apex", "asm", "bash", "csharp", "cpp", "c", "cobol", "css", "coffeescript", "d", "dart", "delphi", "django", "dockerfile", "erlang", "fortran", "foxpro", "go", "groovy", "html", "handlebars", "http", "haskell", "json", "java", "javascript", "julia", "kotlin", "latex", "lisp", "logo", "lua", "matlab", "makefile", "markdown", "nginx", "objectivec", "openedge", "php", "perl", "postscript", "powershell", "prolog", "protobuf", "python", "r", "rpg", "ruby", "rust", "sas", "scss", "sql", "scala", "scheme", "scratch", "shell", "swift", "thrift", "typescript", "vbscript", "vb", "xml", "yaml", "cmake", "diff", "gherkin", "graphql", "glsl", "properties", "solidity", "toml"];
-const CALLOUT_COLOURS: Readonly<Record<number, string>> = { 1: "danger", 8: "danger", 2: "warning", 9: "warning", 3: "warning", 10: "warning", 4: "tip", 11: "tip", 5: "info", 12: "info", 6: "note", 13: "note" };
+const CODE_LANGUAGES: readonly string[] = [
+  "",
+  "abap",
+  "ada",
+  "apache",
+  "apex",
+  "asm",
+  "bash",
+  "csharp",
+  "cpp",
+  "c",
+  "cobol",
+  "css",
+  "coffeescript",
+  "d",
+  "dart",
+  "delphi",
+  "django",
+  "dockerfile",
+  "erlang",
+  "fortran",
+  "foxpro",
+  "go",
+  "groovy",
+  "html",
+  "handlebars",
+  "http",
+  "haskell",
+  "json",
+  "java",
+  "javascript",
+  "julia",
+  "kotlin",
+  "latex",
+  "lisp",
+  "logo",
+  "lua",
+  "matlab",
+  "makefile",
+  "markdown",
+  "nginx",
+  "objectivec",
+  "openedge",
+  "php",
+  "perl",
+  "postscript",
+  "powershell",
+  "prolog",
+  "protobuf",
+  "python",
+  "r",
+  "rpg",
+  "ruby",
+  "rust",
+  "sas",
+  "scss",
+  "sql",
+  "scala",
+  "scheme",
+  "scratch",
+  "shell",
+  "swift",
+  "thrift",
+  "typescript",
+  "vbscript",
+  "vb",
+  "xml",
+  "yaml",
+  "cmake",
+  "diff",
+  "gherkin",
+  "graphql",
+  "glsl",
+  "properties",
+  "solidity",
+  "toml"
+];
+const CALLOUT_COLOURS: Readonly<Record<number, string>> = {
+  1: "danger",
+  8: "danger",
+  2: "warning",
+  9: "warning",
+  3: "warning",
+  10: "warning",
+  4: "tip",
+  11: "tip",
+  5: "info",
+  12: "info",
+  6: "note",
+  13: "note"
+};
 const WIKI_TOKEN = /\/(?:wiki|docx|docs)\/([A-Za-z0-9]+)/u;
 
 const LEFT_OUT: Readonly<Record<number, () => string>> = {
@@ -63,9 +152,7 @@ const LEFT_OUT: Readonly<Record<number, () => string>> = {
 };
 
 function escapeText(text: string): string {
-  return text
-    .replace(/[\\`*[\]<$~]/gu, "\\$&")
-    .replace(/(?<![\p{L}\p{N}])_|_(?![\p{L}\p{N}])/gu, "\\_");
+  return text.replace(/[\\`*[\]<$~]/gu, "\\$&").replace(/(?<![\p{L}\p{N}])_|_(?![\p{L}\p{N}])/gu, "\\_");
 }
 
 /** Something at the start of a line that would otherwise be read as Markdown of its own. */
@@ -79,8 +166,12 @@ const decoded = (url: string) => {
   }
 };
 
-const sameStyle = (a: TextStyle | undefined, b: TextStyle | undefined) => Boolean(a?.bold) === Boolean(b?.bold) && Boolean(a?.italic) === Boolean(b?.italic)
-  && Boolean(a?.strikethrough) === Boolean(b?.strikethrough) && Boolean(a?.inline_code) === Boolean(b?.inline_code) && a?.link?.url === b?.link?.url;
+const sameStyle = (a: TextStyle | undefined, b: TextStyle | undefined) =>
+  Boolean(a?.bold) === Boolean(b?.bold) &&
+  Boolean(a?.italic) === Boolean(b?.italic) &&
+  Boolean(a?.strikethrough) === Boolean(b?.strikethrough) &&
+  Boolean(a?.inline_code) === Boolean(b?.inline_code) &&
+  a?.link?.url === b?.link?.url;
 
 /** Marks only work up against words, so the spaces go outside them. */
 function marked(raw: string, style: TextStyle | undefined, hooks: BlockHooks): string {
@@ -125,19 +216,29 @@ function inline(elements: readonly TextElement[], hooks: BlockHooks): string {
       const title = escapeText(element.mention_doc.title ?? t("A document"));
       const inside = element.mention_doc.token ? hooks.linkToPage(element.mention_doc.token) : null;
       const url = element.mention_doc.url ? decoded(element.mention_doc.url) : null;
-      out += inside ?? url ? `[${title}](${inside ?? url!.replace(/[()\s]/gu, encodeURIComponent)})` : title;
+      out += (inside ?? url) ? `[${title}](${inside ?? url!.replace(/[()\s]/gu, encodeURIComponent)})` : title;
     } else if (element.mention_user) out += t("@someone");
-    else if (element.reminder?.expire_time) out += new Date(Number(element.reminder.expire_time)).toISOString().slice(0, 10);
+    else if (element.reminder?.expire_time)
+      out += new Date(Number(element.reminder.expire_time)).toISOString().slice(0, 10);
   }
   flush();
   // Hard line breaks, which is what someone pressing Shift+Enter there means.
   return escapeLineStart(out).replace(/ *\n/gu, "  \n").trimEnd();
 }
 
-const longestFence = (text: string) => Math.max(2, ...[...text.matchAll(/^\s*(:{3,})/gmu)].map(match => match[1]!.length));
+const longestFence = (text: string) =>
+  Math.max(2, ...[...text.matchAll(/^\s*(:{3,})/gmu)].map(match => match[1]!.length));
 
-const indented = (text: string, by: string) => text.split("\n").map((line, at) => (at === 0 || !line ? line : `${by}${line}`)).join("\n");
-const quoted = (text: string) => text.split("\n").map(line => (line ? `> ${line}` : ">")).join("\n");
+const indented = (text: string, by: string) =>
+  text
+    .split("\n")
+    .map((line, at) => (at === 0 || !line ? line : `${by}${line}`))
+    .join("\n");
+const quoted = (text: string) =>
+  text
+    .split("\n")
+    .map(line => (line ? `> ${line}` : ">"))
+    .join("\n");
 
 /** Converts one document. What cannot come over leaves a note in the page saying so, with a link back. */
 export async function blocksToMarkdown(blocks: readonly FeishuBlock[], hooks: BlockHooks): Promise<string> {
@@ -165,9 +266,13 @@ export async function blocksToMarkdown(blocks: readonly FeishuBlock[], hooks: Bl
   };
 
   const table = async (block: FeishuBlock) => {
-    const { cells = [], property } = (block.table ?? {}) as { cells?: readonly string[]; property?: { column_size?: number; merge_info?: readonly { row_span?: number; col_span?: number }[] } };
+    const { cells = [], property } = (block.table ?? {}) as {
+      cells?: readonly string[];
+      property?: { column_size?: number; merge_info?: readonly { row_span?: number; col_span?: number }[] };
+    };
     const columns = property?.column_size ?? 1;
-    if ((property?.merge_info ?? []).some(cell => (cell.row_span ?? 1) > 1 || (cell.col_span ?? 1) > 1)) hooks.note(t("A table had merged cells, which Markdown cannot show"));
+    if ((property?.merge_info ?? []).some(cell => (cell.row_span ?? 1) > 1 || (cell.col_span ?? 1) > 1))
+      hooks.note(t("A table had merged cells, which Markdown cannot show"));
     const rows: string[][] = [];
     for (let at = 0; at < cells.length; at += columns) {
       const row: string[] = [];
@@ -178,8 +283,13 @@ export async function blocksToMarkdown(blocks: readonly FeishuBlock[], hooks: Bl
       rows.push(row);
     }
     if (rows.length === 0) return "";
-    const line = (row: readonly string[]) => `| ${Array.from({ length: columns }, (_, at) => row[at] ?? "").join(" | ")} |`;
-    return [line(rows[0]!), `| ${Array.from({ length: columns }, () => "---").join(" | ")} |`, ...rows.slice(1).map(line)].join("\n");
+    const line = (row: readonly string[]) =>
+      `| ${Array.from({ length: columns }, (_, at) => row[at] ?? "").join(" | ")} |`;
+    return [
+      line(rows[0]!),
+      `| ${Array.from({ length: columns }, () => "---").join(" | ")} |`,
+      ...rows.slice(1).map(line)
+    ].join("\n");
   };
 
   const one = async (block: FeishuBlock): Promise<string> => {
@@ -196,7 +306,8 @@ export async function blocksToMarkdown(blocks: readonly FeishuBlock[], hooks: Bl
       return `${fence}${CODE_LANGUAGES[(content.style?.language ?? 1) - 1] ?? ""}\n${text.replace(/\n$/u, "")}\n${fence}`;
     }
     if (type === 15) return quoted(textOf(block, "quote"));
-    if (type === 16) return `$$\n${((block.equation ?? {}) as TextContent).elements?.map(element => element.text_run?.content ?? element.equation?.content ?? "").join("") ?? ""}\n$$`;
+    if (type === 16)
+      return `$$\n${((block.equation ?? {}) as TextContent).elements?.map(element => element.text_run?.content ?? element.equation?.content ?? "").join("") ?? ""}\n$$`;
     if (type === 34) return quoted(await render(childrenOf(block)));
     if (type === 19) {
       const body = await render(childrenOf(block));
@@ -207,13 +318,23 @@ export async function blocksToMarkdown(blocks: readonly FeishuBlock[], hooks: Bl
     if (type === 23) {
       const { token, name } = (block.file ?? {}) as { token?: string; name?: string };
       const path = token ? await hooks.media(token, name ?? token) : null;
-      return path ? `::file[${(name ?? token!).replace(/[[\]\r\n]/gu, " ")}]{src="${path}"}` : placeholder(name ?? t("A file"));
+      return path
+        ? `::file[${(name ?? token!).replace(/[[\]\r\n]/gu, " ")}]{src="${path}"}`
+        : placeholder(name ?? t("A file"));
     }
     if (type === 24) {
       const columns = childrenOf(block).filter(child => child.block_type === 25);
-      const rendered = await Promise.all(columns.map(async column => ({ width: ((column.grid_column ?? {}) as { width_ratio?: number }).width_ratio, body: await render(childrenOf(column)) })));
+      const rendered = await Promise.all(
+        columns.map(async column => ({
+          width: ((column.grid_column ?? {}) as { width_ratio?: number }).width_ratio,
+          body: await render(childrenOf(column))
+        }))
+      );
       const inner = ":".repeat(Math.max(2, ...rendered.map(column => longestFence(column.body))) + 1);
-      const parts = rendered.map(({ width, body }) => `${inner}column${width ? `{width="${(width / 100).toFixed(2)}"}` : ""}\n\n${body}\n\n${inner}`);
+      const parts = rendered.map(
+        ({ width, body }) =>
+          `${inner}column${width ? `{width="${(width / 100).toFixed(2)}"}` : ""}\n\n${body}\n\n${inner}`
+      );
       const outer = `${inner}:`;
       return `${outer}columns\n\n${parts.join("\n\n")}\n\n${outer}`;
     }
@@ -233,7 +354,8 @@ export async function blocksToMarkdown(blocks: readonly FeishuBlock[], hooks: Bl
       return path ? `![](${path})` : placeholder(t("A whiteboard"));
     }
     // These only hold other blocks, in a place of their own.
-    if (type === 33 || type === 44 || type === 45 || type === 47 || type === 49 || type === 25 || type === 32) return render(childrenOf(block));
+    if (type === 33 || type === 44 || type === 45 || type === 47 || type === 49 || type === 25 || type === 32)
+      return render(childrenOf(block));
     if (type === 46) {
       const title = textOf(block, "agenda_item_title");
       return title ? `**${title}**` : "";
@@ -250,7 +372,12 @@ export async function blocksToMarkdown(blocks: readonly FeishuBlock[], hooks: Bl
       const type = block.block_type;
       if (LIST_TYPES.has(type)) {
         const key = type === 12 ? "bullet" : type === 13 ? "ordered" : "todo";
-        const marker = type === 12 ? "- " : type === 13 ? "1. " : `- [${((block.todo ?? {}) as TextContent).style?.done ? "x" : " "}] `;
+        const marker =
+          type === 12
+            ? "- "
+            : type === 13
+              ? "1. "
+              : `- [${((block.todo ?? {}) as TextContent).style?.done ? "x" : " "}] `;
         parts.push({ text: await listItem(block, marker, textOf(block, key)), list: true });
         continue;
       }
@@ -258,7 +385,10 @@ export async function blocksToMarkdown(blocks: readonly FeishuBlock[], hooks: Bl
       // Documents there are full of empty lines kept for spacing.
       if (text) parts.push({ text, list: false });
     }
-    return parts.reduce((all, part, at) => all + (at === 0 ? "" : part.list && parts[at - 1]!.list ? "\n" : "\n\n") + part.text, "");
+    return parts.reduce(
+      (all, part, at) => all + (at === 0 ? "" : part.list && parts[at - 1]!.list ? "\n" : "\n\n") + part.text,
+      ""
+    );
   };
 
   const body = await render(childrenOf(root));

@@ -21,10 +21,15 @@ export interface LiveSession {
 const ENDINGS: readonly string[] = ["signed-out", "forbidden", "stale"];
 
 /** The shared draft of a page, or null if this has to be done alone: the server does not offer it, or the connection is not getting through. */
-export async function openLiveSession(documentId: string): Promise<{ readonly session: LiveSession | null; readonly unreachable: boolean }> {
+export async function openLiveSession(
+  documentId: string
+): Promise<{ readonly session: LiveSession | null; readonly unreachable: boolean }> {
   // A page in another system's frame has a token that runs out and is renewed from outside, which this connection does not follow yet.
   if (embedded) return { session: null, unreachable: false };
-  const opened = await api.send<{ available: false } | { available: true; name: string }>("POST", `documents/${documentId}/live`);
+  const opened = await api.send<{ available: false } | { available: true; name: string }>(
+    "POST",
+    `documents/${documentId}/live`
+  );
   if (!opened.available) return { session: null, unreachable: false };
   const doc = new Y.Doc();
   const handlers = new Set<(ending: LiveEnding) => void>();

@@ -59,11 +59,16 @@ interface OpenDraft {
 }
 
 /** The answer given to someone who may not come in, which the editor reads to know what to do. */
-const refusal = (reason: "signed-out" | "forbidden" | "stale") => ({ reason, code: reason === "signed-out" ? 4401 : 4403 });
+const refusal = (reason: "signed-out" | "forbidden" | "stale") => ({
+  reason,
+  code: reason === "signed-out" ? 4401 : 4403
+});
 
 export interface LiveHubDeps {
   readonly services: PandocsServices;
-  readonly authenticate: (request: Request) => Promise<{ readonly ok: true; readonly principal: Principal } | { readonly ok: false }>;
+  readonly authenticate: (
+    request: Request
+  ) => Promise<{ readonly ok: true; readonly principal: Principal } | { readonly ok: false }>;
   readonly publicOrigin: string;
   /** The site's path below its host, such as `/docs`, which sockets arrive with. Empty at the root. */
   readonly basePath?: string;
@@ -115,7 +120,8 @@ export function createLiveHub(deps: LiveHubDeps) {
     }
   };
 
-  const publish = (draft: OpenDraft, kind: string, data = "") => relay.publish(liveChannel(draft.documentId), `${replica}|${kind}|${data}`).catch(() => undefined);
+  const publish = (draft: OpenDraft, kind: string, data = "") =>
+    relay.publish(liveChannel(draft.documentId), `${replica}|${kind}|${data}`).catch(() => undefined);
 
   const flushRelay = (draft: OpenDraft) => {
     draft.relayTimer = null;
@@ -146,7 +152,9 @@ export function createLiveHub(deps: LiveHubDeps) {
       publishAwareness(draft, clients.slice(half));
     } else {
       // One person's state alone too long to carry, which only a client sending nonsense makes.
-      console.warn(JSON.stringify({ event: "live.awareness_too_long", document: draft.documentId, chars: encoded.length }));
+      console.warn(
+        JSON.stringify({ event: "live.awareness_too_long", document: draft.documentId, chars: encoded.length })
+      );
     }
   };
 
@@ -170,12 +178,14 @@ export function createLiveHub(deps: LiveHubDeps) {
     if (from === replica) return;
     if (kind === "p") void pull(draft).catch(() => undefined);
     else if (kind === "u") Y.applyUpdate(draft.document, Buffer.from(data, "base64"), FROM_OTHER_REPLICA);
-    else if (kind === "a") applyAwarenessUpdate(draft.document.awareness, Buffer.from(data, "base64"), FROM_OTHER_REPLICA);
+    else if (kind === "a")
+      applyAwarenessUpdate(draft.document.awareness, Buffer.from(data, "base64"), FROM_OTHER_REPLICA);
     else if (kind === "h") {
       // A replica has just opened this draft, and wants to know what has been typed that is not written down yet, and who is here.
       draft.tellOthersAfterStoring = true;
       void storeNow(draft)?.catch(() => undefined);
-      if (draft.document.awareness.getStates().size > 0) publishAwareness(draft, [...draft.document.awareness.getStates().keys()]);
+      if (draft.document.awareness.getStates().size > 0)
+        publishAwareness(draft, [...draft.document.awareness.getStates().keys()]);
     }
   };
 
@@ -184,10 +194,15 @@ export function createLiveHub(deps: LiveHubDeps) {
     draft.touched = false;
     draft.contributors = {};
     try {
-      const version = await services.live.write(draft.documentId, draft.name, stored => {
-        Y.applyUpdate(draft.document, stored, FROM_ELSEWHERE);
-        return Y.encodeStateAsUpdate(draft.document);
-      }, { touched, contributors });
+      const version = await services.live.write(
+        draft.documentId,
+        draft.name,
+        stored => {
+          Y.applyUpdate(draft.document, stored, FROM_ELSEWHERE);
+          return Y.encodeStateAsUpdate(draft.document);
+        },
+        { touched, contributors }
+      );
       if (version === null) sendAway(draft);
       else draft.version = version;
     } catch (error) {
@@ -206,14 +221,19 @@ export function createLiveHub(deps: LiveHubDeps) {
     for (const connection of draft.document.getConnections()) connection.close(refusal("stale"));
   };
 
-  const storeNow = (draft: OpenDraft) => hocuspocus.storeDocumentHooks(draft.document, {
-    instance: hocuspocus,
-    clientsCount: draft.document.getConnectionsCount(),
-    document: draft.document,
-    lastContext: {},
-    lastTransactionOrigin: FROM_ELSEWHERE,
-    documentName: draft.name
-  }, true);
+  const storeNow = (draft: OpenDraft) =>
+    hocuspocus.storeDocumentHooks(
+      draft.document,
+      {
+        instance: hocuspocus,
+        clientsCount: draft.document.getConnectionsCount(),
+        document: draft.document,
+        lastContext: {},
+        lastTransactionOrigin: FROM_ELSEWHERE,
+        documentName: draft.name
+      },
+      true
+    );
 
   /** Takes in versions made while people have this open, from wherever they came. */
   const catchUp = async () => {
@@ -238,7 +258,13 @@ export function createLiveHub(deps: LiveHubDeps) {
           leaveUntil.delete(documentId);
         } catch (error) {
           leaveUntil.set(documentId, Date.now() + RETRY_CATCHING_UP_AFTER_MS);
-          console.error(JSON.stringify({ event: "live.catch_up_failed", documentId, message: error instanceof Error ? error.message : "" }));
+          console.error(
+            JSON.stringify({
+              event: "live.catch_up_failed",
+              documentId,
+              message: error instanceof Error ? error.message : ""
+            })
+          );
         }
       }
     } finally {
@@ -282,7 +308,18 @@ export function createLiveHub(deps: LiveHubDeps) {
     },
     async onLoadDocument({ documentName, document }) {
       const documentId = idOf(documentName);
-      const draft: OpenDraft = { documentId, name: documentName, document, version: 0, touched: false, contributors: {}, updates: [], awareness: new Set(), relayTimer: null, tellOthersAfterStoring: false };
+      const draft: OpenDraft = {
+        documentId,
+        name: documentName,
+        document,
+        version: 0,
+        touched: false,
+        contributors: {},
+        updates: [],
+        awareness: new Set(),
+        relayTimer: null,
+        tellOthersAfterStoring: false
+      };
       // Before reading, or what is written between the two would be missed.
       await relay.join(liveChannel(documentId), payload => onRelayed(draft, payload));
       const stored = await services.live.read(documentId);
@@ -293,7 +330,10 @@ export function createLiveHub(deps: LiveHubDeps) {
       draft.version = stored.version;
       open.set(documentId, draft);
       void publish(draft, "h");
-      lookAround ??= setInterval(() => void lookAroundNow().catch(() => undefined), deps.lookAroundMs ?? LOOK_AROUND_MS);
+      lookAround ??= setInterval(
+        () => void lookAroundNow().catch(() => undefined),
+        deps.lookAroundMs ?? LOOK_AROUND_MS
+      );
       lookAround.unref();
       return stored.state;
     },
@@ -335,15 +375,22 @@ export function createLiveHub(deps: LiveHubDeps) {
 
   const attach = (socket: WebSocket, incoming: IncomingMessage) => {
     const headers = new Headers();
-    for (const [name, value] of Object.entries(incoming.headers)) if (typeof value === "string") headers.set(name, value);
+    for (const [name, value] of Object.entries(incoming.headers))
+      if (typeof value === "string") headers.set(name, value);
     const deadline = setTimeout(() => socket.terminate(), deps.admittedWithinMs ?? ADMITTED_WITHIN_MS);
     deadline.unref();
-    const connection = hocuspocus.handleConnection(socket, new Request(new URL(incoming.url ?? LIVE_PATH, deps.publicOrigin), { headers }), { letIn: () => clearTimeout(deadline) } as LiveContext);
+    const connection = hocuspocus.handleConnection(
+      socket,
+      new Request(new URL(incoming.url ?? LIVE_PATH, deps.publicOrigin), { headers }),
+      { letIn: () => clearTimeout(deadline) } as LiveContext
+    );
     // Someone reading along sends nothing, and that should not look like having gone away.
     const ping = setInterval(() => socket.ping(), PING_MS);
     ping.unref();
     socket.on("pong", () => connection.touch());
-    socket.on("message", (data: Buffer) => connection.handleMessage(new Uint8Array(data.buffer, data.byteOffset, data.byteLength)));
+    socket.on("message", (data: Buffer) =>
+      connection.handleMessage(new Uint8Array(data.buffer, data.byteOffset, data.byteLength))
+    );
     socket.on("close", (code, reason) => {
       clearInterval(ping);
       clearTimeout(deadline);
@@ -371,7 +418,11 @@ export function createLiveHub(deps: LiveHubDeps) {
       // From here the HTTP server no longer looks after this socket, and whoever is on the other end can reset it at any moment.
       socket.on("error", () => socket.destroy());
       const url = incoming.url ?? "/";
-      if (!URL.canParse(url, deps.publicOrigin) || new URL(url, deps.publicOrigin).pathname !== `${deps.basePath ?? ""}${LIVE_PATH}`) refuse(socket, "404 Not Found");
+      if (
+        !URL.canParse(url, deps.publicOrigin) ||
+        new URL(url, deps.publicOrigin).pathname !== `${deps.basePath ?? ""}${LIVE_PATH}`
+      )
+        refuse(socket, "404 Not Found");
       else if (draining) refuse(socket, "503 Service Unavailable");
       else if (fromAnotherSite(incoming)) refuse(socket, "403 Forbidden");
       else {

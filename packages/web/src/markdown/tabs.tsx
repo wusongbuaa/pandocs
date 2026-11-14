@@ -51,10 +51,13 @@ export function DocTabs({ group, tabs }: { readonly group?: string | undefined; 
   const values = tabs.map(tab => tab.value);
   const key = values.join("\n");
 
-  const follow = React.useCallback((value: string | null) => {
-    const at = value === null ? -1 : key.split("\n").indexOf(value);
-    if (at >= 0) setChosen(at);
-  }, [key]);
+  const follow = React.useCallback(
+    (value: string | null) => {
+      const at = value === null ? -1 : key.split("\n").indexOf(value);
+      if (at >= 0) setChosen(at);
+    },
+    [key]
+  );
 
   React.useEffect(() => {
     if (!group) return undefined;
@@ -94,7 +97,9 @@ export function DocTabs({ group, tabs }: { readonly group?: string | undefined; 
 
   const onKeyDown = (event: React.KeyboardEvent, at: number) => {
     const last = tabs.length - 1;
-    const next = { ArrowRight: at === last ? 0 : at + 1, ArrowLeft: at === 0 ? last : at - 1, Home: 0, End: last }[event.key];
+    const next = { ArrowRight: at === last ? 0 : at + 1, ArrowLeft: at === 0 ? last : at - 1, Home: 0, End: last }[
+      event.key
+    ];
     if (next === undefined) return;
     event.preventDefault();
     choose(next);
@@ -107,14 +112,19 @@ export function DocTabs({ group, tabs }: { readonly group?: string | undefined; 
         {tabs.map((tab, at) => (
           <button
             key={at}
-            ref={element => { labels.current[at] = element; }}
+            ref={element => {
+              labels.current[at] = element;
+            }}
             type="button"
             role="tab"
             id={`${id}-tab-${at}`}
             aria-controls={`${id}-pane-${at}`}
             aria-selected={at === chosen}
             tabIndex={at === chosen ? 0 : -1}
-            className={clsx("rp-tabs__label__item", at === chosen ? "rp-tabs__label__item--selected" : "rp-tabs__label__item--not-selected")}
+            className={clsx(
+              "rp-tabs__label__item",
+              at === chosen ? "rp-tabs__label__item--selected" : "rp-tabs__label__item--not-selected"
+            )}
             onClick={() => choose(at)}
             onKeyDown={event => onKeyDown(event, at)}
           >
@@ -126,14 +136,21 @@ export function DocTabs({ group, tabs }: { readonly group?: string | undefined; 
         {tabs.map((tab, at) => (
           <div
             key={at}
-            ref={element => { panes.current[at] = element; }}
+            ref={element => {
+              panes.current[at] = element;
+            }}
             role="tabpanel"
             id={`${id}-pane-${at}`}
             aria-labelledby={`${id}-tab-${at}`}
             hidden={at !== chosen}
-            className={clsx("rp-tabs__content__item", at === chosen ? "rp-tabs__content__item--active" : "rp-tabs__content__item--hidden")}
+            className={clsx(
+              "rp-tabs__content__item",
+              at === chosen ? "rp-tabs__content__item--active" : "rp-tabs__content__item--hidden"
+            )}
           >
-            <div className="pd-tabs__print-label" aria-hidden="true">{tab.label}</div>
+            <div className="pd-tabs__print-label" aria-hidden="true">
+              {tab.label}
+            </div>
             {tab.content}
           </div>
         ))}

@@ -22,7 +22,8 @@ const opened = (state: Uint8Array) => {
   return doc;
 };
 /** Types into a top-level paragraph. */
-const typeInto = (doc: Y.Doc, block: number, at: number, text: string) => ((doc.getXmlFragment(LIVE_FIELD).get(block) as Y.XmlElement).get(0) as Y.XmlText).insert(at, text);
+const typeInto = (doc: Y.Doc, block: number, at: number, text: string) =>
+  ((doc.getXmlFragment(LIVE_FIELD).get(block) as Y.XmlElement).get(0) as Y.XmlText).insert(at, text);
 
 describe("the draft a page's editors share", () => {
   let h: ReturnType<typeof createHarness>;
@@ -32,7 +33,11 @@ describe("the draft a page's editors share", () => {
   const BASE = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n\nThird paragraph.\n";
 
   const makePage = async (markdown = BASE) => {
-    const made = await h.call(USERS.admin, "POST", `spaces/${space}/documents`, { title: "Guide", slug: `guide-${spaceNo}`, markdown });
+    const made = await h.call(USERS.admin, "POST", `spaces/${space}/documents`, {
+      title: "Guide",
+      slug: `guide-${spaceNo}`,
+      markdown
+    });
     expect(made.error).toBeUndefined();
     return made.data.document.id as string;
   };
@@ -44,20 +49,34 @@ describe("the draft a page's editors share", () => {
   const state = async () => (await h.services.live.read(id))!.state;
   const draftText = async (base: string) => liveCodec.markdownOf(await state(), base);
   /** What a replica does with what its people typed. */
-  const store = async (name: string, doc: Y.Doc, contributors: Record<string, string> = { [USERS.editor.id]: USERS.editor.displayName }) => {
-    const version = await h.services.live.write(id, name, stored => {
-      Y.applyUpdate(doc, stored);
-      return Y.encodeStateAsUpdate(doc);
-    }, { touched: true, contributors });
+  const store = async (
+    name: string,
+    doc: Y.Doc,
+    contributors: Record<string, string> = { [USERS.editor.id]: USERS.editor.displayName }
+  ) => {
+    const version = await h.services.live.write(
+      id,
+      name,
+      stored => {
+        Y.applyUpdate(doc, stored);
+        return Y.encodeStateAsUpdate(doc);
+      },
+      { touched: true, contributors }
+    );
     expect(version).not.toBeNull();
   };
   const save = async (principal: Principal, markdown: string, more: object = {}) => {
     const view = (await h.call(principal, "GET", `documents/${id}`)).data;
-    const saved = await h.write(principal, "PUT", `documents/${id}/content`, { markdown, expectedRevision: view.revision.no, ...more });
+    const saved = await h.write(principal, "PUT", `documents/${id}/content`, {
+      markdown,
+      expectedRevision: view.revision.no,
+      ...more
+    });
     expect(saved.error).toBeUndefined();
     return saved.data;
   };
-  const row = async () => (await h.pool.query(`SELECT * FROM pandocs.live_drafts WHERE document_id = $1`, [id])).rows[0];
+  const row = async () =>
+    (await h.pool.query(`SELECT * FROM pandocs.live_drafts WHERE document_id = $1`, [id])).rows[0];
 
   beforeAll(async () => {
     await resetPandocs(fixture.getConnectionString());
@@ -68,7 +87,10 @@ describe("the draft a page's editors share", () => {
     space = `space-${spaceNo}`;
     await h.call(USERS.admin, "POST", "spaces", { slug: space, name: "Docs", defaultRole: "viewer" });
     await h.call(USERS.admin, "PUT", `spaces/${space}/members`, { subject: `user:${USERS.editor.id}`, role: "editor" });
-    await h.call(USERS.admin, "PUT", `spaces/${space}/members`, { subject: `user:${USERS.commenter.id}`, role: "commenter" });
+    await h.call(USERS.admin, "PUT", `spaces/${space}/members`, {
+      subject: `user:${USERS.commenter.id}`,
+      role: "commenter"
+    });
     id = await makePage();
   });
   afterAll(() => h.close());
@@ -100,7 +122,9 @@ describe("the draft a page's editors share", () => {
     });
 
     it("is not a way around a space's review rules", async () => {
-      await h.call(USERS.admin, "PATCH", `spaces/${space}`, { mergeRules: { requiredApprovals: 0, requireChangeSets: true } });
+      await h.call(USERS.admin, "PATCH", `spaces/${space}`, {
+        mergeRules: { requiredApprovals: 0, requireChangeSets: true }
+      });
       const refused = await h.call(USERS.editor, "POST", `documents/${id}/live`);
       expect(refused.status).toBe(403);
       expect(refused.error.code).toBe("CHANGE_SET_REQUIRED");
@@ -110,7 +134,10 @@ describe("the draft a page's editors share", () => {
       const without = createHarness(fixture.getConnectionString());
       try {
         expect((await without.call(USERS.admin, "POST", `documents/${id}/live`)).data).toEqual({ available: false });
-        expect((await without.call(USERS.admin, "GET", `documents/${id}/live`)).data).toEqual({ available: false, unsaved: null });
+        expect((await without.call(USERS.admin, "GET", `documents/${id}/live`)).data).toEqual({
+          available: false,
+          unsaved: null
+        });
       } finally {
         await without.close();
       }
@@ -119,16 +146,23 @@ describe("the draft a page's editors share", () => {
     it("lets a connection in only to the draft that is there now", async () => {
       const { name } = await open();
       await expect(h.services.live.admit(USERS.editor, name)).resolves.toBe(id);
-      await expect(h.services.live.admit(USERS.editor, `${id}.something-older`)).rejects.toMatchObject({ code: "LIVE_DRAFT_STALE" });
+      await expect(h.services.live.admit(USERS.editor, `${id}.something-older`)).rejects.toMatchObject({
+        code: "LIVE_DRAFT_STALE"
+      });
       // Only exactly that name: a replica keeps one copy of a draft per page, and another name for it would get in the way of that.
-      await expect(h.services.live.admit(USERS.editor, `${name}.more`)).rejects.toMatchObject({ code: "LIVE_DRAFT_STALE" });
+      await expect(h.services.live.admit(USERS.editor, `${name}.more`)).rejects.toMatchObject({
+        code: "LIVE_DRAFT_STALE"
+      });
       await expect(h.services.live.admit(USERS.reader, name)).rejects.toMatchObject({ status: 403 });
       await expect(h.services.live.admit(USERS.editor, "not-a-draft")).rejects.toMatchObject({ status: 404 });
     });
 
     it("stops letting someone in once they can no longer edit", async () => {
       const { name } = await open(USERS.editor);
-      await h.call(USERS.admin, "PUT", `spaces/${space}/members`, { subject: `user:${USERS.editor.id}`, role: "viewer" });
+      await h.call(USERS.admin, "PUT", `spaces/${space}/members`, {
+        subject: `user:${USERS.editor.id}`,
+        role: "viewer"
+      });
       await expect(h.services.live.admit(USERS.editor, name)).rejects.toMatchObject({ status: 403 });
     });
 
@@ -150,14 +184,17 @@ describe("the draft a page's editors share", () => {
       await store(name, one);
       await store(name, other);
       await store(name, one);
-      const expected = "# Title\n\nFirst typed on one paragraph.\n\nSecond typed on the other paragraph.\n\nThird paragraph.\n";
+      const expected =
+        "# Title\n\nFirst typed on one paragraph.\n\nSecond typed on the other paragraph.\n\nThird paragraph.\n";
       expect(await draftText(BASE)).toBe(expected);
       expect(codec.markdownOf(Y.encodeStateAsUpdate(one), BASE)).toBe(expected);
     });
 
     it("refuses to write to a draft that has been started again", async () => {
       await open();
-      expect(await h.services.live.write(id, `${id}.older`, stored => stored, { touched: true, contributors: {} })).toBeNull();
+      expect(
+        await h.services.live.write(id, `${id}.older`, stored => stored, { touched: true, contributors: {} })
+      ).toBeNull();
     });
 
     it("remembers who typed, and what is not saved", async () => {
@@ -169,7 +206,11 @@ describe("the draft a page's editors share", () => {
       const { data } = await h.call(USERS.admin, "GET", `documents/${id}/live`);
       expect(data.unsaved.contributors).toEqual([USERS.editor.displayName]);
       const { data: drafts } = await h.call(USERS.editor, "GET", "me/drafts");
-      expect(drafts.find((draft: { documentId: string }) => draft.documentId === id)).toMatchObject({ shared: true, lang: "", title: "Guide" });
+      expect(drafts.find((draft: { documentId: string }) => draft.documentId === id)).toMatchObject({
+        shared: true,
+        lang: "",
+        title: "Guide"
+      });
       const { data: others } = await h.call(USERS.admin, "GET", "me/drafts");
       expect(others.find((draft: { documentId: string }) => draft.documentId === id)).toBeUndefined();
     });
@@ -179,7 +220,10 @@ describe("the draft a page's editors share", () => {
       const doc = opened(await state());
       typeInto(doc, 1, 0, "Edited: ");
       await store(name, doc);
-      await h.call(USERS.admin, "PUT", `spaces/${space}/members`, { subject: `user:${USERS.editor.id}`, role: "viewer" });
+      await h.call(USERS.admin, "PUT", `spaces/${space}/members`, {
+        subject: `user:${USERS.editor.id}`,
+        role: "viewer"
+      });
       const { data: drafts } = await h.call(USERS.editor, "GET", "me/drafts");
       expect(drafts.find((draft: { documentId: string }) => draft.documentId === id)).toBeUndefined();
     });
@@ -199,13 +243,21 @@ describe("the draft a page's editors share", () => {
       expect(row1.base_revision_no).toBe(2);
       expect(row1.has_changes).toBe(false);
       expect((await open()).name).toBe(name);
-      expect(opened(await state()).getMap(LIVE_META).get("baseRevision")).toBe(2);
+      expect(
+        opened(await state())
+          .getMap(LIVE_META)
+          .get("baseRevision")
+      ).toBe(2);
     });
 
     it("does it once, however many replicas try", async () => {
       await open();
       await save(USERS.admin, BASE.replace("Second", "Changed second"));
-      const results = await Promise.all([h.services.live.catchUp(id), h.services.live.catchUp(id), h.services.live.catchUp(id)]);
+      const results = await Promise.all([
+        h.services.live.catchUp(id),
+        h.services.live.catchUp(id),
+        h.services.live.catchUp(id)
+      ]);
       expect(results.filter(Boolean)).toHaveLength(1);
       expect(await draftText(BASE.replace("Second", "Changed second"))).toBe(BASE.replace("Second", "Changed second"));
     });
@@ -230,7 +282,9 @@ describe("the draft a page's editors share", () => {
       await save(USERS.admin, BASE.replace("Third", "Changed third"));
       typeInto(person, 1, 5, " typed");
       Y.applyUpdate(person, (await h.services.live.catchUp(id))!.change);
-      expect(codec.markdownOf(Y.encodeStateAsUpdate(person), BASE)).toBe("# Title\n\nFirst typed paragraph.\n\nSecond paragraph.\n\nChanged third paragraph.\n");
+      expect(codec.markdownOf(Y.encodeStateAsUpdate(person), BASE)).toBe(
+        "# Title\n\nFirst typed paragraph.\n\nSecond paragraph.\n\nChanged third paragraph.\n"
+      );
     });
 
     it("keeps the draft's text where both changed the same place, and says so", async () => {
@@ -252,7 +306,9 @@ describe("the draft a page's editors share", () => {
       // A save after that overwrites it knowingly, and the version is still in the history.
       await save(USERS.editor, text);
       await h.services.live.catchUp(id);
-      expect((await h.call(USERS.admin, "GET", `documents/${id}/revisions/2`)).data.markdown).toContain("Theirs entirely.");
+      expect((await h.call(USERS.admin, "GET", `documents/${id}/revisions/2`)).data.markdown).toContain(
+        "Theirs entirely."
+      );
     });
 
     it("follows every way a page can change, such as going back to an old version", async () => {
@@ -337,9 +393,14 @@ describe("the draft a page's editors share", () => {
   });
 
   describe("tidying up", () => {
-    const longIdle = () => h.pool.query(`UPDATE pandocs.live_drafts SET last_seen_at = now() - interval '1 hour' WHERE document_id = $1`, [id]);
+    const longIdle = () =>
+      h.pool.query(`UPDATE pandocs.live_drafts SET last_seen_at = now() - interval '1 hour' WHERE document_id = $1`, [
+        id
+      ]);
     const sweepAll = async () => {
-      while (await h.services.live.sweep() > 0) { /* until none are left */ }
+      while ((await h.services.live.sweep()) > 0) {
+        /* until none are left */
+      }
     };
 
     it("removes a draft nobody has been in that says what the page says, and the next one is a new one", async () => {

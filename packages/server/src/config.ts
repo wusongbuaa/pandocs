@@ -18,12 +18,27 @@ export interface LoginProvider {
   readonly allowHttp: boolean;
   readonly protocol:
     | { readonly kind: "oidc"; readonly issuer: string }
-    | { readonly kind: "oauth2"; readonly authorizationUrl: string; readonly tokenUrl: string; readonly userinfoUrl: string; readonly subjectClaim: string; readonly emailClaim: string; readonly nameClaim: string };
+    | {
+        readonly kind: "oauth2";
+        readonly authorizationUrl: string;
+        readonly tokenUrl: string;
+        readonly userinfoUrl: string;
+        readonly subjectClaim: string;
+        readonly emailClaim: string;
+        readonly nameClaim: string;
+      };
 }
 
 export type StorageConfig =
   | { readonly kind: "local"; readonly dir: string }
-  | { readonly kind: "s3"; readonly bucket: string; readonly region: string; readonly prefix: string; readonly endpoint?: string | undefined; readonly forcePathStyle?: boolean | undefined };
+  | {
+      readonly kind: "s3";
+      readonly bucket: string;
+      readonly region: string;
+      readonly prefix: string;
+      readonly endpoint?: string | undefined;
+      readonly forcePathStyle?: boolean | undefined;
+    };
 
 export interface LlmConfig {
   readonly protocol: "openai" | "anthropic";
@@ -95,9 +110,13 @@ export interface Config {
   readonly webhooksAllowPrivate: boolean;
   /** A service that turns files into Markdown, instead of the conversion built in. */
   /** A conversion service, for every file or, with `fallback`, only for what the built-in conversion cannot read. */
-  readonly extract?: { readonly url: string; readonly token?: string | undefined; readonly fallback: boolean } | undefined;
+  readonly extract?:
+    | { readonly url: string; readonly token?: string | undefined; readonly fallback: boolean }
+    | undefined;
   /** Where to keep a read-only copy of spaces as files, for agents on a shared file system. */
-  readonly publish?: { readonly dir: string; readonly spaces: readonly string[] | "*"; readonly packIntervalMs: number } | undefined;
+  readonly publish?:
+    | { readonly dir: string; readonly spaces: readonly string[] | "*"; readonly packIntervalMs: number }
+    | undefined;
   /** Client addresses come from `X-Forwarded-For`, which only means something behind a proxy that sets it. */
   readonly trustProxy: number;
 }
@@ -116,7 +135,11 @@ const proxyCount = (env: Env) => {
   if (value !== undefined && /^\d+$/u.test(value)) return Number(value);
   return flag(env, "PANDOCS_TRUST_PROXY", false) ? 1 : 0;
 };
-const list = (env: Env, name: string) => (text(env, name) ?? "").split(",").map(item => item.trim().toLowerCase()).filter(Boolean);
+const list = (env: Env, name: string) =>
+  (text(env, name) ?? "")
+    .split(",")
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean);
 
 function required(env: Env, name: string, because: string): string {
   const value = text(env, name);
@@ -142,9 +165,12 @@ function positiveInt(env: Env, name: string, fallback: number): number {
 
 function readRoles(env: Env): ReadonlySet<Role> {
   const roles = list(env, "PANDOCS_ROLES");
-  for (const role of roles) if (role !== "web" && role !== "worker" && role !== "publisher") throw new Error(`PANDOCS_ROLES has an unknown role: ${role}`);
-  if (roles.includes("publisher") && !text(env, "PANDOCS_PUBLISH_DIR")) throw new Error("PANDOCS_ROLES has publisher, which needs PANDOCS_PUBLISH_DIR");
-  return new Set<Role>(roles.length > 0 ? roles as Role[] : ["web", "worker"]);
+  for (const role of roles)
+    if (role !== "web" && role !== "worker" && role !== "publisher")
+      throw new Error(`PANDOCS_ROLES has an unknown role: ${role}`);
+  if (roles.includes("publisher") && !text(env, "PANDOCS_PUBLISH_DIR"))
+    throw new Error("PANDOCS_ROLES has publisher, which needs PANDOCS_PUBLISH_DIR");
+  return new Set<Role>(roles.length > 0 ? (roles as Role[]) : ["web", "worker"]);
 }
 
 function readStorage(env: Env): StorageConfig {
@@ -194,12 +220,19 @@ function readHostSession(env: Env): HostSessionConfig | undefined {
   if (!url) return undefined;
   if (!URL.canParse(url)) throw new Error(`PANDOCS_HOST_SESSION_URL must be an address, got ${url}`);
   // Names keep their case, unlike the lists of domains and groups.
-  const cookies = (text(env, "PANDOCS_HOST_SESSION_COOKIES") ?? "").split(",").map(name => name.trim()).filter(Boolean);
-  if (cookies.length === 0) throw new Error("PANDOCS_HOST_SESSION_COOKIES is required with PANDOCS_HOST_SESSION_URL, to say which of the host's cookies to send it");
+  const cookies = (text(env, "PANDOCS_HOST_SESSION_COOKIES") ?? "")
+    .split(",")
+    .map(name => name.trim())
+    .filter(Boolean);
+  if (cookies.length === 0)
+    throw new Error(
+      "PANDOCS_HOST_SESSION_COOKIES is required with PANDOCS_HOST_SESSION_URL, to say which of the host's cookies to send it"
+    );
   const unusable = cookies.find(name => !COOKIE_NAME.test(name));
   if (unusable) throw new Error(`PANDOCS_HOST_SESSION_COOKIES has a name no cookie can have: ${unusable}`);
   const loginUrl = text(env, "PANDOCS_HOST_LOGIN_URL");
-  if (loginUrl && !URL.canParse(loginUrl.replace("{url}", ""))) throw new Error(`PANDOCS_HOST_LOGIN_URL must be an address, got ${loginUrl}`);
+  if (loginUrl && !URL.canParse(loginUrl.replace("{url}", "")))
+    throw new Error(`PANDOCS_HOST_LOGIN_URL must be an address, got ${loginUrl}`);
   return {
     url,
     cookies,
@@ -261,8 +294,16 @@ function readProviders(env: Env): LoginProvider[] {
 function readPublish(env: Env): Config["publish"] {
   const dir = text(env, "PANDOCS_PUBLISH_DIR");
   if (!dir) return undefined;
-  const spaces = required(env, "PANDOCS_PUBLISH_SPACES", "with PANDOCS_PUBLISH_DIR: list the spaces, or * for all of them. Anyone with the mount can read what is published");
-  return { dir, spaces: spaces === "*" ? "*" : list(env, "PANDOCS_PUBLISH_SPACES"), packIntervalMs: positiveInt(env, "PANDOCS_PUBLISH_PACK_SECONDS", 300) * 1000 };
+  const spaces = required(
+    env,
+    "PANDOCS_PUBLISH_SPACES",
+    "with PANDOCS_PUBLISH_DIR: list the spaces, or * for all of them. Anyone with the mount can read what is published"
+  );
+  return {
+    dir,
+    spaces: spaces === "*" ? "*" : list(env, "PANDOCS_PUBLISH_SPACES"),
+    packIntervalMs: positiveInt(env, "PANDOCS_PUBLISH_PACK_SECONDS", 300) * 1000
+  };
 }
 
 const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/u;
@@ -277,9 +318,17 @@ function readHeaders(env: Env, name: string): Readonly<Record<string, string>> {
   } catch {
     parsed = null;
   }
-  const valid = typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
-    && Object.entries(parsed).every(([header, content]) => HEADER_NAME.test(header) && typeof content === "string" && !/[\r\n]/u.test(content));
-  if (!valid) throw new Error(`${name} must be a JSON object of header names and their values, such as {"x-gateway-route":"docs"}`);
+  const valid =
+    typeof parsed === "object" &&
+    parsed !== null &&
+    !Array.isArray(parsed) &&
+    Object.entries(parsed).every(
+      ([header, content]) => HEADER_NAME.test(header) && typeof content === "string" && !/[\r\n]/u.test(content)
+    );
+  if (!valid)
+    throw new Error(
+      `${name} must be a JSON object of header names and their values, such as {"x-gateway-route":"docs"}`
+    );
   return parsed as Record<string, string>;
 }
 
@@ -287,11 +336,15 @@ function readLlm(env: Env): LlmConfig | undefined {
   const apiKey = text(env, "PANDOCS_LLM_API_KEY");
   if (!apiKey) return undefined;
   const protocol = text(env, "PANDOCS_LLM_PROTOCOL") ?? "openai";
-  if (protocol !== "openai" && protocol !== "anthropic") throw new Error(`PANDOCS_LLM_PROTOCOL must be openai or anthropic, got ${protocol}`);
+  if (protocol !== "openai" && protocol !== "anthropic")
+    throw new Error(`PANDOCS_LLM_PROTOCOL must be openai or anthropic, got ${protocol}`);
   return {
     protocol,
     apiKey,
-    baseUrl: (text(env, "PANDOCS_LLM_BASE_URL") ?? (protocol === "openai" ? "https://api.openai.com/v1" : "https://api.anthropic.com")).replace(/\/+$/u, ""),
+    baseUrl: (
+      text(env, "PANDOCS_LLM_BASE_URL") ??
+      (protocol === "openai" ? "https://api.openai.com/v1" : "https://api.anthropic.com")
+    ).replace(/\/+$/u, ""),
     model: required(env, "PANDOCS_LLM_MODEL", "with PANDOCS_LLM_API_KEY"),
     headers: readHeaders(env, "PANDOCS_LLM_HEADERS"),
     hourlyLimit: positiveInt(env, "PANDOCS_LLM_HOURLY_LIMIT", 60),
@@ -303,7 +356,14 @@ function readSmtp(env: Env): SmtpConfig | undefined {
   const host = text(env, "PANDOCS_SMTP_HOST");
   if (!host) return undefined;
   const port = positiveInt(env, "PANDOCS_SMTP_PORT", 587);
-  return { host, port, secure: flag(env, "PANDOCS_SMTP_SECURE", port === 465), user: text(env, "PANDOCS_SMTP_USER"), password: text(env, "PANDOCS_SMTP_PASSWORD"), from: required(env, "PANDOCS_SMTP_FROM", "with PANDOCS_SMTP_HOST") };
+  return {
+    host,
+    port,
+    secure: flag(env, "PANDOCS_SMTP_SECURE", port === 465),
+    user: text(env, "PANDOCS_SMTP_USER"),
+    password: text(env, "PANDOCS_SMTP_PASSWORD"),
+    from: required(env, "PANDOCS_SMTP_FROM", "with PANDOCS_SMTP_HOST")
+  };
 }
 
 /**
@@ -311,9 +371,13 @@ function readSmtp(env: Env): SmtpConfig | undefined {
  * only, since the path goes into addresses, cookies and pages as it is.
  */
 function basePathOf(publicUrl: URL): string {
-  if (publicUrl.search || publicUrl.hash) throw new Error(`PANDOCS_URL is the site's address, with no query or fragment, got ${publicUrl.href}`);
+  if (publicUrl.search || publicUrl.hash)
+    throw new Error(`PANDOCS_URL is the site's address, with no query or fragment, got ${publicUrl.href}`);
   const path = publicUrl.pathname.replace(/\/+$/u, "");
-  if (path && !/^(?:\/[A-Za-z0-9._~-]+)+$/u.test(path)) throw new Error(`PANDOCS_URL can have a path of plain segments, such as https://example.com/docs, got ${publicUrl.href}`);
+  if (path && !/^(?:\/[A-Za-z0-9._~-]+)+$/u.test(path))
+    throw new Error(
+      `PANDOCS_URL can have a path of plain segments, such as https://example.com/docs, got ${publicUrl.href}`
+    );
   return path;
 }
 
@@ -327,7 +391,10 @@ export function readConfig(env: Env): Config {
   const providers = readProviders(env);
   const hostSession = readHostSession(env);
   const passwordLogin = flag(env, "PANDOCS_PASSWORD_LOGIN", true);
-  if (!passwordLogin && providers.length === 0 && !hostSession) throw new Error("PANDOCS_PASSWORD_LOGIN is off and no OIDC or OAuth provider or host session is set, so nobody could sign in");
+  if (!passwordLogin && providers.length === 0 && !hostSession)
+    throw new Error(
+      "PANDOCS_PASSWORD_LOGIN is off and no OIDC or OAuth provider or host session is set, so nobody could sign in"
+    );
   return {
     host: text(env, "HOST") ?? "0.0.0.0",
     port: positiveInt(env, "PORT", 8080),
@@ -347,7 +414,15 @@ export function readConfig(env: Env): Config {
     passwordLogin,
     providers,
     ...(hostSession ? { hostSession } : {}),
-    ...(adminEmail ? { admin: { email: adminEmail, password: required(env, "PANDOCS_ADMIN_PASSWORD", "with PANDOCS_ADMIN_EMAIL"), displayName: text(env, "PANDOCS_ADMIN_NAME") ?? "Admin" } } : {}),
+    ...(adminEmail
+      ? {
+          admin: {
+            email: adminEmail,
+            password: required(env, "PANDOCS_ADMIN_PASSWORD", "with PANDOCS_ADMIN_EMAIL"),
+            displayName: text(env, "PANDOCS_ADMIN_NAME") ?? "Admin"
+          }
+        }
+      : {}),
     llm: readLlm(env),
     smtp: readSmtp(env),
     publish: readPublish(env),
@@ -358,8 +433,24 @@ export function readConfig(env: Env): Config {
     gitAllowPrivate: flag(env, "PANDOCS_GIT_ALLOW_PRIVATE", false),
     liveEditing: flag(env, "PANDOCS_LIVE_EDITING", true),
     liveRecheckMs: nonNegativeInt(env, "PANDOCS_LIVE_RECHECK_SECONDS", 30) * 1000,
-    ...(text(env, "PANDOCS_FEISHU_APP_ID") ? { feishu: { appId: text(env, "PANDOCS_FEISHU_APP_ID")!, appSecret: required(env, "PANDOCS_FEISHU_APP_SECRET", "with PANDOCS_FEISHU_APP_ID"), baseUrl: text(env, "PANDOCS_FEISHU_BASE_URL") ?? "https://open.feishu.cn" } } : {}),
-    ...(text(env, "PANDOCS_EXTRACT_URL") ? { extract: { url: text(env, "PANDOCS_EXTRACT_URL")!, token: text(env, "PANDOCS_EXTRACT_TOKEN"), fallback: flag(env, "PANDOCS_EXTRACT_FALLBACK", false) } } : {}),
+    ...(text(env, "PANDOCS_FEISHU_APP_ID")
+      ? {
+          feishu: {
+            appId: text(env, "PANDOCS_FEISHU_APP_ID")!,
+            appSecret: required(env, "PANDOCS_FEISHU_APP_SECRET", "with PANDOCS_FEISHU_APP_ID"),
+            baseUrl: text(env, "PANDOCS_FEISHU_BASE_URL") ?? "https://open.feishu.cn"
+          }
+        }
+      : {}),
+    ...(text(env, "PANDOCS_EXTRACT_URL")
+      ? {
+          extract: {
+            url: text(env, "PANDOCS_EXTRACT_URL")!,
+            token: text(env, "PANDOCS_EXTRACT_TOKEN"),
+            fallback: flag(env, "PANDOCS_EXTRACT_FALLBACK", false)
+          }
+        }
+      : {}),
     trustProxy: proxyCount(env)
   };
 }

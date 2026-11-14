@@ -9,9 +9,11 @@ import { applyBootstrap } from "../src/data/bootstrap";
 import { bootstrap, entry, space } from "./support";
 
 const toast = vi.hoisted(() => vi.fn());
-vi.mock("../src/ui/toast", async importOriginal => ({ ...await importOriginal<object>(), toast }));
+vi.mock("../src/ui/toast", async importOriginal => ({ ...(await importOriginal<object>()), toast }));
 const shared = vi.hoisted(() => ({ session: null as unknown }));
-vi.mock("../src/editor/live-session", () => ({ openLiveSession: async () => ({ session: shared.session, unreachable: false }) }));
+vi.mock("../src/editor/live-session", () => ({
+  openLiveSession: async () => ({ session: shared.session, unreachable: false })
+}));
 
 const PUBLISHED = "# 标题\n\n原来的内容\n";
 
@@ -25,7 +27,13 @@ function sharedDraft(baseRevision: number, markdown?: string) {
   const session = {
     doc,
     meta,
-    provider: { awareness, hasUnsyncedChanges: false, on: () => undefined, off: () => undefined, setAwarenessField: (field: string, value: unknown) => awareness.setLocalStateField(field, value) },
+    provider: {
+      awareness,
+      hasUnsyncedChanges: false,
+      on: () => undefined,
+      off: () => undefined,
+      setAwarenessField: (field: string, value: unknown) => awareness.setLocalStateField(field, value)
+    },
     onEnded: () => () => undefined,
     destroy: () => awareness.destroy()
   };
@@ -52,14 +60,18 @@ function sharedDraft(baseRevision: number, markdown?: string) {
 
 function stubServer(revision = "# 标题\n\n别人保存的内容\n", sent: { url: string; body: unknown }[] = []) {
   const asked: string[] = [];
-  const ok = (data: unknown) => new Response(JSON.stringify({ data }), { status: 200, headers: { "content-type": "application/json" } });
-  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit = {}) => {
-    asked.push(`${init.method ?? "GET"} ${url}`);
-    if (typeof init.body === "string") sent.push({ url, body: JSON.parse(init.body) as unknown });
-    if (/\/revisions\/\d+$/u.test(url)) return ok({ markdown: revision });
-    if (url.includes("/draft") && (init.method ?? "GET") === "GET") return ok(null);
-    return ok({ other: null });
-  }));
+  const ok = (data: unknown) =>
+    new Response(JSON.stringify({ data }), { status: 200, headers: { "content-type": "application/json" } });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init: RequestInit = {}) => {
+      asked.push(`${init.method ?? "GET"} ${url}`);
+      if (typeof init.body === "string") sent.push({ url, body: JSON.parse(init.body) as unknown });
+      if (/\/revisions\/\d+$/u.test(url)) return ok({ markdown: revision });
+      if (url.includes("/draft") && (init.method ?? "GET") === "GET") return ok(null);
+      return ok({ other: null });
+    })
+  );
   return asked;
 }
 
@@ -73,8 +85,18 @@ async function openEditor() {
     rendered: {} as never
   };
   applyBootstrap(bootstrap({ ai: { configured: false, ask: false } }));
-  const [{ PageContext }, { default: EditorPage }] = await Promise.all([import("@rspress/core/runtime"), import("../src/editor/editor-page")]);
-  const data = { lang: "zh", frontmatter: {}, title: "原文标题", toc: [], routePath: "/handbook/guide", pandocs: page } as never;
+  const [{ PageContext }, { default: EditorPage }] = await Promise.all([
+    import("@rspress/core/runtime"),
+    import("../src/editor/editor-page")
+  ]);
+  const data = {
+    lang: "zh",
+    frontmatter: {},
+    title: "原文标题",
+    toc: [],
+    routePath: "/handbook/guide",
+    pandocs: page
+  } as never;
   render(
     <MemoryRouter initialEntries={["/handbook/guide?mode=edit"]}>
       <PageContext.Provider value={{ data }}>
@@ -90,7 +112,11 @@ async function openEditor() {
 beforeEach(() => {
   toast.mockClear();
   const stored = new Map<string, string>();
-  vi.stubGlobal("localStorage", { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => void stored.set(key, value), removeItem: (key: string) => void stored.delete(key) });
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => stored.get(key) ?? null,
+    setItem: (key: string, value: string) => void stored.set(key, value),
+    removeItem: (key: string) => void stored.delete(key)
+  });
 });
 
 afterEach(() => {
@@ -164,7 +190,10 @@ describe("the Markdown source in a shared draft", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "保存" }).hasAttribute("disabled")).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(sent.some(item => item.url.endsWith("/documents/guide/content"))).toBe(true));
-    const saved = sent.find(item => item.url.endsWith("/documents/guide/content"))!.body as { markdown: string; expectedRevision: number };
+    const saved = sent.find(item => item.url.endsWith("/documents/guide/content"))!.body as {
+      markdown: string;
+      expectedRevision: number;
+    };
     expect(saved.markdown).toContain("别人保存的内容");
     expect(saved.markdown).toContain("我在源码里改的");
     expect(saved.expectedRevision).toBe(4);
@@ -188,6 +217,13 @@ describe("the Markdown source in a shared draft", () => {
     await openEditor();
     typeInSource("# 标题\n\n原来的内容\n\n查完 FAQ 回来接着写\n");
     cleanup();
-    await waitFor(() => expect(sent.some(item => item.url.includes("/documents/guide/draft") && JSON.stringify(item.body).includes("查完 FAQ 回来接着写"))).toBe(true));
+    await waitFor(() =>
+      expect(
+        sent.some(
+          item =>
+            item.url.includes("/documents/guide/draft") && JSON.stringify(item.body).includes("查完 FAQ 回来接着写")
+        )
+      ).toBe(true)
+    );
   });
 });

@@ -10,9 +10,25 @@ import { baseName, fileBlock, IMAGE_FILE, slugFor, ZipArchive } from "./zip.js";
 const { createDocument } = domino as unknown as { createDocument(html: string): Document };
 
 const MAX_PAGE_BYTES = 20 * 1024 * 1024;
-const CALLOUTS: readonly (readonly [string, string])[] = [["information", "info"], ["note", "warning"], ["warning", "danger"], ["tip", "tip"]];
+const CALLOUTS: readonly (readonly [string, string])[] = [
+  ["information", "info"],
+  ["note", "warning"],
+  ["warning", "danger"],
+  ["tip", "tip"]
+];
 /** What the code macro calls a language that a highlighter calls something else. */
-const LANGUAGES: Readonly<Record<string, string>> = { js: "javascript", py: "python", sh: "bash", shell: "bash", ps: "powershell", cs: "csharp", rb: "ruby", none: "", text: "", plain: "" };
+const LANGUAGES: Readonly<Record<string, string>> = {
+  js: "javascript",
+  py: "python",
+  sh: "bash",
+  shell: "bash",
+  ps: "powershell",
+  cs: "csharp",
+  rb: "ruby",
+  none: "",
+  text: "",
+  plain: ""
+};
 
 interface Page {
   readonly file: string;
@@ -57,13 +73,16 @@ function exportedFile(archive: ZipArchive, prefix: string, reference: string): s
 /** The page tree the export draws in its index: the list that holds links to pages. */
 function treeFromIndex(indexHtml: string, prefix: string, known: ReadonlySet<string>): Page[] {
   const document = createDocument(indexHtml);
-  const fromList = (list: Element): Page[] => listOf<Element>(list.children).filter(item => item.nodeName === "LI").flatMap(item => {
-    const link = listOf<Element>(item.children).find(child => child.nodeName === "A") ?? item.querySelector("a");
-    const nested = listOf<Element>(item.children).find(child => child.nodeName === "UL");
-    const children = nested ? fromList(nested) : [];
-    const file = link ? `${prefix}${link.getAttribute("href") ?? ""}` : "";
-    return known.has(file) ? [{ file, title: (link!.textContent ?? "").trim(), children, path: "" }] : children;
-  });
+  const fromList = (list: Element): Page[] =>
+    listOf<Element>(list.children)
+      .filter(item => item.nodeName === "LI")
+      .flatMap(item => {
+        const link = listOf<Element>(item.children).find(child => child.nodeName === "A") ?? item.querySelector("a");
+        const nested = listOf<Element>(item.children).find(child => child.nodeName === "UL");
+        const children = nested ? fromList(nested) : [];
+        const file = link ? `${prefix}${link.getAttribute("href") ?? ""}` : "";
+        return known.has(file) ? [{ file, title: (link!.textContent ?? "").trim(), children, path: "" }] : children;
+      });
   for (const list of elements(document, "ul")) {
     if (list.parentElement?.closest("ul")) continue;
     const found = fromList(list);
@@ -73,13 +92,18 @@ function treeFromIndex(indexHtml: string, prefix: string, known: ReadonlySet<str
 }
 
 function titleFromPage(document: Document, file: string): string {
-  const shown = (document.querySelector("#title-text")?.textContent ?? document.querySelector("title")?.textContent ?? "").trim();
+  const shown = (
+    document.querySelector("#title-text")?.textContent ??
+    document.querySelector("title")?.textContent ??
+    ""
+  ).trim();
   // It says "Space : Title".
   return shown.slice(shown.indexOf(" : ") + 3).trim() || shown || baseName(file).replace(/\.html$/u, "");
 }
 
 function languageOf(pre: Element): string {
-  const brush = /brush:\s*([\w+#-]+)/u.exec(pre.getAttribute("data-syntaxhighlighter-params") ?? "")?.[1]?.toLowerCase() ?? "";
+  const brush =
+    /brush:\s*([\w+#-]+)/u.exec(pre.getAttribute("data-syntaxhighlighter-params") ?? "")?.[1]?.toLowerCase() ?? "";
   return LANGUAGES[brush] ?? brush;
 }
 
@@ -94,7 +118,11 @@ export function createConfluenceImporter(): BulkImporter {
     }
   });
 
-  const convert = async (html: string, page: Page, context: { archive: ZipArchive; prefix: string; pathOf: ReadonlyMap<string, string>; sink: ImportSink }): Promise<{ markdown: string; title: string }> => {
+  const convert = async (
+    html: string,
+    page: Page,
+    context: { archive: ZipArchive; prefix: string; pathOf: ReadonlyMap<string, string>; sink: ImportSink }
+  ): Promise<{ markdown: string; title: string }> => {
     const { archive, prefix, pathOf, sink } = context;
     const document = createDocument(html);
     const main = document.querySelector("#main-content");
@@ -112,7 +140,11 @@ export function createConfluenceImporter(): BulkImporter {
     const trailing: string[] = [];
     const placed = new Set<string>();
 
-    for (const element of elements(main, ".toc-macro, .confluence-information-macro-icon, .aui-icon, .expand-control-icon, script, style")) element.remove();
+    for (const element of elements(
+      main,
+      ".toc-macro, .confluence-information-macro-icon, .aui-icon, .expand-control-icon, script, style"
+    ))
+      element.remove();
     for (const macro of elements(main, ".confluence-information-macro")) {
       const kind = CALLOUTS.find(([name]) => hasClass(macro, `confluence-information-macro-${name}`))?.[1] ?? "info";
       macro.setAttribute("data-pandocs-callout", kind);
@@ -184,13 +216,18 @@ export function createConfluenceImporter(): BulkImporter {
       }
       if (!file.startsWith(`${prefix}attachments/`) || !archive.has(file)) {
         // Somewhere that was not exported, so nowhere a link could lead.
-        if (file.startsWith(`${prefix}attachments/`)) sink.note(title, t("An attachment is not in the export: {0}", href));
+        if (file.startsWith(`${prefix}attachments/`))
+          sink.note(title, t("An attachment is not in the export: {0}", href));
         replaceWithText(link, link.textContent ?? "");
         continue;
       }
       const label = link.getAttribute("data-linked-resource-default-alias") ?? (link.textContent ?? "").trim();
       // Named as the link reads, with the kind of file it is when the words do not say.
-      const name = !label ? baseName(file) : /\.[a-z0-9]{1,8}$/iu.test(label) ? label : `${label}${posix.extname(file)}`;
+      const name = !label
+        ? baseName(file)
+        : /\.[a-z0-9]{1,8}$/iu.test(label)
+          ? label
+          : `${label}${posix.extname(file)}`;
       const path = await keep(file, name);
       replaceWithText(link, link.textContent ?? "");
       if (path && !placed.has(file)) {
@@ -201,7 +238,8 @@ export function createConfluenceImporter(): BulkImporter {
     // Whatever is attached to the page and not shown in its text. Confluence lists them below it.
     for (const link of elements(document, "#attachments ~ * a, .pageSection a")) {
       const file = exportedFile(archive, prefix, link.getAttribute("href") ?? "");
-      if (file === undefined || !file.startsWith(`${prefix}attachments/`) || placed.has(file) || !archive.has(file)) continue;
+      if (file === undefined || !file.startsWith(`${prefix}attachments/`) || placed.has(file) || !archive.has(file))
+        continue;
       const name = (link.textContent ?? "").trim() || baseName(file);
       const path = await keep(file, name);
       if (!path) continue;
@@ -219,10 +257,24 @@ export function createConfluenceImporter(): BulkImporter {
     async run({ bytes }, sink) {
       if (!bytes) throw new PermanentIngestError("INGEST_EMPTY", t("There is no file to import"));
       const archive = new ZipArchive(bytes);
-      const index = archive.names.filter(name => baseName(name) === "index.html").sort((a, b) => a.split("/").length - b.split("/").length)[0];
-      if (!index) throw new PermanentIngestError("IMPORT_WRONG_FORMAT", t("This does not look like a Confluence export. Export the space as HTML."));
+      const index = archive.names
+        .filter(name => baseName(name) === "index.html")
+        .sort((a, b) => a.split("/").length - b.split("/").length)[0];
+      if (!index)
+        throw new PermanentIngestError(
+          "IMPORT_WRONG_FORMAT",
+          t("This does not look like a Confluence export. Export the space as HTML.")
+        );
       const prefix = index.slice(0, -"index.html".length);
-      const files = new Set(archive.names.filter(name => name.startsWith(prefix) && name.endsWith(".html") && name !== index && !name.slice(prefix.length).includes("/")));
+      const files = new Set(
+        archive.names.filter(
+          name =>
+            name.startsWith(prefix) &&
+            name.endsWith(".html") &&
+            name !== index &&
+            !name.slice(prefix.length).includes("/")
+        )
+      );
       const roots = treeFromIndex(archive.text(index), prefix, files);
       const placed = new Map<string, Page>();
       const remember = (pages: readonly Page[]) => {
@@ -238,7 +290,9 @@ export function createConfluenceImporter(): BulkImporter {
         if (placed.has(file)) continue;
         // One too long to import still gets its place, so it is only its breadcrumbs that are not read.
         const document = createDocument(archive.size(file) > MAX_PAGE_BYTES ? "" : archive.text(file));
-        const trail = elements(document, "#breadcrumbs a").map(link => `${prefix}${link.getAttribute("href") ?? ""}`).filter(item => files.has(item) && item !== file);
+        const trail = elements(document, "#breadcrumbs a")
+          .map(link => `${prefix}${link.getAttribute("href") ?? ""}`)
+          .filter(item => files.has(item) && item !== file);
         crumbs.set(file, trail.at(-1) ?? null);
         placed.set(file, { file, title: titleFromPage(document, file), children: [], path: "" });
       }

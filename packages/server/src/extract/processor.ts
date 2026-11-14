@@ -16,25 +16,42 @@ export type Extractor = (input: ExtractInput) => Promise<Extracted>;
  * else down: it can be stopped when it runs too long, and running out of memory only ends that thread.
  */
 export function extractInWorker(workerUrl: URL, options: { readonly timeoutMs?: number } = {}): Extractor {
-  return input => new Promise((resolve, reject) => {
-    const worker = new Worker(workerUrl, { workerData: { language: currentLanguage(), input }, resourceLimits: { maxOldGenerationSizeMb: WORKER_MEMORY_MB } });
-    const timer = setTimeout(() => {
-      reject(new PermanentIngestError("EXTRACT_TIMEOUT", t("Conversion took too long. The file may be too complex.")));
-      void worker.terminate();
-    }, options.timeoutMs ?? TIMEOUT_MS);
-    worker.once("message", (message: { output?: Extracted; failure?: { permanent: boolean; code: string; message: string } }) => {
-      clearTimeout(timer);
-      if (message.output) resolve(message.output);
-      else if (message.failure?.permanent) reject(new PermanentIngestError(message.failure.code, message.failure.message));
-      else reject(new Error(message.failure?.message ?? t("Conversion failed")));
-      void worker.terminate();
+  return input =>
+    new Promise((resolve, reject) => {
+      const worker = new Worker(workerUrl, {
+        workerData: { language: currentLanguage(), input },
+        resourceLimits: { maxOldGenerationSizeMb: WORKER_MEMORY_MB }
+      });
+      const timer = setTimeout(() => {
+        reject(
+          new PermanentIngestError("EXTRACT_TIMEOUT", t("Conversion took too long. The file may be too complex."))
+        );
+        void worker.terminate();
+      }, options.timeoutMs ?? TIMEOUT_MS);
+      worker.once(
+        "message",
+        (message: { output?: Extracted; failure?: { permanent: boolean; code: string; message: string } }) => {
+          clearTimeout(timer);
+          if (message.output) resolve(message.output);
+          else if (message.failure?.permanent)
+            reject(new PermanentIngestError(message.failure.code, message.failure.message));
+          else reject(new Error(message.failure?.message ?? t("Conversion failed")));
+          void worker.terminate();
+        }
+      );
+      worker.once("error", error => {
+        clearTimeout(timer);
+        const outOfMemory = (error as NodeJS.ErrnoException).code === "ERR_WORKER_OUT_OF_MEMORY";
+        reject(
+          outOfMemory
+            ? new PermanentIngestError(
+                "FILE_TOO_LARGE",
+                t("The file is too large or complex, and conversion ran out of memory")
+              )
+            : error
+        );
+      });
     });
-    worker.once("error", error => {
-      clearTimeout(timer);
-      const outOfMemory = (error as NodeJS.ErrnoException).code === "ERR_WORKER_OUT_OF_MEMORY";
-      reject(outOfMemory ? new PermanentIngestError("FILE_TOO_LARGE", t("The file is too large or complex, and conversion ran out of memory")) : error);
-    });
-  });
 }
 
 const MAX_SERVICE_FILES = 500;
@@ -49,7 +66,10 @@ function serviceFiles(listed: unknown, warnings: string[]): ExtractedFile[] {
   const files: ExtractedFile[] = [];
   let leftOut = Math.max(0, listed.length - MAX_SERVICE_FILES);
   for (const entry of listed.slice(0, MAX_SERVICE_FILES)) {
-    const { path, data } = (typeof entry === "object" && entry !== null ? entry : {}) as { path?: unknown; data?: unknown };
+    const { path, data } = (typeof entry === "object" && entry !== null ? entry : {}) as {
+      path?: unknown;
+      data?: unknown;
+    };
     const named = typeof path === "string" ? SERVICE_FILE.exec(path) : null;
     const bytes = typeof data === "string" ? new Uint8Array(Buffer.from(data, "base64")) : null;
     if (!named || !bytes || createHash("sha256").update(bytes).digest("hex") !== named[1]) {
@@ -66,7 +86,11 @@ function serviceFiles(listed: unknown, warnings: string[]): ExtractedFile[] {
  * For what the built-in conversion cannot do well, such as scanned PDFs or old Office files: anything that takes the
  * file's bytes and answers with Markdown, either as plain text or as `{ markdown, title?, warnings?, files? }`.
  */
-export function extractWithService(options: { readonly url: string; readonly token?: string | undefined; readonly timeoutMs?: number }): Extractor {
+export function extractWithService(options: {
+  readonly url: string;
+  readonly token?: string | undefined;
+  readonly timeoutMs?: number;
+}): Extractor {
   return async ({ bytes, contentType, filename }) => {
     const response = await fetch(options.url, {
       method: "POST",
@@ -83,17 +107,36 @@ export function extractWithService(options: { readonly url: string; readonly tok
     if (!response.ok) {
       // It looked at this file and said no, perhaps with why. Anything else may pass, and is worth another try.
       if (response.status >= 400 && response.status < 500) {
-        const said = await response.json().then(body => (typeof body?.error === "string" ? body.error.slice(0, 300) : ""), () => "");
-        throw new PermanentIngestError("EXTRACT_REFUSED", said ? t("The conversion service could not convert the file: {0}", said) : t("The conversion service returned {0}", response.status));
+        const said = await response.json().then(
+          body => (typeof body?.error === "string" ? body.error.slice(0, 300) : ""),
+          () => ""
+        );
+        throw new PermanentIngestError(
+          "EXTRACT_REFUSED",
+          said
+            ? t("The conversion service could not convert the file: {0}", said)
+            : t("The conversion service returned {0}", response.status)
+        );
       }
       throw new Error(t("The conversion service returned {0}", response.status));
     }
     if (response.headers.get("content-type")?.includes("application/json")) {
-      const body = await response.json() as { markdown?: unknown; title?: unknown; warnings?: unknown; files?: unknown };
-      if (typeof body.markdown !== "string") throw new PermanentIngestError("EXTRACT_REFUSED", t("The conversion service's answer has no markdown"));
+      const body = (await response.json()) as {
+        markdown?: unknown;
+        title?: unknown;
+        warnings?: unknown;
+        files?: unknown;
+      };
+      if (typeof body.markdown !== "string")
+        throw new PermanentIngestError("EXTRACT_REFUSED", t("The conversion service's answer has no markdown"));
       const warnings = Array.isArray(body.warnings) ? body.warnings.map(String) : [];
       const files = serviceFiles(body.files, warnings);
-      return { markdown: body.markdown, ...(typeof body.title === "string" ? { title: body.title } : {}), warnings, files };
+      return {
+        markdown: body.markdown,
+        ...(typeof body.title === "string" ? { title: body.title } : {}),
+        warnings,
+        files
+      };
     }
     return { markdown: await response.text(), warnings: [], files: [] };
   };
@@ -104,11 +147,14 @@ export function createExtractProcessor(extract: Extractor): Processor {
     name: "extract",
     async run({ bytes, contentType, filename }) {
       if (!bytes) throw new PermanentIngestError("SOURCE_MISSING", t("There is no original file"));
-      const { markdown, title, warnings, files } = await extract({ bytes, contentType, filename }).catch((error: unknown) => {
-        // The conversion itself runs on another thread, away from the core, and so has an error of its own for this.
-        if (error instanceof Error && error.name === "UnconvertibleError") throw new PermanentIngestError((error as Error & { code: string }).code, error.message);
-        throw error;
-      });
+      const { markdown, title, warnings, files } = await extract({ bytes, contentType, filename }).catch(
+        (error: unknown) => {
+          // The conversion itself runs on another thread, away from the core, and so has an error of its own for this.
+          if (error instanceof Error && error.name === "UnconvertibleError")
+            throw new PermanentIngestError((error as Error & { code: string }).code, error.message);
+          throw error;
+        }
+      );
       return { markdown, ...(title ? { title } : {}), warnings, files, detail: contentType };
     }
   };
@@ -117,8 +163,9 @@ export function createExtractProcessor(extract: Extractor): Processor {
 /** What the built-in conversion leaves to a service: a format it does not read, and an old Office one. */
 const FOR_A_SERVICE = new Set(["OLD_OFFICE_FORMAT", "CONTENT_TYPE_UNSUPPORTED"]);
 
-const leftForAService = (error: unknown) => (error instanceof PermanentIngestError || (error instanceof Error && error.name === "UnconvertibleError"))
-  && FOR_A_SERVICE.has((error as Error & { code: string }).code);
+const leftForAService = (error: unknown) =>
+  (error instanceof PermanentIngestError || (error instanceof Error && error.name === "UnconvertibleError")) &&
+  FOR_A_SERVICE.has((error as Error & { code: string }).code);
 
 /**
  * The built-in conversion first, and the service only for what it cannot read: scans, old Office formats. A service that
@@ -144,7 +191,9 @@ export function extractWithFallback(builtIn: Extractor, service: Extractor): Ext
 }
 
 /** What this installation can do: a service if one is set up, the conversion built into this build, or both. */
-export function extractorFromConfig(extract: { readonly url: string; readonly token?: string | undefined; readonly fallback?: boolean } | undefined): Extractor | null {
+export function extractorFromConfig(
+  extract: { readonly url: string; readonly token?: string | undefined; readonly fallback?: boolean } | undefined
+): Extractor | null {
   const worker = new URL("./extract-worker.mjs", import.meta.url);
   const builtIn = existsSync(worker) ? extractInWorker(worker) : null;
   if (!extract) return builtIn;

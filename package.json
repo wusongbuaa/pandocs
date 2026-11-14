@@ -13,6 +13,8 @@
     "dev": "pnpm --filter @pandocs/server dev",
     "typecheck": "tsc --noEmit && tsc -p packages/web --noEmit",
     "lint": "oxlint --quiet",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "test": "vitest run",
     "test:e2e": "PANDOCS_E2E=1 vitest run --project e2e"
   },
@@ -26,6 +28,7 @@
     "ajv-formats": "^3.0.1",
     "esbuild": "0.28.2",
     "happy-dom": "^21.0.4",
+    "oxfmt": "0.78.0",
     "oxlint": "1.93.0",
     "pg": "^8.21.0",
     "tsx": "^4.22.4",

@@ -91,7 +91,8 @@ describe("in English", () => {
     browserAsks("en-US");
     await load();
     const { relativeTime } = await import("../src/ui/time");
-    const local = (month: number, day: number, hour: number, minute: number, year = 2026) => new Date(year, month - 1, day, hour, minute).toISOString();
+    const local = (month: number, day: number, hour: number, minute: number, year = 2026) =>
+      new Date(year, month - 1, day, hour, minute).toISOString();
     const now = new Date(2026, 10, 6, 10, 0);
     expect(relativeTime(local(11, 6, 9, 59), now)).toBe("1 min ago");
     expect(relativeTime(local(11, 6, 0, 5), now)).toBe("today 00:05");
@@ -133,7 +134,7 @@ describe("the first chunk", () => {
   it("looks up no text while it loads, because that runs before any translation can have arrived", async () => {
     vi.resetModules();
     const lookUp = vi.fn((message: string) => message);
-    vi.doMock("@pandocs/i18n", async importOriginal => ({ ...await importOriginal<object>(), t: lookUp }));
+    vi.doMock("@pandocs/i18n", async importOriginal => ({ ...(await importOriginal<object>()), t: lookUp }));
     try {
       await import("../src/api/client");
       await import("../src/data/bootstrap");
@@ -154,7 +155,9 @@ describe("what goes to the server", () => {
     const { api } = await import("../src/api/client");
     await api.get("site");
     await api.send("POST", "x", { body: {} });
-    const headers = fetchMock.mock.calls.map(call => ((call as unknown as [string, RequestInit])[1].headers as Record<string, string>)["accept-language"]);
+    const headers = fetchMock.mock.calls.map(
+      call => ((call as unknown as [string, RequestInit])[1].headers as Record<string, string>)["accept-language"]
+    );
     expect(headers).toEqual(["zh", "zh"]);
   });
 });

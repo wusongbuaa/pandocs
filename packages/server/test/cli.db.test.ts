@@ -16,7 +16,11 @@ const postgres = usePostgresFixture();
 const ROOT = resolve(import.meta.dirname, "../../..");
 const hasGo = spawnSync("go", ["version"]).status === 0;
 
-interface Result { readonly code: number | null; readonly stdout: string; readonly stderr: string }
+interface Result {
+  readonly code: number | null;
+  readonly stdout: string;
+  readonly stderr: string;
+}
 
 /** The real binary against the real server over a real socket. Not `spawnSync`: the server runs in this process. */
 describe.skipIf(!hasGo)("the command line", () => {
@@ -35,21 +39,35 @@ describe.skipIf(!hasGo)("the command line", () => {
   let work = "";
 
   const baseEnv = () => ({ PATH: process.env.PATH ?? "", HOME: home, PANDOCS_CONFIG: join(home, "config.json") });
-  const start = (args: readonly string[], options: { cwd?: string; token?: string | null; server?: string | null } = {}) => {
+  const start = (
+    args: readonly string[],
+    options: { cwd?: string; token?: string | null; server?: string | null } = {}
+  ) => {
     const token = options.token === undefined ? userToken : options.token;
     const address = options.server === undefined ? origin : options.server;
-    return spawn(binary, args, { cwd: options.cwd ?? work, env: { ...baseEnv(), ...(token ? { PANDOCS_TOKEN: token } : {}), ...(address ? { PANDOCS_URL: address } : {}) } });
+    return spawn(binary, args, {
+      cwd: options.cwd ?? work,
+      env: { ...baseEnv(), ...(token ? { PANDOCS_TOKEN: token } : {}), ...(address ? { PANDOCS_URL: address } : {}) }
+    });
   };
-  const run = (args: readonly string[], options: { cwd?: string; token?: string | null; server?: string | null; input?: string } = {}) => new Promise<Result>((done, fail) => {
-    const child = start(args, options);
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", chunk => { stdout += String(chunk); });
-    child.stderr.on("data", chunk => { stderr += String(chunk); });
-    child.on("error", fail);
-    child.on("close", code => done({ code, stdout, stderr }));
-    child.stdin.end(options.input ?? "");
-  });
+  const run = (
+    args: readonly string[],
+    options: { cwd?: string; token?: string | null; server?: string | null; input?: string } = {}
+  ) =>
+    new Promise<Result>((done, fail) => {
+      const child = start(args, options);
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", chunk => {
+        stdout += String(chunk);
+      });
+      child.stderr.on("data", chunk => {
+        stderr += String(chunk);
+      });
+      child.on("error", fail);
+      child.on("close", code => done({ code, stdout, stderr }));
+      child.stdin.end(options.input ?? "");
+    });
   const ok = async (args: readonly string[], options: Parameters<typeof run>[1] = {}) => {
     const result = await run(args, options);
     expect(result.stderr).toBe("");
@@ -58,12 +76,22 @@ describe.skipIf(!hasGo)("the command line", () => {
   };
 
   const create = async (slug: string, markdown = `${slug} 的内容\n`, extra: object = {}) => {
-    const result = await admin.json("POST", `/api/v1/spaces/${space}/documents`, { title: slug, slug, markdown, ...extra });
+    const result = await admin.json("POST", `/api/v1/spaces/${space}/documents`, {
+      title: slug,
+      slug,
+      markdown,
+      ...extra
+    });
     expect(result.status).toBe(201);
     return result.data.document as { id: string; path: string };
   };
   const save = async (id: string, markdown: string, expectedRevision: number) => {
-    const result = await admin.json("PUT", `/api/v1/documents/${id}/content`, { markdown, expectedRevision }, { "idempotency-key": crypto.randomUUID() });
+    const result = await admin.json(
+      "PUT",
+      `/api/v1/documents/${id}/content`,
+      { markdown, expectedRevision },
+      { "idempotency-key": crypto.randomUUID() }
+    );
     expect(result.status).toBe(200);
   };
   const serverText = async (id: string) => (await admin.json("GET", `/api/v1/documents/${id}`)).data.markdown as string;
@@ -76,15 +104,28 @@ describe.skipIf(!hasGo)("the command line", () => {
     home = mkdtempSync(join(tmpdir(), "pandocs-cli-home-"));
     binary = join(home, process.platform === "win32" ? "pandocs.exe" : "pandocs");
     execFileSync("go", ["build", "-o", binary, "."], { cwd: join(ROOT, "cli"), stdio: "pipe" });
-    server = await startServer(postgres.getConnectionString(), {}, { processors: [createExtractProcessor(extractToMarkdown)] });
+    server = await startServer(
+      postgres.getConnectionString(),
+      {},
+      { processors: [createExtractProcessor(extractToMarkdown)] }
+    );
     admin = await signInFirstAdmin(server);
-    userToken = (await admin.json("POST", "/api/v1/account/tokens", { name: "命令行", scopes: ["read", "write"] })).data.token;
-    agentToken = (await admin.json("POST", "/api/v1/account/tokens", { name: "智能体", kind: "agent", scopes: ["read", "write"] })).data.token;
-    await admin.json("POST", "/api/v1/admin/users", { email: "reader@example.test", displayName: "读者", password: "reader-password-1" });
+    userToken = (await admin.json("POST", "/api/v1/account/tokens", { name: "命令行", scopes: ["read", "write"] })).data
+      .token;
+    agentToken = (
+      await admin.json("POST", "/api/v1/account/tokens", { name: "智能体", kind: "agent", scopes: ["read", "write"] })
+    ).data.token;
+    await admin.json("POST", "/api/v1/admin/users", {
+      email: "reader@example.test",
+      displayName: "读者",
+      password: "reader-password-1"
+    });
     const reader = server.client();
     await reader.form("/login", { email: "reader@example.test", password: "reader-password-1", next: "/" });
     readerToken = (await reader.json("POST", "/api/v1/account/tokens", { name: "读者", scopes: ["read"] })).data.token;
-    stopListener = createChangeListener(postgres.getConnectionString(), server.runtime.events.wake, { fallbackMs: 3_600_000 }).stop;
+    stopListener = createChangeListener(postgres.getConnectionString(), server.runtime.events.wake, {
+      fallbackMs: 3_600_000
+    }).stop;
     await new Promise<void>(done => {
       http = listen(server.app, { hostname: "127.0.0.1", port: 0 }, info => {
         origin = `http://127.0.0.1:${info.port}`;
@@ -100,20 +141,30 @@ describe.skipIf(!hasGo)("the command line", () => {
     rmSync(home, { recursive: true, force: true });
   });
   beforeEach(async () => {
-    space = `shop${spaceNumber += 1}`;
+    space = `shop${(spaceNumber += 1)}`;
     work = mkdtempSync(join(home, "work-"));
-    expect((await admin.json("POST", "/api/v1/spaces", { slug: space, name: "书店", defaultRole: "viewer" })).status).toBe(201);
+    expect(
+      (await admin.json("POST", "/api/v1/spaces", { slug: space, name: "书店", defaultRole: "viewer" })).status
+    ).toBe(201);
   });
 
   describe("logging in", () => {
     it("checks the token, keeps it private, and never shows it", async () => {
       const config = join(home, "config.json");
-      const refused = await run(["login", "--server", origin, "--token-stdin"], { token: null, server: null, input: "pd_not_a_real_token\n" });
+      const refused = await run(["login", "--server", origin, "--token-stdin"], {
+        token: null,
+        server: null,
+        input: "pd_not_a_real_token\n"
+      });
       expect(refused.code).toBe(1);
       expect(refused.stderr).toContain("TOKEN_INVALID");
       expect(existsSync(config)).toBe(false);
 
-      const loggedIn = await run(["login", "--server", origin, "--token-stdin"], { token: null, server: null, input: `${userToken}\n` });
+      const loggedIn = await run(["login", "--server", origin, "--token-stdin"], {
+        token: null,
+        server: null,
+        input: `${userToken}\n`
+      });
       expect(loggedIn.code).toBe(0);
       expect(loggedIn.stdout).toContain("站长");
       expect(loggedIn.stdout + loggedIn.stderr).not.toContain(userToken);
@@ -153,17 +204,27 @@ describe.skipIf(!hasGo)("the command line", () => {
     it("can do anything the server offers, by name", async () => {
       const page = await create("工具页");
       expect(await ok(["tools"])).toContain("proposal_create");
-      expect(JSON.parse(await ok(["tools", "--json"])).find((tool: { name: string }) => tool.name === "doc_get").inputSchema).toBeTruthy();
+      expect(
+        JSON.parse(await ok(["tools", "--json"])).find((tool: { name: string }) => tool.name === "doc_get").inputSchema
+      ).toBeTruthy();
       expect(JSON.parse(await ok(["call", "doc_get", "--arg", `doc=${page.id}`])).markdown).toContain("工具页");
       expect(JSON.parse(await ok(["call", "doc_get", JSON.stringify({ doc: page.id })])).markdown).toContain("工具页");
-      expect(JSON.parse(await ok(["call", "doc_get", "-"], { input: JSON.stringify({ doc: page.id }) })).markdown).toContain("工具页");
+      expect(
+        JSON.parse(await ok(["call", "doc_get", "-"], { input: JSON.stringify({ doc: page.id }) })).markdown
+      ).toContain("工具页");
       expect((await run(["call", "doc_get", "{not json"])).code).toBe(2);
       expect((await run(["call", "no_such_tool"])).code).toBe(1);
     });
 
     it("uploads a file and says how to use it", async () => {
       const file = join(work, "图.png");
-      writeFileSync(file, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"));
+      writeFileSync(
+        file,
+        Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+          "base64"
+        )
+      );
       const path = (await ok(["upload", space, file])).trim();
       expect(path).toMatch(/^assets\/[a-f0-9]{64}\.png$/u);
       await create("有图", `![图](${path})\n`);
@@ -226,7 +287,8 @@ describe.skipIf(!hasGo)("the command line", () => {
       const removed = await create("这边改那边删");
       const moved = await create("这边改那边搬");
       await sync();
-      for (const name of ["改了没变", "两边都改", "这边改那边删", "这边改那边搬"]) writeFileSync(copy(`${name}.md`), `${name} 我的修改\n`);
+      for (const name of ["改了没变", "两边都改", "这边改那边删", "这边改那边搬"])
+        writeFileSync(copy(`${name}.md`), `${name} 我的修改\n`);
       await save(both.id, "服务器上的修改\n", 1);
       await admin.json("DELETE", `/api/v1/documents/${removed.id}`);
       await admin.json("POST", `/api/v1/documents/${moved.id}/move`, { slug: "搬走了" });
@@ -332,7 +394,8 @@ describe.skipIf(!hasGo)("the command line", () => {
       expect(output).toContain("created   顶层.md");
       expect(output).not.toContain("assets-不算");
       const titleOf = async (path: string) => {
-        const { id } = (await admin.json("GET", `/api/v1/spaces/${space}/resolve?path=${encodeURIComponent(path)}`)).data;
+        const { id } = (await admin.json("GET", `/api/v1/spaces/${space}/resolve?path=${encodeURIComponent(path)}`))
+          .data;
         return (await admin.json("GET", `/api/v1/documents/${id}`)).data.document.title;
       };
       expect(await titleOf("指南/入门/第一步")).toBe("第一步：打开");
@@ -411,7 +474,14 @@ describe.skipIf(!hasGo)("the command line", () => {
 
     it("replaces a page when told which", async () => {
       const page = await create("季报", "旧内容\n");
-      const result = await run(["import", space, fileOf("季报.pdf", pdf("New quarterly figures")), "--to", "季报", "--publish"]);
+      const result = await run([
+        "import",
+        space,
+        fileOf("季报.pdf", pdf("New quarterly figures")),
+        "--to",
+        "季报",
+        "--publish"
+      ]);
       expect(result.code, result.stderr).toBe(0);
       expect(await serverText(page.id)).toContain("New quarterly figures");
     }, 30_000);
@@ -450,7 +520,12 @@ describe.skipIf(!hasGo)("the command line", () => {
       expect(pending).toHaveLength(1);
       expect(pending[0]).toMatchObject({ authorKind: "agent" });
 
-      const decided = await admin.json("POST", `/api/v1/proposals/${pending[0].id}/decide`, { decision: "accept" }, { "idempotency-key": crypto.randomUUID() });
+      const decided = await admin.json(
+        "POST",
+        `/api/v1/proposals/${pending[0].id}/decide`,
+        { decision: "accept" },
+        { "idempotency-key": crypto.randomUUID() }
+      );
       expect(decided.status).toBe(200);
       await ok(["sync", space], { token: agentToken });
       expect(await ok(["status"], asAgent())).toContain("Nothing changed");
@@ -467,13 +542,24 @@ describe.skipIf(!hasGo)("the command line", () => {
       rmSync(copy("要去掉.md"));
 
       const output = await ok(["commit", "--change-set", "一起改", "-m", "因为要一起改", "--delete"], asAgent());
-      for (const file of ["第一篇.md", "第二篇.md", "第三篇.md", "要去掉.md"]) expect(output).toContain(`added     ${file}`);
+      for (const file of ["第一篇.md", "第二篇.md", "第三篇.md", "要去掉.md"])
+        expect(output).toContain(`added     ${file}`);
       const id = /([0-9a-f]{8}-[0-9a-f-]{27})/u.exec(output)![1]!;
       expect(await serverText(first.id)).toBe("第一篇旧文。\n");
 
       const { data: detail } = await admin.json("GET", `/api/v1/change-sets/${id}`);
-      expect(detail).toMatchObject({ title: "一起改", description: "因为要一起改", authorKind: "agent", status: "open" });
-      expect(detail.pages.map((page: { kind: string; path: string }) => `${page.kind} ${page.path}`).sort()).toEqual(["create 第三篇", "delete 要去掉", "edit 第一篇", "edit 第二篇"]);
+      expect(detail).toMatchObject({
+        title: "一起改",
+        description: "因为要一起改",
+        authorKind: "agent",
+        status: "open"
+      });
+      expect(detail.pages.map((page: { kind: string; path: string }) => `${page.kind} ${page.path}`).sort()).toEqual([
+        "create 第三篇",
+        "delete 要去掉",
+        "edit 第一篇",
+        "edit 第二篇"
+      ]);
 
       writeFileSync(copy("第二篇.md"), "第二篇再改。\n");
       const more = await ok(["commit", "--to-change-set", id, "--delete"], asAgent());
@@ -501,7 +587,11 @@ describe.skipIf(!hasGo)("the command line", () => {
       const output = await ok(["commit"], asAgent());
       expect(output).toContain("submitted 新页.md");
       expect(await ok(["commit"], asAgent())).toContain("already submitted");
-      expect((await admin.json("GET", `/api/v1/spaces/${space}/imports`)).data.filter((job: { filename: string }) => job.filename === "新页.md")).toHaveLength(1);
+      expect(
+        (await admin.json("GET", `/api/v1/spaces/${space}/imports`)).data.filter(
+          (job: { filename: string }) => job.filename === "新页.md"
+        )
+      ).toHaveLength(1);
 
       rmSync(copy("不能删.md"));
       const refused = await run(["commit", "不能删.md", "--delete"], asAgent());
@@ -512,16 +602,19 @@ describe.skipIf(!hasGo)("the command line", () => {
   });
 
   describe("watching", () => {
-    const stopped = (child: ReturnType<typeof start>) => new Promise<number | null>(done => {
-      child.on("close", code => done(code));
-      child.kill("SIGTERM");
-    });
+    const stopped = (child: ReturnType<typeof start>) =>
+      new Promise<number | null>(done => {
+        child.on("close", code => done(code));
+        child.kill("SIGTERM");
+      });
 
     it("keeps a copy up to date as things change, and stops cleanly", async () => {
       const page = await create("跟着变");
       const child = start(["sync", space, "--watch"]);
       let stderr = "";
-      child.stderr.on("data", chunk => { stderr += String(chunk); });
+      child.stderr.on("data", chunk => {
+        stderr += String(chunk);
+      });
       try {
         await vi.waitFor(() => expect(read("跟着变.md")).toBe("跟着变 的内容\n"), { timeout: 10_000, interval: 50 });
         const saved = Date.now();
@@ -552,7 +645,14 @@ describe.skipIf(!hasGo)("the command line", () => {
 
   describe("from a shared directory", () => {
     let shared = "";
-    const publish = () => createPublisher({ services: server.runtime.services, dir: shared, spaces: "*", packIntervalMs: 0, log: () => undefined }).publish(space);
+    const publish = () =>
+      createPublisher({
+        services: server.runtime.services,
+        dir: shared,
+        spaces: "*",
+        packIntervalMs: 0,
+        log: () => undefined
+      }).publish(space);
     beforeEach(() => {
       shared = mkdtempSync(join(home, "shared-"));
     });
@@ -646,10 +746,16 @@ describe.skipIf(!hasGo)("the command line", () => {
       const page = await create("工具");
       const agent = session(agentToken);
       try {
-        const hello = await agent.request("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "测试", version: "1" } });
+        const hello = await agent.request("initialize", {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          clientInfo: { name: "测试", version: "1" }
+        });
         expect(hello.result.serverInfo.name).toBe("pandocs");
         agent.notify("notifications/initialized");
-        const { result: { tools } } = await agent.request("tools/list");
+        const {
+          result: { tools }
+        } = await agent.request("tools/list");
         const names = tools.map((tool: { name: string }) => tool.name);
         expect(names).toContain("doc_get");
         expect(names).toContain("proposal_create");
@@ -666,7 +772,11 @@ describe.skipIf(!hasGo)("the command line", () => {
     it("answers with an error when the server refuses, so the client is not left waiting", async () => {
       const refused = session("pd_not_a_real_token");
       try {
-        const answer = await refused.request("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "测试", version: "1" } });
+        const answer = await refused.request("initialize", {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          clientInfo: { name: "测试", version: "1" }
+        });
         expect(answer.error.message).toContain("TOKEN_INVALID");
       } finally {
         refused.child.stdin.end();

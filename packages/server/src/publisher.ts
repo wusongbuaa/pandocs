@@ -55,9 +55,11 @@ async function writeAtomically(target: string, content: string | Uint8Array, fol
 
 async function pool<T>(items: readonly T[], work: (item: T) => Promise<void>): Promise<void> {
   let next = 0;
-  await Promise.all(Array.from({ length: Math.min(WORKERS, items.length) }, async () => {
-    while (next < items.length) await work(items[next++]!);
-  }));
+  await Promise.all(
+    Array.from({ length: Math.min(WORKERS, items.length) }, async () => {
+      while (next < items.length) await work(items[next++]!);
+    })
+  );
 }
 
 async function hashOf(path: string): Promise<string | null> {
@@ -71,13 +73,17 @@ async function hashOf(path: string): Promise<string | null> {
 }
 
 function listing(manifest: SpaceManifest): string {
-  const pages = manifest.files.filter(file => file.kind === "document").map(file => `- [${file.title ?? file.path}](${file.path})`);
+  const pages = manifest.files
+    .filter(file => file.kind === "document")
+    .map(file => `- [${file.title ?? file.path}](${file.path})`);
   return `# ${manifest.space.name}\n\n${pages.join("\n")}\n`;
 }
 
 async function filesUnder(root: string): Promise<string[]> {
   const entries = await readdir(root, { recursive: true, withFileTypes: true }).catch(() => []);
-  return entries.filter(entry => entry.isFile()).map(entry => relative(root, join(entry.parentPath, entry.name)).split(sep).join("/"));
+  return entries
+    .filter(entry => entry.isFile())
+    .map(entry => relative(root, join(entry.parentPath, entry.name)).split(sep).join("/"));
 }
 
 export interface PublishResult {
@@ -158,7 +164,8 @@ export function createPublisher(deps: {
       if (!target || !found?.isFile()) return;
       const last = before.get(file.path);
       const unchanged = last?.sha256 === file.sha256 && last.size === found.size && last.mtimeMs === found.mtimeMs;
-      if (unchanged || await hashOf(target) === file.sha256) now.set(file.path, { size: found.size, mtimeMs: found.mtimeMs, sha256: file.sha256 });
+      if (unchanged || (await hashOf(target)) === file.sha256)
+        now.set(file.path, { size: found.size, mtimeMs: found.mtimeMs, sha256: file.sha256 });
     });
     checked.set(slug, now);
     return new Set(now.keys());
@@ -189,29 +196,49 @@ export function createPublisher(deps: {
       }
       const previous = await readManifest(root);
       const onDisk = options.verify ? new Set(await filesUnder(root)) : null;
-      const whole = onDisk && previous ? await intact(slug, root, previous.files.filter(file => onDisk.has(file.path))) : null;
-      const known = new Map((previous?.files ?? []).filter(file => !onDisk || (whole ?? onDisk).has(file.path)).map(file => [file.path, file]));
+      const whole =
+        onDisk && previous
+          ? await intact(
+              slug,
+              root,
+              previous.files.filter(file => onDisk.has(file.path))
+            )
+          : null;
+      const known = new Map(
+        (previous?.files ?? [])
+          .filter(file => !onDisk || (whole ?? onDisk).has(file.path))
+          .map(file => [file.path, file])
+      );
       const wanted = desired.files.filter(file => inside(root, file.path) !== null);
       const changed = wanted.filter(file => known.get(file.path)?.sha256 !== file.sha256);
       const paths = new Set(wanted.map(file => file.path));
       const removed = [...known.keys()].filter(path => !paths.has(path));
-      const unchanged = previous !== null && changed.length === 0 && removed.length === 0
-        && previous.space.name === desired.space.name && JSON.stringify(previous.files) === JSON.stringify(wanted);
+      const unchanged =
+        previous !== null &&
+        changed.length === 0 &&
+        removed.length === 0 &&
+        previous.space.name === desired.space.name &&
+        JSON.stringify(previous.files) === JSON.stringify(wanted);
       const manifest: SpaceManifest = unchanged ? previous : { ...desired, files: wanted };
 
       if (!unchanged) {
         const folders = new Set<string>();
-        for (const batch of batchesOf(changed.filter((file): file is ManifestFile & { documentId: string } => file.kind === "document"))) {
+        for (const batch of batchesOf(
+          changed.filter((file): file is ManifestFile & { documentId: string } => file.kind === "document")
+        )) {
           const texts = await services.changes.markdownOf(batch.map(file => file.documentId));
           await pool(batch, async file => {
             const text = texts.get(file.documentId);
             if (text !== undefined) await writeAtomically(join(root, file.path), text, folders);
           });
         }
-        await pool(changed.filter(file => file.kind === "asset"), async file => {
-          const bytes = await services.changes.assetBytes(desired.space.id, file.sha256);
-          if (bytes) await writeAtomically(join(root, file.path), bytes, folders);
-        });
+        await pool(
+          changed.filter(file => file.kind === "asset"),
+          async file => {
+            const bytes = await services.changes.assetBytes(desired.space.id, file.sha256);
+            if (bytes) await writeAtomically(join(root, file.path), bytes, folders);
+          }
+        );
         const manifestText = JSON.stringify(manifest);
         await writeAtomically(join(root, GUIDE), GUIDE_TEXT);
         await writeAtomically(join(root, INDEX), listing(manifest));
@@ -221,16 +248,31 @@ export function createPublisher(deps: {
           const target = inside(root, path);
           if (target) await removeWithParents(root, target);
         });
-        const history = await readFile(join(root, CHANGES), "utf8").then(text => text.split("\n").filter(Boolean), () => [] as string[]);
+        const history = await readFile(join(root, CHANGES), "utf8").then(
+          text => text.split("\n").filter(Boolean),
+          () => [] as string[]
+        );
         const at = new Date().toISOString();
         const fresh = [
-          ...changed.map(file => JSON.stringify({ cursor: manifest.cursor, at, action: "write", path: file.path, revision: file.revision })),
+          ...changed.map(file =>
+            JSON.stringify({ cursor: manifest.cursor, at, action: "write", path: file.path, revision: file.revision })
+          ),
           ...removed.map(path => JSON.stringify({ cursor: manifest.cursor, at, action: "remove", path }))
         ];
         await writeAtomically(join(root, CHANGES), `${[...history, ...fresh].slice(-KEPT_CHANGES).join("\n")}\n`);
         // The small file readers poll goes last, so seeing it change means everything before it is there.
-        await writeAtomically(join(root, CURRENT), `${JSON.stringify({ cursor: manifest.cursor, files: manifest.files.length, sha256: createHash("sha256").update(manifestText).digest("hex") })}\n`);
-        log({ event: "publisher.published", space: slug, written: changed.length, removed: removed.length, cursor: manifest.cursor, ms: Date.now() - startedAt });
+        await writeAtomically(
+          join(root, CURRENT),
+          `${JSON.stringify({ cursor: manifest.cursor, files: manifest.files.length, sha256: createHash("sha256").update(manifestText).digest("hex") })}\n`
+        );
+        log({
+          event: "publisher.published",
+          space: slug,
+          written: changed.length,
+          removed: removed.length,
+          cursor: manifest.cursor,
+          ms: Date.now() - startedAt
+        });
       }
       // Never on a directory seen for the first time: it may hold someone's files under a name that happens to match.
       if (onDisk && previous) {
@@ -239,11 +281,17 @@ export function createPublisher(deps: {
         }
       }
       await packIfDue(slug, root, manifest);
-      return { written: unchanged ? 0 : changed.length, removed: unchanged ? 0 : removed.length, cursor: manifest.cursor };
+      return {
+        written: unchanged ? 0 : changed.length,
+        removed: unchanged ? 0 : removed.length,
+        cursor: manifest.cursor
+      };
     },
     /** Every space, including those that should no longer be here. */
     async publishAll(options: { readonly verify?: boolean } = {}): Promise<void> {
-      const { rows } = await services.context.db.query<{ slug: string }>(`SELECT slug FROM pandocs.spaces WHERE deleted_at IS NULL`);
+      const { rows } = await services.context.db.query<{ slug: string }>(
+        `SELECT slug FROM pandocs.spaces WHERE deleted_at IS NULL`
+      );
       const live = new Set(rows.map(row => row.slug).filter(allowed));
       for (const slug of live) await this.publish(slug, options);
       for (const name of await readdir(dir).catch(() => [] as string[])) {
@@ -307,7 +355,9 @@ export function runPublisher(deps: {
         lock = client;
         await client.connect();
       }
-      const { rows } = await lock.query<{ locked: boolean }>(`SELECT pg_try_advisory_lock(hashtext($1)) AS locked`, [LEADER_LOCK]);
+      const { rows } = await lock.query<{ locked: boolean }>(`SELECT pg_try_advisory_lock(hashtext($1)) AS locked`, [
+        LEADER_LOCK
+      ]);
       leading = rows[0]?.locked === true;
       // Whatever happened while no one was leading is covered by comparing everything once.
       if (leading) lastFull = 0;
@@ -318,7 +368,7 @@ export function runPublisher(deps: {
   };
 
   const round = async () => {
-    if (!await lead()) return;
+    if (!(await lead())) return;
     if (Date.now() - lastFull > FULL_ROUND_MS) {
       const start = await services.changes.watermark();
       await publisher.publishAll({ verify: true });
@@ -328,7 +378,11 @@ export function runPublisher(deps: {
     }
     const spaces = new Set<string>();
     let everything = false;
-    for (let rows = await services.changes.settledSince(cursor); rows.length > 0; rows = await services.changes.settledSince(cursor)) {
+    for (
+      let rows = await services.changes.settledSince(cursor);
+      rows.length > 0;
+      rows = await services.changes.settledSince(cursor)
+    ) {
       cursor = rows.at(-1)!.cursor;
       for (const row of rows) {
         if (row.kind === "discussion") continue;
@@ -346,7 +400,13 @@ export function runPublisher(deps: {
     } catch (error) {
       // Rows this round moved past may not be on disk, and the full round is what catches those.
       lastFull = Date.now() - FULL_ROUND_MS + FAILED_ROUND_RETRY_MS;
-      console.error(JSON.stringify({ event: "publisher.round_failed", name: error instanceof Error ? error.name : "unknown", message: error instanceof Error ? error.message : "" }));
+      console.error(
+        JSON.stringify({
+          event: "publisher.round_failed",
+          name: error instanceof Error ? error.name : "unknown",
+          message: error instanceof Error ? error.message : ""
+        })
+      );
     }
   };
 

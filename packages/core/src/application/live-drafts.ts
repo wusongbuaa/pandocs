@@ -48,7 +48,10 @@ export class LiveDraftService {
   }
 
   private async row(db: Queryable, documentId: string, lock = false): Promise<DraftRow | null> {
-    const { rows } = await db.query<DraftRow>(`SELECT * FROM pandocs.live_drafts WHERE document_id = $1${lock ? " FOR UPDATE" : ""}`, [documentId]);
+    const { rows } = await db.query<DraftRow>(
+      `SELECT * FROM pandocs.live_drafts WHERE document_id = $1${lock ? " FOR UPDATE" : ""}`,
+      [documentId]
+    );
     return rows[0] ?? null;
   }
 
@@ -61,12 +64,15 @@ export class LiveDraftService {
   }
 
   /** Where to connect to edit this page with whoever else is, starting a draft if there is none. On a server that cannot do this, the editor works alone. */
-  async open(principal: Principal, documentId: string): Promise<{ available: false } | { available: true; name: string; baseRevision: number }> {
+  async open(
+    principal: Principal,
+    documentId: string
+  ): Promise<{ available: false } | { available: true; name: string; baseRevision: number }> {
     const { db } = this.context;
     const { codec } = this;
     const document = await this.mayJoin(principal, documentId);
     if (!codec) return { available: false };
-    if (!await this.row(db, document.id)) {
+    if (!(await this.row(db, document.id))) {
       const { markdown, no } = await loadRevision(db, document.id, document.currentRevisionNo);
       // Whoever gets here second, on any replica, uses the first one's: two starts would mean everything twice.
       await db.query(
@@ -86,7 +92,8 @@ export class LiveDraftService {
     if (!UUID.test(documentId)) throw notFound(t("Document"));
     await this.mayJoin(principal, documentId);
     const row = await this.row(this.context.db, documentId);
-    if (!row || nameOf(row) !== name) throw new PandocsError(409, "LIVE_DRAFT_STALE", t("This draft has been started again"));
+    if (!row || nameOf(row) !== name)
+      throw new PandocsError(409, "LIVE_DRAFT_STALE", t("This draft has been started again"));
     return documentId;
   }
 
@@ -99,7 +106,12 @@ export class LiveDraftService {
    * Adds what a replica has to what is stored. `merge` gets what is there and gives what it should become, while nobody
    * else can write. Null means the draft it was working on is gone.
    */
-  async write(documentId: string, name: string, merge: (stored: Uint8Array) => Uint8Array, changes: { readonly touched: boolean; readonly contributors: Readonly<Record<string, string>> }): Promise<number | null> {
+  async write(
+    documentId: string,
+    name: string,
+    merge: (stored: Uint8Array) => Uint8Array,
+    changes: { readonly touched: boolean; readonly contributors: Readonly<Record<string, string>> }
+  ): Promise<number | null> {
     return this.context.db.transaction(async tx => {
       const row = await this.row(tx, documentId, true);
       if (!row || nameOf(row) !== name) return null;
@@ -123,11 +135,20 @@ export class LiveDraftService {
 
   /** These are still open somewhere. Says how far each has got, for a replica to tell whether it has missed anything. */
   async stillOpen(documentIds: readonly string[]): Promise<ReadonlyMap<string, { version: number; name: string }>> {
-    const { rows } = await this.context.db.query<DraftRow>(`UPDATE pandocs.live_drafts SET last_seen_at = now() WHERE document_id = ANY($1::uuid[]) RETURNING document_id, version, generation`, [documentIds]);
+    const { rows } = await this.context.db.query<DraftRow>(
+      `UPDATE pandocs.live_drafts SET last_seen_at = now() WHERE document_id = ANY($1::uuid[]) RETURNING document_id, version, generation`,
+      [documentIds]
+    );
     return new Map(rows.map(row => [row.document_id, { version: row.version, name: nameOf(row) }]));
   }
 
-  private async toLatest(tx: Queryable, row: DraftRow, latest: RevisionRecord, target: string, meta: Readonly<Record<string, string | number | null>>): Promise<{ change: Uint8Array; version: number }> {
+  private async toLatest(
+    tx: Queryable,
+    row: DraftRow,
+    latest: RevisionRecord,
+    target: string,
+    meta: Readonly<Record<string, string | number | null>>
+  ): Promise<{ change: Uint8Array; version: number }> {
     const { state, change } = await this.codec!.align(row.state, target, { baseRevision: latest.no, ...meta });
     const same = sameText(target, latest.markdown);
     const { rows } = await tx.query<{ version: number }>(
@@ -150,14 +171,21 @@ export class LiveDraftService {
     return db.transaction(async tx => {
       const row = await this.row(tx, documentId, true);
       if (!row) return null;
-      const { rows: documents } = await tx.query<{ current_revision_no: number }>(`SELECT current_revision_no FROM pandocs.documents WHERE id = $1 AND deleted_at IS NULL`, [documentId]);
+      const { rows: documents } = await tx.query<{ current_revision_no: number }>(
+        `SELECT current_revision_no FROM pandocs.documents WHERE id = $1 AND deleted_at IS NULL`,
+        [documentId]
+      );
       const current = documents[0]?.current_revision_no;
       if (current === undefined || current <= row.base_revision_no) return null;
       const base = await loadRevision(tx, documentId, row.base_revision_no);
       const latest = await loadRevision(tx, documentId, current);
       const ours = await codec.markdownOf(row.state, base.markdown);
       const merged = await codec.merge(base.markdown, ours, latest.markdown);
-      return this.toLatest(tx, row, latest, merged.ok ? merged.markdown : merged.keepingOurs, { savedBy: latest.actorName, conflictAt: merged.ok ? null : latest.no, discardedBy: null });
+      return this.toLatest(tx, row, latest, merged.ok ? merged.markdown : merged.keepingOurs, {
+        savedBy: latest.actorName,
+        conflictAt: merged.ok ? null : latest.no,
+        discardedBy: null
+      });
     });
   }
 
@@ -169,9 +197,16 @@ export class LiveDraftService {
     await db.transaction(async tx => {
       const row = await this.row(tx, documentId, true);
       if (!row) return;
-      const { rows } = await tx.query<{ current_revision_no: number }>(`SELECT current_revision_no FROM pandocs.documents WHERE id = $1`, [documentId]);
+      const { rows } = await tx.query<{ current_revision_no: number }>(
+        `SELECT current_revision_no FROM pandocs.documents WHERE id = $1`,
+        [documentId]
+      );
       const latest = await loadRevision(tx, documentId, rows[0]!.current_revision_no);
-      await this.toLatest(tx, row, latest, latest.markdown, { discardedBy: principal.displayName, titleDraft: null, conflictAt: null });
+      await this.toLatest(tx, row, latest, latest.markdown, {
+        discardedBy: principal.displayName,
+        titleDraft: null,
+        conflictAt: null
+      });
       await audit(tx, principal, "document.live_draft.discard", "document", documentId);
     });
   }
@@ -182,13 +217,23 @@ export class LiveDraftService {
     await this.mayJoin(principal, documentId);
     const row = this.codec ? await this.row(db, documentId) : null;
     if (!row?.has_changes) return { available: this.codec !== undefined, unsaved: null };
-    return { available: true, unsaved: { contributors: Object.values(row.contributors), updatedAt: new Date(row.updated_at) } };
+    return {
+      available: true,
+      unsaved: { contributors: Object.values(row.contributors), updatedAt: new Date(row.updated_at) }
+    };
   }
 
   /** Shared drafts with unsaved work this person had a part in. */
   async mine(principal: Principal) {
     const { db } = this.context;
-    const { rows } = await db.query<{ document_id: string; title: string; path: string; space_slug: string; space_name: string; updated_at: string }>(
+    const { rows } = await db.query<{
+      document_id: string;
+      title: string;
+      path: string;
+      space_slug: string;
+      space_name: string;
+      updated_at: string;
+    }>(
       `SELECT l.document_id, l.updated_at, d.title, d.path, s.slug AS space_slug, s.name AS space_name
        FROM pandocs.live_drafts l
        JOIN pandocs.documents d ON d.id = l.document_id AND d.deleted_at IS NULL
@@ -198,8 +243,22 @@ export class LiveDraftService {
     );
     const drafts = [];
     for (const row of rows) {
-      if (await this.mayJoin(principal, row.document_id).then(() => true, () => false)) {
-        drafts.push({ documentId: row.document_id, lang: "", title: row.title, path: row.path, spaceSlug: row.space_slug, spaceName: row.space_name, updatedAt: new Date(row.updated_at), shared: true });
+      if (
+        await this.mayJoin(principal, row.document_id).then(
+          () => true,
+          () => false
+        )
+      ) {
+        drafts.push({
+          documentId: row.document_id,
+          lang: "",
+          title: row.title,
+          path: row.path,
+          spaceSlug: row.space_slug,
+          spaceName: row.space_name,
+          updatedAt: new Date(row.updated_at),
+          shared: true
+        });
       }
     }
     return drafts;
@@ -220,10 +279,18 @@ export class LiveDraftService {
       );
       for (const row of rows) {
         const base = await loadRevision(tx, row.document_id, row.base_revision_no);
-        const { rows: documents } = await tx.query<{ current_revision_no: number }>(`SELECT current_revision_no FROM pandocs.documents WHERE id = $1`, [row.document_id]);
-        const unchanged = documents[0]?.current_revision_no === row.base_revision_no && sameText(await codec.markdownOf(row.state, base.markdown), base.markdown);
+        const { rows: documents } = await tx.query<{ current_revision_no: number }>(
+          `SELECT current_revision_no FROM pandocs.documents WHERE id = $1`,
+          [row.document_id]
+        );
+        const unchanged =
+          documents[0]?.current_revision_no === row.base_revision_no &&
+          sameText(await codec.markdownOf(row.state, base.markdown), base.markdown);
         if (unchanged) await tx.query(`DELETE FROM pandocs.live_drafts WHERE document_id = $1`, [row.document_id]);
-        else await tx.query(`UPDATE pandocs.live_drafts SET settled = true, has_changes = true WHERE document_id = $1`, [row.document_id]);
+        else
+          await tx.query(`UPDATE pandocs.live_drafts SET settled = true, has_changes = true WHERE document_id = $1`, [
+            row.document_id
+          ]);
       }
       return rows.length;
     });

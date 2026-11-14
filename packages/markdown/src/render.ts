@@ -21,20 +21,45 @@ function annotate(tree: Root): void {
   const visit = (node: Nodes, parent: { children: unknown[] } | null, index: number): void => {
     const { pandocsBlock: block, pandocsUnknown: unknown } = dialectOf(node);
     if (unknown) {
-      const replacement = { type: "pandocsUnknown", data: { hName: UNKNOWN_ELEMENT, hProperties: { "data-raw": unknown.raw, "data-name": (node as { name?: string }).name ?? "" } }, children: [], position: node.position };
+      const replacement = {
+        type: "pandocsUnknown",
+        data: {
+          hName: UNKNOWN_ELEMENT,
+          hProperties: { "data-raw": unknown.raw, "data-name": (node as { name?: string }).name ?? "" }
+        },
+        children: [],
+        position: node.position
+      };
       parent!.children[index] = replacement;
       return;
     }
     if (block) {
-      const properties = { "data-name": block.name, "data-kind": block.kind, "data-attrs": JSON.stringify(block.attrs) };
+      const properties = {
+        "data-name": block.name,
+        "data-kind": block.kind,
+        "data-attrs": JSON.stringify(block.attrs)
+      };
       if (node.type === "code") {
-        parent!.children[index] = { type: "pandocsFence", data: { hName: BLOCK_ELEMENT, hProperties: { ...properties, "data-source": node.value, "data-body": block.body === undefined ? "" : JSON.stringify(block.body) } }, children: [], position: node.position };
+        parent!.children[index] = {
+          type: "pandocsFence",
+          data: {
+            hName: BLOCK_ELEMENT,
+            hProperties: {
+              ...properties,
+              "data-source": node.value,
+              "data-body": block.body === undefined ? "" : JSON.stringify(block.body)
+            }
+          },
+          children: [],
+          position: node.position
+        };
         return;
       }
       hast(node, block.kind === "inline" ? INLINE_ELEMENT : BLOCK_ELEMENT, properties);
     }
     if (node.type === "heading") hast(node, undefined, { id: slug(plainText(node).trim()) });
-    if (node.type === "paragraph" && (node.data as { directiveLabel?: boolean } | undefined)?.directiveLabel) hast(node, LABEL_ELEMENT, {});
+    if (node.type === "paragraph" && (node.data as { directiveLabel?: boolean } | undefined)?.directiveLabel)
+      hast(node, LABEL_ELEMENT, {});
     if ("children" in node) node.children.forEach((child, childIndex) => visit(child, node, childIndex));
   };
   visit(tree, null, 0);
@@ -42,7 +67,10 @@ function annotate(tree: Root): void {
   for (const child of tree.children as (RootContent & { data?: Record<string, unknown> })[]) {
     if (child.type === "yaml") continue;
     ref += 1;
-    (child.data ??= {}).hProperties = { ...(child.data.hProperties as object | undefined), "data-block-ref": `b${ref}` };
+    (child.data ??= {}).hProperties = {
+      ...(child.data.hProperties as object | undefined),
+      "data-block-ref": `b${ref}`
+    };
   }
 }
 

@@ -11,11 +11,12 @@ const { language, input } = workerData as { language: Language; input: ExtractIn
 /** One file per thread, which ends with it: what a file does to memory goes away, and a stuck one can be stopped. */
 inLanguage(language, () => extractToMarkdown(input)).then(
   output => parentPort!.postMessage({ output }),
-  (error: unknown) => parentPort!.postMessage({
-    failure: {
-      permanent: error instanceof UnconvertibleError,
-      code: error instanceof UnconvertibleError ? error.code : "EXTRACT_FAILED",
-      message: error instanceof Error ? error.message : String(error)
-    }
-  })
+  (error: unknown) =>
+    parentPort!.postMessage({
+      failure: {
+        permanent: error instanceof UnconvertibleError,
+        code: error instanceof UnconvertibleError ? error.code : "EXTRACT_FAILED",
+        message: error instanceof Error ? error.message : String(error)
+      }
+    })
 );

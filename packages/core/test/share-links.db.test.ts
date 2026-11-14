@@ -4,8 +4,15 @@ import { usePostgresFixture } from "./postgres.js";
 import { createHarness, resetPandocs, USERS } from "./support.js";
 
 const fixture = usePostgresFixture();
-const PNG = new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"));
-const OTHER_PNG = new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64"));
+const PNG = new Uint8Array(
+  Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64"
+  )
+);
+const OTHER_PNG = new Uint8Array(
+  Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64")
+);
 
 describe("share links", () => {
   let h: ReturnType<typeof createHarness>;
@@ -17,7 +24,9 @@ describe("share links", () => {
   let image = "";
   let otherImage = "";
 
-  const make = async (title: string, slug: string, extra: object = {}, space = "shop") => (await h.call(USERS.admin, "POST", `spaces/${space}/documents`, { title, slug, markdown: `${title}.\n`, ...extra })).data.document.id as string;
+  const make = async (title: string, slug: string, extra: object = {}, space = "shop") =>
+    (await h.call(USERS.admin, "POST", `spaces/${space}/documents`, { title, slug, markdown: `${title}.\n`, ...extra }))
+      .data.document.id as string;
   const share = async (id: string, body: object = {}) => {
     const created = await h.call(USERS.editor, "POST", `documents/${id}/share-links`, body);
     expect(created.error).toBeUndefined();
@@ -60,7 +69,9 @@ describe("share links", () => {
     expect(link.token).toMatch(/^pds_[\w-]{32}$/u);
     expect(link.path).toBe(`/s/${link.token}`);
     expect(new Date(link.expiresAt!).getTime() - Date.now()).toBeGreaterThan(6.9 * 86_400_000);
-    expect((await h.call(USERS.editor, "GET", `documents/${guide}/share-links`)).data.map((item: { id: string }) => item.id)).toContain(link.id);
+    expect(
+      (await h.call(USERS.editor, "GET", `documents/${guide}/share-links`)).data.map((item: { id: string }) => item.id)
+    ).toContain(link.id);
     const { data: log } = await h.call(USERS.admin, "GET", "spaces/shop/audit");
     expect(JSON.stringify(log)).not.toContain(link.token);
   });
@@ -68,7 +79,9 @@ describe("share links", () => {
   it("runs for a while unless told otherwise, and only as long as anyone could want", async () => {
     expect(new Date((await share(guide)).expiresAt!).getTime() - Date.now()).toBeGreaterThan(29 * 86_400_000);
     expect((await share(guide, { expiresInDays: null })).expiresAt).toBeNull();
-    expect((await h.call(USERS.editor, "POST", `documents/${guide}/share-links`, { expiresInDays: 1000 })).status).toBe(422);
+    expect((await h.call(USERS.editor, "POST", `documents/${guide}/share-links`, { expiresInDays: 1000 })).status).toBe(
+      422
+    );
   });
 
   it("does not open a page only some people can read", async () => {
@@ -78,7 +91,9 @@ describe("share links", () => {
   it("stops working when it expires, is revoked, or its page goes or is closed", async () => {
     const page = await make("Soon", "soon");
     const expired = await share(page);
-    await h.pool.query("UPDATE pandocs.share_links SET expires_at = now() - interval '1 second' WHERE id = $1", [expired.id]);
+    await h.pool.query("UPDATE pandocs.share_links SET expires_at = now() - interval '1 second' WHERE id = $1", [
+      expired.id
+    ]);
     expect(await as(expired.token)).toBeNull();
     expect((await h.call(USERS.editor, "GET", `documents/${page}/share-links`)).data).toEqual([]);
 
@@ -129,7 +144,8 @@ describe("share links", () => {
   it("does not share one visitor's answer with another, as it does for people with no link", async () => {
     const one = await visitor(guide);
     const two = await visitor(other);
-    const treeOf = async (principal: Principal) => (await h.call(principal, "GET", "bootstrap")).data.spaces[0].tree.map((node: { id: string }) => node.id);
+    const treeOf = async (principal: Principal) =>
+      (await h.call(principal, "GET", "bootstrap")).data.spaces[0].tree.map((node: { id: string }) => node.id);
     expect(await treeOf(one)).toEqual([guide]);
     expect(await treeOf(two)).toEqual([other]);
   });
@@ -156,7 +172,8 @@ describe("share links", () => {
       ["GET", "changes"],
       ["POST", "tools/doc_search", { query: "Other" }]
     ] as const;
-    for (const [method, path, body] of refused) expect((await h.call(principal, method, path, body)).status, `${method} ${path}`).toBe(404);
+    for (const [method, path, body] of refused)
+      expect((await h.call(principal, method, path, body)).status, `${method} ${path}`).toBe(404);
   });
 
   it("tells a visitor nothing about who wrote it, or how it read before", async () => {

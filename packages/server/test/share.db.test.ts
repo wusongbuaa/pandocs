@@ -6,7 +6,12 @@ import { signInFirstAdmin, startServer, type Client, type TestServer } from "./s
 
 const PASSWORD = "correct horse battery";
 const postgres = usePostgresFixture();
-const PNG = new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"));
+const PNG = new Uint8Array(
+  Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64"
+  )
+);
 
 describe("someone following a share link", () => {
   let server: TestServer;
@@ -16,17 +21,28 @@ describe("someone following a share link", () => {
   let token = "";
   let sha = "";
 
-  const withLink = (path: string, method = "GET", extra: object = {}) => visitor.request(path, { method, headers: { authorization: `Bearer ${token}` }, ...extra });
+  const withLink = (path: string, method = "GET", extra: object = {}) =>
+    visitor.request(path, { method, headers: { authorization: `Bearer ${token}` }, ...extra });
 
   beforeAll(async () => {
     server = await startServer(postgres.getConnectionString());
     admin = await signInFirstAdmin(server);
     visitor = server.client();
     await admin.json("POST", "/api/v1/spaces", { slug: "shop", name: "书店", defaultRole: "none" });
-    const upload = await admin.request("/api/v1/spaces/shop/assets?filename=a.png", { method: "POST", headers: { "content-type": "image/png" }, body: PNG });
+    const upload = await admin.request("/api/v1/spaces/shop/assets?filename=a.png", {
+      method: "POST",
+      headers: { "content-type": "image/png" },
+      body: PNG
+    });
     const { path, sha256 } = ((await upload.json()) as { data: { path: string; sha256: string } }).data;
     sha = sha256;
-    page = (await admin.json("POST", "/api/v1/spaces/shop/documents", { title: "退货", slug: "returns", markdown: `七天。\n\n![图](${path})\n` })).data.document.id;
+    page = (
+      await admin.json("POST", "/api/v1/spaces/shop/documents", {
+        title: "退货",
+        slug: "returns",
+        markdown: `七天。\n\n![图](${path})\n`
+      })
+    ).data.document.id;
     await admin.json("POST", "/api/v1/spaces/shop/documents", { title: "进货价", slug: "cost", markdown: "保密。\n" });
     token = (await admin.json("POST", `/api/v1/documents/${page}/share-links`, { expiresInDays: 1 })).data.token;
   });
@@ -43,7 +59,11 @@ describe("someone following a share link", () => {
   });
 
   it("stops working when whoever made it is disabled, and stays stopped when they are back", async () => {
-    const user = await server.runtime.users.create({ email: "lin@example.test", displayName: "林", passwordHash: await hashPassword(PASSWORD) });
+    const user = await server.runtime.users.create({
+      email: "lin@example.test",
+      displayName: "林",
+      passwordHash: await hashPassword(PASSWORD)
+    });
     await admin.json("PUT", "/api/v1/spaces/shop/members", { subject: `user:${user.id}`, role: "editor" });
     const editor = server.client();
     await editor.form("/login", { email: "lin@example.test", password: PASSWORD, next: "/" });
@@ -83,10 +103,18 @@ describe("someone following a share link", () => {
   });
 
   it("is someone the API recognises, for reading only", async () => {
-    expect(((await (await withLink(`/api/v1/documents/${page}`)).json()) as { data: { markdown: string } }).data.markdown).toContain("七天");
+    expect(
+      ((await (await withLink(`/api/v1/documents/${page}`)).json()) as { data: { markdown: string } }).data.markdown
+    ).toContain("七天");
     expect((await withLink("/api/v1/spaces")).status).toBe(404);
     expect((await visitor.request(`/api/v1/documents/${page}`)).status).toBe(401);
-    expect((await visitor.request(`/api/v1/documents/${page}`, { headers: { authorization: "Bearer pds_nothing-like-this" } })).status).toBe(401);
+    expect(
+      (
+        await visitor.request(`/api/v1/documents/${page}`, {
+          headers: { authorization: "Bearer pds_nothing-like-this" }
+        })
+      ).status
+    ).toBe(401);
   });
 
   it("sees the page's images through the address, which is all an image can carry", async () => {
@@ -106,7 +134,9 @@ describe("someone following a share link", () => {
   it("gets no event stream, which would tell of other pages, and cannot connect an agent", async () => {
     expect((await withLink("/api/v1/events")).status).toBe(404);
     expect((await visitor.request(`/api/v1/events?ticket=${token}`)).status).toBe(404);
-    expect((await withLink("/mcp", "POST", { body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) })).status).toBe(403);
+    expect(
+      (await withLink("/mcp", "POST", { body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) })).status
+    ).toBe(403);
   });
 
   it("stops at once when the link is revoked", async () => {

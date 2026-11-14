@@ -7,16 +7,27 @@ const postgres = usePostgresFixture();
 const SPACE = "density";
 
 /** Font size and line height, the way a stylesheet would say them. */
-const type = (page: Page, selector: string) => page.locator(selector).first().evaluate(element => {
-  const style = getComputedStyle(element);
-  return `${parseFloat(style.fontSize)}/${parseFloat(style.lineHeight)}`;
-});
+const type = (page: Page, selector: string) =>
+  page
+    .locator(selector)
+    .first()
+    .evaluate(element => {
+      const style = getComputedStyle(element);
+      return `${parseFloat(style.fontSize)}/${parseFloat(style.lineHeight)}`;
+    });
 
 /** How far each step's number sits below the middle of its heading's first line. */
-const stepOffsets = (page: Page, selector: string) => page.locator(selector).evaluateAll(headings => headings.map(heading => {
-  const style = getComputedStyle(heading);
-  return parseFloat(getComputedStyle(heading, "::before").top) - parseFloat(style.paddingTop) - parseFloat(style.lineHeight) / 2;
-}));
+const stepOffsets = (page: Page, selector: string) =>
+  page.locator(selector).evaluateAll(headings =>
+    headings.map(heading => {
+      const style = getComputedStyle(heading);
+      return (
+        parseFloat(getComputedStyle(heading, "::before").top) -
+        parseFloat(style.paddingTop) -
+        parseFloat(style.lineHeight) / 2
+      );
+    })
+  );
 
 pandocsDescribe("how much fits on a page", () => {
   let app: Awaited<ReturnType<typeof startPandocs>>;
@@ -25,11 +36,21 @@ pandocsDescribe("how much fits on a page", () => {
     app = await startPandocs(postgres.getConnectionString());
     await app.api("admin", "POST", "spaces", { slug: SPACE, name: "手册", defaultRole: "viewer" });
     await app.api("admin", "PUT", `spaces/${SPACE}/members`, { subject: `user:${PEOPLE.editor.id}`, role: "editor" });
-    const markdown = "第一段正文，足够长。\n\n- 列表里的一项\n\n## 第一节\n\n正文。\n\n### 小节\n\n正文。\n\n:::tip\n\n提示里的文字。\n\n:::\n";
+    const markdown =
+      "第一段正文，足够长。\n\n- 列表里的一项\n\n## 第一节\n\n正文。\n\n### 小节\n\n正文。\n\n:::tip\n\n提示里的文字。\n\n:::\n";
     await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "指南", slug: "guide", markdown });
-    await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "上手", slug: "start", markdown: "上手的内容。\n" });
-    const steps = ":::steps\n\n## 准备\n\n正文。\n\n## 提交\n\n正文。\n\n:::\n\n:::steps\n\n### 验证\n\n正文。\n\n### 发布\n\n正文。\n\n:::\n";
-    await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "发布流程", slug: "release", markdown: steps });
+    await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+      title: "上手",
+      slug: "start",
+      markdown: "上手的内容。\n"
+    });
+    const steps =
+      ":::steps\n\n## 准备\n\n正文。\n\n## 提交\n\n正文。\n\n:::\n\n:::steps\n\n### 验证\n\n正文。\n\n### 发布\n\n正文。\n\n:::\n";
+    await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+      title: "发布流程",
+      slug: "release",
+      markdown: steps
+    });
   }, 120_000);
 
   afterAll(async () => {
@@ -45,7 +66,9 @@ pandocsDescribe("how much fits on a page", () => {
     expect(await type(page, `${main} h2`)).toBe("24/32");
     expect(await type(page, `${main} h3`)).toBe("20/28");
     expect(await type(page, ".rp-sidebar-item")).toBe("14/22");
-    const tops = await page.locator(".rp-sidebar-item").evaluateAll(items => items.map(item => item.getBoundingClientRect().top));
+    const tops = await page
+      .locator(".rp-sidebar-item")
+      .evaluateAll(items => items.map(item => item.getBoundingClientRect().top));
     expect(tops[1]! - tops[0]!).toBe(32);
   });
 
@@ -57,7 +80,9 @@ pandocsDescribe("how much fits on a page", () => {
     const cell = page.locator(".pd-manage td").first();
     await browserExpect(cell).toBeVisible({ timeout: 15_000 });
     expect(await cell.evaluate(element => getComputedStyle(element).paddingTop)).toBe("8px");
-    expect(await page.locator(".pd-manage").evaluate(element => element.getBoundingClientRect().width)).toBeGreaterThan(900);
+    expect(await page.locator(".pd-manage").evaluate(element => element.getBoundingClientRect().width)).toBeGreaterThan(
+      900
+    );
   });
 
   it("puts each step's number level with its heading, when reading and when editing", async () => {

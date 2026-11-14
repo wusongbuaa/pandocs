@@ -11,8 +11,8 @@ import {
 
 const DOCUMENT = squashWhitespace(
   "菜园按地块分给各户，领到地块以后才能用工具棚和水井。浇水系统会按你登记的地块号定时放水，所以每户在自己的每块地上都要单独登记一次。" +
-  "检查一遍：水管接头没有滴水，阀门把手朝下，登记表上写了你的名字。地块牌和登记表的号码要一致，牌子丢了去工具棚找管理员补一块新的。" +
-  "检查一遍：棚门锁好，钥匙挂回门后的钩子上，铁锹和水桶都放回原处。夜里下过雨的话，第二天早上就不用再去浇水了。"
+    "检查一遍：水管接头没有滴水，阀门把手朝下，登记表上写了你的名字。地块牌和登记表的号码要一致，牌子丢了去工具棚找管理员补一块新的。" +
+    "检查一遍：棚门锁好，钥匙挂回门后的钩子上，铁锹和水桶都放回原处。夜里下过雨的话，第二天早上就不用再去浇水了。"
 );
 const QUOTE = "浇水系统会按你登记的地块号定时放水";
 
@@ -65,11 +65,14 @@ describe("text anchors", () => {
   });
 
   it("does not take the copy left of a repeated sentence for the one that was rewritten", () => {
-    const rules = squashWhitespace("客服规则个人客户请在签收后七天内申请退货。个人订单由客服核对签收记录。企业客户请在签收后七天内申请退货。企业订单由客户经理核对合同条款。");
+    const rules = squashWhitespace(
+      "客服规则个人客户请在签收后七天内申请退货。个人订单由客服核对签收记录。企业客户请在签收后七天内申请退货。企业订单由客户经理核对合同条款。"
+    );
     const sentence = "请在签收后七天内申请退货。";
     const second = rules.lastIndexOf(sentence);
     const enterprise = anchorFromRange(rules, second, second + sentence.length);
-    const rewritten = rules.slice(0, second) + "企业订单的退货时限以双方签订的合同约定为准。" + rules.slice(second + sentence.length);
+    const rewritten =
+      rules.slice(0, second) + "企业订单的退货时限以双方签订的合同约定为准。" + rules.slice(second + sentence.length);
     expect(relocateTextAnchor(enterprise, rewritten).state).toBe("orphaned");
     // The other copy going away leaves this one where it was, and as it was.
     const first = rules.indexOf(sentence);
@@ -78,7 +81,10 @@ describe("text anchors", () => {
   });
 
   it("keeps a sentence found once where it was, whatever happened around it", () => {
-    const rewritten = DOCUMENT.replace("领到地块以后才能用工具棚和水井。", "全部换了。").replace("所以每户在自己的每块地上都要单独登记一次。", "也全部换了。");
+    const rewritten = DOCUMENT.replace("领到地块以后才能用工具棚和水井。", "全部换了。").replace(
+      "所以每户在自己的每块地上都要单独登记一次。",
+      "也全部换了。"
+    );
     expect(relocateTextAnchor(anchor, rewritten).state).toBe("exact");
   });
 
@@ -88,7 +94,9 @@ describe("text anchors", () => {
     const made = anchorFromRange(text, start, start + "请核对签收凭证后再完成交接。".length);
     expect(JSON.parse(JSON.stringify(made.prefix)).startsWith("📦")).toBe(true);
     expect(made.suffix.endsWith("🚚")).toBe(true);
-    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(made.prefix + made.suffix)).toBe(false);
+    expect(
+      /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(made.prefix + made.suffix)
+    ).toBe(false);
   });
 
   it("refuses to choose between identical copies with no context", () => {
@@ -112,7 +120,11 @@ describe("block anchors", () => {
   });
 
   it("stays in place when the block changes, and says so", () => {
-    const moved = relocateBlockAnchor(anchor, [blocks[0]!, { ...blocks[1]!, markdown: "```mermaid\nB\n```" }, blocks[2]!]);
+    const moved = relocateBlockAnchor(anchor, [
+      blocks[0]!,
+      { ...blocks[1]!, markdown: "```mermaid\nB\n```" },
+      blocks[2]!
+    ]);
     expect(moved.state).toBe("fuzzy");
     expect(moved.anchor.ref).toBe("b2");
   });

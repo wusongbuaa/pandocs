@@ -10,7 +10,11 @@ const { createDocument } = domino as unknown as { createDocument(html: string): 
 /** The DOM on the server side has lists that cannot be spread. */
 const listOf = <T>(list: ArrayLike<unknown>): T[] => Array.from({ length: list.length }, (_, at) => list[at] as T);
 
-const BYTE_ORDER_MARKS: readonly (readonly [string, readonly number[]])[] = [["utf-8", [0xef, 0xbb, 0xbf]], ["utf-16le", [0xff, 0xfe]], ["utf-16be", [0xfe, 0xff]]];
+const BYTE_ORDER_MARKS: readonly (readonly [string, readonly number[]])[] = [
+  ["utf-8", [0xef, 0xbb, 0xbf]],
+  ["utf-16le", [0xff, 0xfe]],
+  ["utf-16be", [0xfe, 0xff]]
+];
 
 /**
  * The encoding an HTML page declares in its first bytes, if the decoder knows it. A page whose declaration could be
@@ -48,10 +52,16 @@ function sixteenBits(bytes: Uint8Array): string | undefined {
  * no zero characters, which the database refuses, so any left are dropped.
  */
 export function decodeText(bytes: Uint8Array, warnings: string[], declared?: string): string {
-  const read = (encoding: string, options?: TextDecoderOptions) => new TextDecoder(encoding, options).decode(bytes).replaceAll("\0", "");
+  const read = (encoding: string, options?: TextDecoderOptions) =>
+    new TextDecoder(encoding, options).decode(bytes).replaceAll("\0", "");
   const guessed = (encoding: string, name: string) => {
     const text = read(encoding, { fatal: true });
-    warnings.push(t("The file does not say how its text is encoded, so it was read as {0}. If the text looks wrong, save the file as UTF-8 and import it again.", name));
+    warnings.push(
+      t(
+        "The file does not say how its text is encoded, so it was read as {0}. If the text looks wrong, save the file as UTF-8 and import it again.",
+        name
+      )
+    );
     return text;
   };
   const marked = BYTE_ORDER_MARKS.find(([, mark]) => mark.every((byte, at) => bytes[at] === byte));
@@ -71,21 +81,43 @@ export function decodeText(bytes: Uint8Array, warnings: string[], declared?: str
 
 /** The conversion all HTML gets here, for those who have more rules of their own to add. */
 export function createHtmlConverter(): TurndownService {
-  const service = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced", bulletListMarker: "-", emDelimiter: "*" });
+  const service = new TurndownService({
+    headingStyle: "atx",
+    codeBlockStyle: "fenced",
+    bulletListMarker: "-",
+    emDelimiter: "*"
+  });
   service.use(gfm);
-  service.remove(["script", "style", "noscript", "iframe", "object", "embed", "head", "title", "meta", "link"] as never);
+  service.remove([
+    "script",
+    "style",
+    "noscript",
+    "iframe",
+    "object",
+    "embed",
+    "head",
+    "title",
+    "meta",
+    "link"
+  ] as never);
   // Word's tables have no header row, and the plugin leaves those as raw HTML. Markdown tables have to have one, so the first row takes that place.
   service.addRule("anyTable", {
     filter: "table",
     replacement(_content, node) {
-      const rows = listOf<HTMLTableRowElement>((node as unknown as HTMLTableElement).querySelectorAll("tr")).map(row => listOf<Element>(row.children).flatMap(cell => {
-        const text = service.turndown((cell as HTMLElement).innerHTML).replaceAll("|", "\\|").replace(/\s*\n+\s*/gu, "<br>");
-        const span = Number(cell.getAttribute("colspan") ?? 1);
-        return [text, ...Array.from({ length: Math.max(0, span - 1) }, () => "")];
-      }));
+      const rows = listOf<HTMLTableRowElement>((node as unknown as HTMLTableElement).querySelectorAll("tr")).map(row =>
+        listOf<Element>(row.children).flatMap(cell => {
+          const text = service
+            .turndown((cell as HTMLElement).innerHTML)
+            .replaceAll("|", "\\|")
+            .replace(/\s*\n+\s*/gu, "<br>");
+          const span = Number(cell.getAttribute("colspan") ?? 1);
+          return [text, ...Array.from({ length: Math.max(0, span - 1) }, () => "")];
+        })
+      );
       const width = Math.max(0, ...rows.map(row => row.length));
       if (width === 0) return "";
-      const line = (row: readonly string[]) => `| ${Array.from({ length: width }, (_, at) => row[at] ?? "").join(" | ")} |`;
+      const line = (row: readonly string[]) =>
+        `| ${Array.from({ length: width }, (_, at) => row[at] ?? "").join(" | ")} |`;
       return `\n\n${[line(rows[0]!), `| ${Array.from({ length: width }, () => "---").join(" | ")} |`, ...rows.slice(1).map(line)].join("\n")}\n\n`;
     }
   });
@@ -128,7 +160,9 @@ export function htmlToMarkdown(html: string): string {
   const document = createDocument(html);
   if (html.includes("\uE000")) {
     for (const list of listOf<Element>(document.getElementsByTagName("ol"))) {
-      const start = givenNumber(listOf<Element>(list.children).find(child => child.tagName === "LI")?.textContent ?? "");
+      const start = givenNumber(
+        listOf<Element>(list.children).find(child => child.tagName === "LI")?.textContent ?? ""
+      );
       if (start !== undefined && start !== 1) list.setAttribute("start", String(start));
     }
     forgetGivenNumbers(document.body);
@@ -163,10 +197,12 @@ export function htmlToMarkdown(html: string): string {
     if (mark !== undefined) slugs.set(Number(mark), given);
   }
   // A heading Markdown cannot hold as one, such as in a table, keeps the link as it was.
-  return markdown.replace(/\uE004(\d+)\uE005/gu, (_, at: string) => {
-    const link = links[Number(at)]!;
-    return slugs.get(link.heading) ?? link.href.slice(1).replace(/([()])/gu, "\\$1");
-  }).replace(HEADING_MARKS, "");
+  return markdown
+    .replace(/\uE004(\d+)\uE005/gu, (_, at: string) => {
+      const link = links[Number(at)]!;
+      return slugs.get(link.heading) ?? link.href.slice(1).replace(/([()])/gu, "\\$1");
+    })
+    .replace(HEADING_MARKS, "");
 }
 
 /**
@@ -178,22 +214,38 @@ const MARKUP = /[\\`*_[\]<>~^$|]|:(?=[a-z])|&(?=#?[\da-z]+;)/giu;
 
 function cellText(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const text = value instanceof Date ? value.toISOString().replace(/T00:00:00\.000Z$/u, "").replace("T", " ").replace(/\.000Z$/u, "") : String(value);
+  const text =
+    value instanceof Date
+      ? value
+          .toISOString()
+          .replace(/T00:00:00\.000Z$/u, "")
+          .replace("T", " ")
+          .replace(/\.000Z$/u, "")
+      : String(value);
   return text.trim().replace(MARKUP, "\\$&").replace(/\r?\n/gu, "<br>");
 }
 
 /** A table has to have one header row, so a sheet's first row takes that place. */
 export function toTable(rows: readonly (readonly unknown[])[]): string {
-  const filled = rows.filter(row => row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== ""));
+  const filled = rows.filter(row =>
+    row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== "")
+  );
   if (filled.length === 0) return "";
   const width = Math.max(...filled.map(row => row.length));
-  const line = (row: readonly unknown[]) => `| ${Array.from({ length: width }, (_, at) => cellText(row[at])).join(" | ")} |`;
-  return [line(filled[0]!), `| ${Array.from({ length: width }, () => "---").join(" | ")} |`, ...filled.slice(1).map(line)].join("\n");
+  const line = (row: readonly unknown[]) =>
+    `| ${Array.from({ length: width }, (_, at) => cellText(row[at])).join(" | ")} |`;
+  return [
+    line(filled[0]!),
+    `| ${Array.from({ length: width }, () => "---").join(" | ")} |`,
+    ...filled.slice(1).map(line)
+  ].join("\n");
 }
 
 export function parseDelimited(text: string): string[][] {
   const firstLine = text.split(/\r?\n/u, 1)[0] ?? "";
-  const delimiter = [",", "\t", ";"].map(item => ({ item, count: firstLine.split(item).length })).sort((a, b) => b.count - a.count)[0]!.item;
+  const delimiter = [",", "\t", ";"]
+    .map(item => ({ item, count: firstLine.split(item).length }))
+    .sort((a, b) => b.count - a.count)[0]!.item;
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";
@@ -201,12 +253,12 @@ export function parseDelimited(text: string): string[][] {
   for (let at = 0; at < text.length; at += 1) {
     const character = text[at]!;
     if (quoted) {
-      if (character === "\"" && text[at + 1] === "\"") {
-        field += "\"";
+      if (character === '"' && text[at + 1] === '"') {
+        field += '"';
         at += 1;
-      } else if (character === "\"") quoted = false;
+      } else if (character === '"') quoted = false;
       else field += character;
-    } else if (character === "\"" && field === "") quoted = true;
+    } else if (character === '"' && field === "") quoted = true;
     else if (character === delimiter) {
       row.push(field);
       field = "";

@@ -31,7 +31,10 @@ export function createSessionStore(pool: pg.Pool) {
       );
       if (!rows[0]) return null;
       if (Date.now() - new Date(rows[0].session_seen_at as string).getTime() > RENEW_AFTER_MS) {
-        await pool.query(`UPDATE pandocs.sessions SET last_seen_at = now(), expires_at = now() + make_interval(days => $2) WHERE token_hash = $1`, [hash, SESSION_DAYS]);
+        await pool.query(
+          `UPDATE pandocs.sessions SET last_seen_at = now(), expires_at = now() + make_interval(days => $2) WHERE token_hash = $1`,
+          [hash, SESSION_DAYS]
+        );
       }
       return mapUser(rows[0]);
     },
@@ -39,7 +42,10 @@ export function createSessionStore(pool: pg.Pool) {
       await pool.query(`DELETE FROM pandocs.sessions WHERE token_hash = $1`, [hashToken(token)]);
     },
     async destroyOthers(userId: string, keep: string): Promise<void> {
-      await pool.query(`DELETE FROM pandocs.sessions WHERE user_id = $1 AND token_hash <> $2`, [userId, hashToken(keep)]);
+      await pool.query(`DELETE FROM pandocs.sessions WHERE user_id = $1 AND token_hash <> $2`, [
+        userId,
+        hashToken(keep)
+      ]);
     },
     async destroyAllFor(userId: string): Promise<void> {
       await pool.query(`DELETE FROM pandocs.sessions WHERE user_id = $1`, [userId]);

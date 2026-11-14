@@ -1,7 +1,9 @@
 import { parentPort, workerData } from "node:worker_threads";
 
 /** A thread stays in one language, the way a page in a browser does. See `i18n`. */
-(globalThis as { pandocsRenderLanguage?: string }).pandocsRenderLanguage = (workerData as { language: string }).language;
+(globalThis as { pandocsRenderLanguage?: string }).pandocsRenderLanguage = (
+  workerData as { language: string }
+).language;
 /** Where the site lives below its host, which a page in a browser reads from the page itself. See `data/site-base`. */
 (globalThis as { pandocsSiteBase?: string }).pandocsSiteBase = (workerData as { base?: string }).base ?? "";
 /** Everything a page renders from has been prepared, and nothing in a page gets to reach out from a server. */
@@ -18,6 +20,10 @@ parentPort!.on("message", async ({ id, input }: { id: number; input: import("./p
     const page = await renderPage(input);
     parentPort!.postMessage({ id, page, heapBytes: process.memoryUsage().heapTotal });
   } catch (error) {
-    parentPort!.postMessage({ id, error: error instanceof Error ? error.stack ?? error.message : String(error), heapBytes: process.memoryUsage().heapTotal });
+    parentPort!.postMessage({
+      id,
+      error: error instanceof Error ? (error.stack ?? error.message) : String(error),
+      heapBytes: process.memoryUsage().heapTotal
+    });
   }
 });

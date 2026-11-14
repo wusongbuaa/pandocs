@@ -44,7 +44,8 @@ export default function SpaceNav() {
   const inAddress = new RegExp(`^${prefix}${MANAGE_PREFIX}/spaces/([^/]+)/([^/]+)`, "u").exec(decodeURI(pathname));
   // A server has no idea which one it was, and its first render has to match the browser's.
   const last = React.useSyncExternalStore(nothingToListenTo, remembered, () => null);
-  const current = spaces.find(space => space.slug === inAddress?.[1]) ?? spaces.find(space => space.slug === last) ?? spaces[0];
+  const current =
+    spaces.find(space => space.slug === inAddress?.[1]) ?? spaces.find(space => space.slug === last) ?? spaces[0];
   React.useEffect(() => {
     if (current && inAddress) remember(current.slug);
   }, [current, inAddress]);
@@ -60,11 +61,34 @@ export default function SpaceNav() {
   return (
     <>
       <div className="pd-space-nav rp-not-doc">
-        <SearchSelect label={t("Space")} value={current.slug} onChange={choose} choices={spaces.map(space => ({ value: space.slug, label: space.name }))}>
-          <div className="border-t border-border p-1"><Button variant="ghost" size="sm" className="w-full justify-start font-normal" nativeButton={false} render={<Link href={manageRoute("spaces", prefix)} />}>{t("All spaces")}</Button></div>
+        <SearchSelect
+          label={t("Space")}
+          value={current.slug}
+          onChange={choose}
+          choices={spaces.map(space => ({ value: space.slug, label: space.name }))}
+        >
+          <div className="border-t border-border p-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start font-normal"
+              nativeButton={false}
+              render={<Link href={manageRoute("spaces", prefix)} />}
+            >
+              {t("All spaces")}
+            </Button>
+          </div>
         </SearchSelect>
       </div>
-      <SidebarList setSidebarData={noop} sidebarData={spaceViews(current).map(({ view, title }) => ({ text: title, link: spaceManageRoute(current.slug, view, prefix) })) as never} />
+      <SidebarList
+        setSidebarData={noop}
+        sidebarData={
+          spaceViews(current).map(({ view, title }) => ({
+            text: title,
+            link: spaceManageRoute(current.slug, view, prefix)
+          })) as never
+        }
+      />
     </>
   );
 }

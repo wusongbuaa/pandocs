@@ -16,8 +16,18 @@ pandocsDescribe("what makes a site its own, and pages easier to work with", () =
     app = await startPandocs(postgres.getConnectionString(), { importers: [createNotionImporter()] });
     await app.api("admin", "POST", "spaces", { slug: SPACE, name: "手册", defaultRole: "viewer" });
     await app.api("admin", "PUT", `spaces/${SPACE}/members`, { subject: `user:${PEOPLE.editor.id}`, role: "editor" });
-    guide = (await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "指南", slug: "guide", markdown: "## 第一节\n\n正文。\n" })).data.document.id;
-    await app.api("editor", "POST", `spaces/${SPACE}/documents`, { title: "上手", slug: "start", markdown: "上手的内容。\n" });
+    guide = (
+      await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+        title: "指南",
+        slug: "guide",
+        markdown: "## 第一节\n\n正文。\n"
+      })
+    ).data.document.id;
+    await app.api("editor", "POST", `spaces/${SPACE}/documents`, {
+      title: "上手",
+      slug: "start",
+      markdown: "上手的内容。\n"
+    });
   }, 120_000);
 
   afterAll(async () => {
@@ -25,13 +35,17 @@ pandocsDescribe("what makes a site its own, and pages easier to work with", () =
   });
 
   it("uses the site's colour and rules on its pages", async () => {
-    await app.api("admin", "PATCH", "site", { brandColor: "#aa3366", customCss: ".rp-doc h2 { letter-spacing: 3px; }" });
+    await app.api("admin", "PATCH", "site", {
+      brandColor: "#aa3366",
+      customCss: ".rp-doc h2 { letter-spacing: 3px; }"
+    });
     const page = await app.open("reader", `/${SPACE}/guide`);
     await browserExpect(page.locator("main .rp-doc h2")).toBeVisible({ timeout: 15_000 });
-    const look = () => page.evaluate(() => ({
-      brand: getComputedStyle(document.documentElement).getPropertyValue("--rp-c-brand").trim(),
-      spacing: getComputedStyle(document.querySelector("main .rp-doc h2")!).letterSpacing
-    }));
+    const look = () =>
+      page.evaluate(() => ({
+        brand: getComputedStyle(document.documentElement).getPropertyValue("--rp-c-brand").trim(),
+        spacing: getComputedStyle(document.querySelector("main .rp-doc h2")!).letterSpacing
+      }));
     await expect.poll(look).toEqual({ brand: "#aa3366", spacing: "3px" });
     await app.api("admin", "PATCH", "site", { brandColor: "", customCss: "" });
     await page.reload();
@@ -40,7 +54,9 @@ pandocsDescribe("what makes a site its own, and pages easier to work with", () =
   });
 
   it("lets an editor label a page and go from a label to other pages", async () => {
-    const start = (await app.api("reader", "GET", `spaces/${SPACE}/tree`)).data.find((node: { slug: string }) => node.slug === "start");
+    const start = (await app.api("reader", "GET", `spaces/${SPACE}/tree`)).data.find(
+      (node: { slug: string }) => node.slug === "start"
+    );
     await app.api("editor", "PUT", `documents/${start.id}/labels`, { labels: ["入门"] });
     const page = await app.open("editor", `/${SPACE}/guide`);
     await page.getByRole("button", { name: "标签", exact: true }).click();
@@ -59,13 +75,18 @@ pandocsDescribe("what makes a site its own, and pages easier to work with", () =
 
   it("shows a reader the labels, without the means to change them, and leaves them out of what can be commented on", async () => {
     const page = await app.open("reader", `/${SPACE}/guide`);
-    await browserExpect(page.locator(".pd-labels").getByRole("button", { name: "入门", exact: true })).toBeVisible({ timeout: 15_000 });
+    await browserExpect(page.locator(".pd-labels").getByRole("button", { name: "入门", exact: true })).toBeVisible({
+      timeout: 15_000
+    });
     await browserExpect(page.getByRole("button", { name: "去掉标签“入门”" })).toHaveCount(0);
     await browserExpect(page.getByRole("button", { name: "标签", exact: true })).toHaveCount(0);
   });
 
   it("makes a new page from a template", async () => {
-    await app.api("editor", "POST", `spaces/${SPACE}/templates`, { name: "周报模板", markdown: "# {{title}}\n\n## 本周完成\n\n- \n" });
+    await app.api("editor", "POST", `spaces/${SPACE}/templates`, {
+      name: "周报模板",
+      markdown: "# {{title}}\n\n## 本周完成\n\n- \n"
+    });
     const page = await app.open("editor", `/_/spaces/${SPACE}/pages`);
     await page.getByRole("button", { name: "新建页面", exact: true }).first().click();
     const dialog = page.getByRole("dialog");
@@ -73,8 +94,12 @@ pandocsDescribe("what makes a site its own, and pages easier to work with", () =
     await choose(dialog.getByRole("combobox", { name: "起始内容" }), "周报模板");
     await dialog.getByRole("button", { name: "新建", exact: true }).click();
     await browserExpect(page.getByRole("dialog")).toHaveCount(0);
-    const made = (await app.api("reader", "GET", `spaces/${SPACE}/tree`)).data.find((node: { title: string }) => node.title === "第四十五周");
-    expect((await app.api("reader", "GET", `documents/${made.id}`)).data.markdown).toContain("# 第四十五周\n\n## 本周完成");
+    const made = (await app.api("reader", "GET", `spaces/${SPACE}/tree`)).data.find(
+      (node: { title: string }) => node.title === "第四十五周"
+    );
+    expect((await app.api("reader", "GET", `documents/${made.id}`)).data.markdown).toContain(
+      "# 第四十五周\n\n## 本周完成"
+    );
   });
 
   it("keeps templates in a place of their own, where one can start from a page", async () => {
@@ -96,7 +121,9 @@ pandocsDescribe("what makes a site its own, and pages easier to work with", () =
     const dialog = page.getByRole("dialog");
     await choose(dialog.getByRole("combobox", { name: "发送到" }), "飞书或 Lark 群");
     await dialog.getByRole("textbox", { name: "名称" }).fill("文档群");
-    await dialog.getByRole("textbox", { name: "地址" }).fill("https://open.feishu.cn/open-apis/bot/v2/hook/not-a-real-token");
+    await dialog
+      .getByRole("textbox", { name: "地址" })
+      .fill("https://open.feishu.cn/open-apis/bot/v2/hook/not-a-real-token");
     await dialog.getByRole("button", { name: "保存", exact: true }).click();
     await browserExpect(page.getByRole("cell", { name: /^文档群/u })).toBeVisible();
     await browserExpect(page.getByText("https://open.feishu.cn/…")).toBeVisible();
@@ -105,9 +132,17 @@ pandocsDescribe("what makes a site its own, and pages easier to work with", () =
     await page.getByRole("button", { name: "发送测试", exact: true }).first().click();
     await browserExpect(page.getByText("这个服务器不能发送 Webhook")).toBeVisible();
 
-    const created = (await app.api("editor", "GET", `spaces/${SPACE}/tree`)).data.find((node: { slug: string }) => node.slug === "start");
+    const created = (await app.api("editor", "GET", `spaces/${SPACE}/tree`)).data.find(
+      (node: { slug: string }) => node.slug === "start"
+    );
     const { revision } = (await app.api("editor", "GET", `documents/${created.id}`)).data;
-    await app.api("editor", "PUT", `documents/${created.id}/content`, { markdown: "又改了一点。\n", expectedRevision: revision.no }, { "idempotency-key": "extras-hook" });
+    await app.api(
+      "editor",
+      "PUT",
+      `documents/${created.id}/content`,
+      { markdown: "又改了一点。\n", expectedRevision: revision.no },
+      { "idempotency-key": "extras-hook" }
+    );
     await page.getByRole("button", { name: "记录", exact: true }).click();
     const log = page.getByRole("dialog");
     await browserExpect(log.getByRole("cell", { name: "保存页面" })).toBeVisible();
@@ -131,7 +166,12 @@ pandocsDescribe("what makes a site its own, and pages easier to work with", () =
     const reader = await app.open("reader", `/${SPACE}/guide`);
     await browserExpect(reader.getByRole("button", { name: "关注", exact: true })).toBeVisible({ timeout: 15_000 });
     await browserExpect(reader.getByRole("button", { name: "分享", exact: true })).toHaveCount(0);
-    await app.api("admin", "POST", `spaces/${SPACE}/documents`, { title: "内部页", slug: "closed", markdown: "内部。\n", restricted: true });
+    await app.api("admin", "POST", `spaces/${SPACE}/documents`, {
+      title: "内部页",
+      slug: "closed",
+      markdown: "内部。\n",
+      restricted: true
+    });
     const admin = await app.open("admin", `/${SPACE}/closed`);
     await browserExpect(admin.getByRole("button", { name: "关注", exact: true })).toBeVisible({ timeout: 15_000 });
     await browserExpect(admin.getByRole("button", { name: "分享", exact: true })).toHaveCount(0);
@@ -142,11 +182,15 @@ pandocsDescribe("what makes a site its own, and pages easier to work with", () =
     await browserExpect(page.getByRole("heading", { name: "从其他工具导入" })).toBeVisible({ timeout: 15_000 });
     const section = page.locator(".pd-bulk-imports");
     await browserExpect(section.getByRole("combobox", { name: "来源" })).toContainText("Notion");
-    await section.locator('input[type="file"]').setInputFiles({ name: "export.zip", mimeType: "application/zip", buffer: Buffer.from(notionExport()) });
+    await section
+      .locator('input[type="file"]')
+      .setInputFiles({ name: "export.zip", mimeType: "application/zip", buffer: Buffer.from(notionExport()) });
     await section.getByRole("button", { name: "开始导入", exact: true }).click();
     await browserExpect(section.getByText("排队中")).toBeVisible();
     await app.settleImports();
-    await browserExpect(section.getByText("新建 10 个，更新 0 个，未变 0 个，文件 3 个。")).toBeVisible({ timeout: 15_000 });
+    await browserExpect(section.getByText("新建 10 个，更新 0 个，未变 0 个，文件 3 个。")).toBeVisible({
+      timeout: 15_000
+    });
 
     await page.goto(`${app.origin}/${SPACE}/handbook`);
     await browserExpect(page.getByText("Keep the receipt")).toBeVisible({ timeout: 15_000 });
@@ -207,7 +251,13 @@ pandocsDescribe("what makes a site its own, and pages easier to work with", () =
     await page.keyboard.press("Escape");
 
     const { revision } = (await app.api("editor", "GET", `documents/${guide}`)).data;
-    await app.api("editor", "PUT", `documents/${guide}/content`, { markdown: "## 第一节\n\n改过了。\n", expectedRevision: revision.no, message: "补了一段" }, { "idempotency-key": "extras-follow" });
+    await app.api(
+      "editor",
+      "PUT",
+      `documents/${guide}/content`,
+      { markdown: "## 第一节\n\n改过了。\n", expectedRevision: revision.no, message: "补了一段" },
+      { "idempotency-key": "extras-follow" }
+    );
 
     await page.goto(`${app.origin}/_/inbox`);
     await browserExpect(page.getByText("补了一段")).toBeVisible({ timeout: 15_000 });

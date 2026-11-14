@@ -17,21 +17,34 @@ pandocsDescribe("the language of the interface", () => {
    * and an avatar is their first letter. Languages are listed by their own names, and whether a browser counts the options
    * of a closed menu as text depends on the system.
    */
-  const chineseOn = (page: Page) => page.evaluate(names => {
-    const attributes = [...document.querySelectorAll("[aria-label],[title],[placeholder],[alt]")]
-      .flatMap(element => ["aria-label", "title", "placeholder", "alt"].map(name => element.getAttribute(name) ?? ""));
-    const text = [document.body.innerText, document.title, ...attributes].join("\n");
-    return [...names.flatMap(name => [name, name[0]!]), "简体中文", "日本語"].reduce((all, name) => all.replaceAll(name, ""), text).match(/[\u3400-\u9fff]+/gu) ?? [];
-  }, Object.values(PEOPLE).map(person => person.displayName));
+  const chineseOn = (page: Page) =>
+    page.evaluate(
+      names => {
+        const attributes = [...document.querySelectorAll("[aria-label],[title],[placeholder],[alt]")].flatMap(element =>
+          ["aria-label", "title", "placeholder", "alt"].map(name => element.getAttribute(name) ?? "")
+        );
+        const text = [document.body.innerText, document.title, ...attributes].join("\n");
+        return (
+          [...names.flatMap(name => [name, name[0]!]), "简体中文", "日本語"]
+            .reduce((all, name) => all.replaceAll(name, ""), text)
+            .match(/[\u3400-\u9fff]+/gu) ?? []
+        );
+      },
+      Object.values(PEOPLE).map(person => person.displayName)
+    );
 
   beforeAll(async () => {
     app = await startPandocs(postgres.getConnectionString());
     await app.api("admin", "POST", "spaces", { slug: SPACE, name: "Guide", defaultRole: "viewer" });
-    await app.api("admin", "PUT", `spaces/${SPACE}/members`, { subject: `user:${PEOPLE.commenter.id}`, role: "commenter" });
+    await app.api("admin", "PUT", `spaces/${SPACE}/members`, {
+      subject: `user:${PEOPLE.commenter.id}`,
+      role: "commenter"
+    });
     const { data } = await app.api("admin", "POST", `spaces/${SPACE}/documents`, {
       title: "Returns",
       slug: "returns",
-      markdown: "# Returns\n\nWithin seven days.\n\n:::tip\n\nKeep the receipt.\n\n:::\n\nA note[^1] here.\n\n[^1]: The note.\n\n## Refunds\n\nOn the original card.\n"
+      markdown:
+        "# Returns\n\nWithin seven days.\n\n:::tip\n\nKeep the receipt.\n\n:::\n\nA note[^1] here.\n\n[^1]: The note.\n\n## Refunds\n\nOn the original card.\n"
     });
     pageId = data.document.id as string;
   }, 120_000);
@@ -67,12 +80,16 @@ pandocsDescribe("the language of the interface", () => {
     ["embed apps", "/_/embed-apps", "Embed apps"],
     ["site settings", "/_/site", "Site settings"],
     ["the site's log", "/_/audit", "Site audit log"]
-  ])("is English on %s in an English browser", async (_what, path, heading) => {
-    const page = await app.open("admin", path, ENGLISH);
-    await browserExpect(page.getByText(heading, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
-    expect(await chineseOn(page)).toEqual([]);
-    await page.context().close();
-  }, 60_000);
+  ])(
+    "is English on %s in an English browser",
+    async (_what, path, heading) => {
+      const page = await app.open("admin", path, ENGLISH);
+      await browserExpect(page.getByText(heading, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
+      expect(await chineseOn(page)).toEqual([]);
+      await page.context().close();
+    },
+    60_000
+  );
 
   it("stays English through the things that only appear once you use them", async () => {
     const page = await app.open("commenter", `/${SPACE}/returns`, ENGLISH);
@@ -117,15 +134,29 @@ pandocsDescribe("the language of the interface", () => {
   }, 60_000);
 
   it("follows the pages' language on a site with several, moving between them included", async () => {
-    await app.api("admin", "PATCH", "site", { defaultLang: "en", locales: [{ lang: "en", label: "English" }, { lang: "zh", label: "简体中文" }] });
-    await app.api("admin", "PUT", `documents/${pageId}/translations/zh`, { title: "退货", markdown: "七天之内。\n", sourceRevision: 1, machine: false });
+    await app.api("admin", "PATCH", "site", {
+      defaultLang: "en",
+      locales: [
+        { lang: "en", label: "English" },
+        { lang: "zh", label: "简体中文" }
+      ]
+    });
+    await app.api("admin", "PUT", `documents/${pageId}/translations/zh`, {
+      title: "退货",
+      markdown: "七天之内。\n",
+      sourceRevision: 1,
+      machine: false
+    });
     const page = await app.open("reader", `/${SPACE}/returns`, ENGLISH);
     await browserExpect(page.getByRole("link", { name: "History" })).toBeVisible({ timeout: 15_000 });
     // The way the theme's language menu goes there: no new page load of its own.
-    await Promise.all([page.waitForEvent("load"), page.evaluate(path => {
-      history.pushState(null, "", path);
-      dispatchEvent(new PopStateEvent("popstate"));
-    }, `/zh/${SPACE}/returns`)]);
+    await Promise.all([
+      page.waitForEvent("load"),
+      page.evaluate(path => {
+        history.pushState(null, "", path);
+        dispatchEvent(new PopStateEvent("popstate"));
+      }, `/zh/${SPACE}/returns`)
+    ]);
     await browserExpect(page.getByText("七天之内")).toBeVisible({ timeout: 15_000 });
     await browserExpect(page.getByRole("button", { name: "复制 Markdown" })).toBeVisible();
     await page.goto(`${app.origin}/${SPACE}/returns`);

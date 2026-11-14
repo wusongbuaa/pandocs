@@ -1,7 +1,10 @@
 import * as React from "react";
 
 export type ToastTone = "info" | "success" | "error";
-export interface PendingToast { readonly message: string; readonly tone: ToastTone }
+export interface PendingToast {
+  readonly message: string;
+  readonly tone: ToastTone;
+}
 
 let waiting: PendingToast[] = [];
 let deliver: ((item: PendingToast) => void) | null = null;
@@ -25,15 +28,25 @@ export function receiveToasts(handler: (item: PendingToast) => void): () => void
   const earlier = waiting;
   waiting = [];
   earlier.forEach(handler);
-  return () => { deliver = null; };
+  return () => {
+    deliver = null;
+  };
 }
 
 const ToastHost = React.lazy(() => import("./toast-host"));
 
 export function Toaster() {
-  const needed = React.useSyncExternalStore(listener => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  }, () => asked, () => false);
-  return needed ? <React.Suspense fallback={null}><ToastHost /></React.Suspense> : null;
+  const needed = React.useSyncExternalStore(
+    listener => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => asked,
+    () => false
+  );
+  return needed ? (
+    <React.Suspense fallback={null}>
+      <ToastHost />
+    </React.Suspense>
+  ) : null;
 }

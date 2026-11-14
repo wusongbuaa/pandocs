@@ -4,7 +4,15 @@ import { MessageSquarePlus, Download, FileText } from "lucide-react";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { Badge, Callout, Link, Prompt, Steps, type CalloutProps } from "@rspress/core/theme";
 import { DocTabs, labelText } from "./tabs";
-import { BLOCK_ELEMENT, defaultBlockRegistry, INLINE_ELEMENT, LABEL_ELEMENT, parseAttributes, resolveDocLink, UNKNOWN_ELEMENT } from "@pandocs/markdown";
+import {
+  BLOCK_ELEMENT,
+  defaultBlockRegistry,
+  INLINE_ELEMENT,
+  LABEL_ELEMENT,
+  parseAttributes,
+  resolveDocLink,
+  UNKNOWN_ELEMENT
+} from "@pandocs/markdown";
 import { Tip } from "../ui/tooltip";
 import { documentRoute } from "../data/paths";
 import { assetSource, BlockError, type BlockProps } from "./block-parts";
@@ -34,7 +42,16 @@ const EMOJI_TYPES: Readonly<Record<string, CalloutProps["type"]>> = {
   "❌": "danger"
 };
 
-const CALLOUT_TITLES: Readonly<Record<CalloutProps["type"], string>> = { note: t("Note"), tip: t("Tip"), info: t("Info"), important: t("Important"), warning: t("Warning"), caution: t("Caution"), danger: t("Danger"), details: t("Details") };
+const CALLOUT_TITLES: Readonly<Record<CalloutProps["type"], string>> = {
+  note: t("Note"),
+  tip: t("Tip"),
+  info: t("Info"),
+  important: t("Important"),
+  warning: t("Warning"),
+  caution: t("Caution"),
+  danger: t("Danger"),
+  details: t("Details")
+};
 
 export function calloutTitle(type: CalloutProps["type"]): string {
   return CALLOUT_TITLES[type];
@@ -42,7 +59,9 @@ export function calloutTitle(type: CalloutProps["type"]): string {
 
 export function calloutType(name: string, attrs: Readonly<Record<string, string>>): CalloutProps["type"] {
   if (name !== "callout") return name as CalloutProps["type"];
-  return (attrs.tone as CalloutProps["type"] | undefined) ?? EMOJI_TYPES[(attrs.emoji ?? "").replace(/️/gu, "")] ?? "note";
+  return (
+    (attrs.tone as CalloutProps["type"] | undefined) ?? EMOJI_TYPES[(attrs.emoji ?? "").replace(/️/gu, "")] ?? "note"
+  );
 }
 
 function parseJson<T>(value: unknown, fallback: T): T {
@@ -71,7 +90,11 @@ function DocCallout({ name, attrs, children }: BlockProps) {
   // A written title is part of the text; one the renderer supplies is not, or comment offsets would drift.
   const fallback = attrs.title ?? calloutTitle(type);
   const title = label ?? <span data-pandocs-nontext="">{fallback}</span>;
-  return <Callout type={type} title={title as never}>{rest}</Callout>;
+  return (
+    <Callout type={type} title={title as never}>
+      {rest}
+    </Callout>
+  );
 }
 
 function StepsBlock({ children }: BlockProps) {
@@ -80,7 +103,10 @@ function StepsBlock({ children }: BlockProps) {
 
 /** The labels sit together above the panes, away from where each is written, so they are not part of the counted text. */
 function TabsBlock({ attrs, children }: BlockProps) {
-  const panes = React.Children.toArray(children).filter((child): child is React.ReactElement<ElementProps> => React.isValidElement(child) && (child.props as ElementProps)["data-name"] === "tab");
+  const panes = React.Children.toArray(children).filter(
+    (child): child is React.ReactElement<ElementProps> =>
+      React.isValidElement(child) && (child.props as ElementProps)["data-name"] === "tab"
+  );
   const tabs = panes.map((pane, index) => {
     const label = splitLabel(pane.props.children).label ?? t("Tab {0}", index + 1);
     return { label: <span data-pandocs-nontext="">{label}</span>, value: labelText(label), content: pane };
@@ -110,7 +136,14 @@ function Card({ attrs, children }: BlockProps) {
 }
 
 function PromptBlock({ attrs, source = "" }: BlockProps) {
-  return <Prompt title={attrs.title ?? t("Agent Prompt")} eyebrow={t("For your Agent")} prompt={source} {...(attrs.description ? { description: attrs.description } : {})} />;
+  return (
+    <Prompt
+      title={attrs.title ?? t("Agent Prompt")}
+      eyebrow={t("For your Agent")}
+      prompt={source}
+      {...(attrs.description ? { description: attrs.description } : {})}
+    />
+  );
 }
 
 function Columns({ children }: BlockProps) {
@@ -119,7 +152,11 @@ function Columns({ children }: BlockProps) {
 
 function Column({ attrs, children }: BlockProps) {
   const width = Number(attrs.width);
-  return <div className="pd-column" style={width > 0 ? { flexGrow: width } : undefined}>{children}</div>;
+  return (
+    <div className="pd-column" style={width > 0 ? { flexGrow: width } : undefined}>
+      {children}
+    </div>
+  );
 }
 
 function OriginalFile({ attrs, children }: BlockProps) {
@@ -128,7 +165,10 @@ function OriginalFile({ attrs, children }: BlockProps) {
     <a className="pd-file rp-not-doc" href={assetSource(space.slug, attrs.src ?? "")} download data-pandocs-nontext="">
       <FileText size={20} aria-hidden="true" />
       <span className="pd-file__name">{children}</span>
-      <span className="pd-file__action"><Download size={16} aria-hidden="true" />{t("Download the original file")}</span>
+      <span className="pd-file__action">
+        <Download size={16} aria-hidden="true" />
+        {t("Download the original file")}
+      </span>
     </a>
   );
 }
@@ -140,15 +180,37 @@ function OpenApi({ attrs }: BlockProps) {
   const { space } = useReader();
   const { frontmatter } = useFrontmatter();
   const url = assetSource(space.slug, attrs.src ?? "");
-  const link = <a className="pd-file rp-not-doc" href={url} download data-pandocs-nontext=""><FileText size={20} aria-hidden="true" /><span className="pd-file__name">{t("API reference")}</span><span className="pd-file__action"><Download size={16} aria-hidden="true" />{t("Download the OpenAPI document")}</span></a>;
-  return <div className="rp-not-doc" data-pandocs-nontext=""><NoSSR fallback={link}><React.Suspense fallback={link}><ApiReference url={url} full={frontmatter.pageType === "doc-wide"} /></React.Suspense></NoSSR></div>;
+  const link = (
+    <a className="pd-file rp-not-doc" href={url} download data-pandocs-nontext="">
+      <FileText size={20} aria-hidden="true" />
+      <span className="pd-file__name">{t("API reference")}</span>
+      <span className="pd-file__action">
+        <Download size={16} aria-hidden="true" />
+        {t("Download the OpenAPI document")}
+      </span>
+    </a>
+  );
+  return (
+    <div className="rp-not-doc" data-pandocs-nontext="">
+      <NoSSR fallback={link}>
+        <React.Suspense fallback={link}>
+          <ApiReference url={url} full={frontmatter.pageType === "doc-wide"} />
+        </React.Suspense>
+      </NoSSR>
+    </div>
+  );
 }
 
 function Video({ attrs, children }: BlockProps) {
   const { space } = useReader();
   return (
     <figure className="pd-video" data-pandocs-nontext="">
-      <video controls preload="metadata" src={assetSource(space.slug, attrs.src ?? "")} poster={attrs.poster ? assetSource(space.slug, attrs.poster) : undefined} />
+      <video
+        controls
+        preload="metadata"
+        src={assetSource(space.slug, attrs.src ?? "")}
+        poster={attrs.poster ? assetSource(space.slug, attrs.poster) : undefined}
+      />
       {children ? <figcaption>{children}</figcaption> : null}
     </figure>
   );
@@ -156,13 +218,23 @@ function Video({ attrs, children }: BlockProps) {
 
 function Subpages() {
   const { children, routePrefix, space } = useReader();
-  if (children.length === 0) return <p data-pandocs-nontext="" className="pd-muted">{t("No subpages yet.")}</p>;
+  if (children.length === 0)
+    return (
+      <p data-pandocs-nontext="" className="pd-muted">
+        {t("No subpages yet.")}
+      </p>
+    );
   return (
     <nav aria-label={t("Subpages")} data-pandocs-nontext="" className="rp-overview-group rp-not-doc">
       <div className="rp-overview-group__grid">
         {children.map(child => (
           <div key={child.id} className="rp-overview-group__grid-item rp-overview-group__item__title">
-            <Link href={documentRoute(space.slug, child.path, routePrefix)} className="rp-overview-group__item__title__link">{child.title}</Link>
+            <Link
+              href={documentRoute(space.slug, child.path, routePrefix)}
+              className="rp-overview-group__item__title__link"
+            >
+              {child.title}
+            </Link>
           </div>
         ))}
       </div>
@@ -212,18 +284,39 @@ function Mermaid({ attrs, source = "", preview }: BlockProps) {
   }, [id, source]);
   if (failed) return <BlockError title={t("This diagram cannot be shown")} source={source} />;
   const label = attrs.title ?? t("Diagram");
-  if (preview || !svg) return <div className="pd-diagram" role="img" aria-label={label} data-pandocs-nontext="" dangerouslySetInnerHTML={{ __html: svg }} />;
+  if (preview || !svg)
+    return (
+      <div
+        className="pd-diagram"
+        role="img"
+        aria-label={label}
+        data-pandocs-nontext=""
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+    );
   return (
     <>
-      <div className="pd-diagram pd-diagram--enlargeable" role="button" tabIndex={0} aria-label={t("Enlarge: {0}", label)} data-pandocs-nontext=""
-        onClick={() => { if (!window.getSelection()?.toString()) setEnlarged(true); }}
+      <div
+        className="pd-diagram pd-diagram--enlargeable"
+        role="button"
+        tabIndex={0}
+        aria-label={t("Enlarge: {0}", label)}
+        data-pandocs-nontext=""
+        onClick={() => {
+          if (!window.getSelection()?.toString()) setEnlarged(true);
+        }}
         onKeyDown={event => {
           if (event.key !== "Enter" && event.key !== " ") return;
           event.preventDefault();
           setEnlarged(true);
         }}
-        dangerouslySetInnerHTML={{ __html: svg }} />
-      {enlarged ? <React.Suspense fallback={null}><DiagramZoom svg={svg} label={label} onClose={() => setEnlarged(false)} /></React.Suspense> : null}
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+      {enlarged ? (
+        <React.Suspense fallback={null}>
+          <DiagramZoom svg={svg} label={label} onClose={() => setEnlarged(false)} />
+        </React.Suspense>
+      ) : null}
     </>
   );
 }
@@ -237,12 +330,26 @@ function Tag({ attrs, children }: BlockProps) {
 }
 
 function Mindmap(props: BlockProps) {
-  return <div className="pd-mindmap" role="img" aria-label={props.attrs.title ?? t("Mind map")} data-pandocs-nontext=""><NoSSR><React.Suspense fallback={null}><MindmapBlock {...props} /></React.Suspense></NoSSR></div>;
+  return (
+    <div className="pd-mindmap" role="img" aria-label={props.attrs.title ?? t("Mind map")} data-pandocs-nontext="">
+      <NoSSR>
+        <React.Suspense fallback={null}>
+          <MindmapBlock {...props} />
+        </React.Suspense>
+      </NoSSR>
+    </div>
+  );
 }
 
 function ChartBlock(props: BlockProps) {
   const placeholder = <div className="pd-chart" data-pandocs-nontext="" />;
-  return <NoSSR fallback={placeholder}><React.Suspense fallback={placeholder}><Chart {...props} /></React.Suspense></NoSSR>;
+  return (
+    <NoSSR fallback={placeholder}>
+      <React.Suspense fallback={placeholder}>
+        <Chart {...props} />
+      </React.Suspense>
+    </NoSSR>
+  );
 }
 
 export type BlockRenderer = React.ComponentType<BlockProps>;
@@ -300,9 +407,11 @@ function BlockCommentButton({ blockRef, label }: { blockRef: string; label: stri
   const { onCommentBlock } = useReader();
   if (!onCommentBlock) return null;
   return (
-    <Tip label={label}><button type="button" className="pd-block-comment" aria-label={label} onClick={() => onCommentBlock(blockRef)}>
-      <MessageSquarePlus size={16} aria-hidden="true" />
-    </button></Tip>
+    <Tip label={label}>
+      <button type="button" className="pd-block-comment" aria-label={label} onClick={() => onCommentBlock(blockRef)}>
+        <MessageSquarePlus size={16} aria-hidden="true" />
+      </button>
+    </Tip>
   );
 }
 
@@ -313,15 +422,24 @@ function BlockElement(props: ElementProps) {
   const source = props["data-source"] as string | undefined;
   const body = parseJson<unknown>(props["data-body"], undefined);
   const ref = props["data-block-ref"] as string | undefined;
-  const content = Renderer
-    ? <Renderer name={name} attrs={attrs} source={source} body={body}>{props.children}</Renderer>
-    : <BlockError title={t("Block {0} has no way to be shown", name)} source={source ?? ""} />;
+  const content = Renderer ? (
+    <Renderer name={name} attrs={attrs} source={source} body={body}>
+      {props.children}
+    </Renderer>
+  ) : (
+    <BlockError title={t("Block {0} has no way to be shown", name)} source={source ?? ""} />
+  );
   const hasOwnText = source === undefined && props["data-kind"] !== "leaf";
   if (!ref) return content;
   return (
     <div data-block-ref={ref} className="pd-block">
       {content}
-      {hasOwnText ? null : <BlockCommentButton blockRef={ref} label={name === "mermaid" ? t("Comment on this diagram") : t("Comment on this block")} />}
+      {hasOwnText ? null : (
+        <BlockCommentButton
+          blockRef={ref}
+          label={name === "mermaid" ? t("Comment on this diagram") : t("Comment on this block")}
+        />
+      )}
     </div>
   );
 }
@@ -330,31 +448,68 @@ function InlineElement(props: ElementProps) {
   const name = String(props["data-name"] ?? "");
   const Renderer = builtinRenderers[name];
   if (!Renderer) return <>{props.children}</>;
-  return <Renderer name={name} attrs={parseJson<Record<string, string>>(props["data-attrs"], {})}>{props.children}</Renderer>;
+  return (
+    <Renderer name={name} attrs={parseJson<Record<string, string>>(props["data-attrs"], {})}>
+      {props.children}
+    </Renderer>
+  );
 }
 
 function DocLink({ href = "", children, ...rest }: React.ComponentProps<"a">) {
   const { currentPath, routePrefix, space } = useReader();
   const target = resolveDocLink(currentPath, href);
-  if (target) return <Link {...rest} href={`${documentRoute(space.slug, target.path, routePrefix)}${target.hash ? `#${encodeURIComponent(target.hash)}` : ""}`}>{children}</Link>;
+  if (target)
+    return (
+      <Link
+        {...rest}
+        href={`${documentRoute(space.slug, target.path, routePrefix)}${target.hash ? `#${encodeURIComponent(target.hash)}` : ""}`}
+      >
+        {children}
+      </Link>
+    );
   // Footnote numbers are not part of the source's visible text.
-  if ((rest as Record<string, unknown>)["data-footnote-ref"] !== undefined) return <a href={href} {...rest} data-pandocs-nontext="">{children}</a>;
-  return <Link {...rest} href={href}>{children}</Link>;
+  if ((rest as Record<string, unknown>)["data-footnote-ref"] !== undefined)
+    return (
+      <a href={href} {...rest} data-pandocs-nontext="">
+        {children}
+      </a>
+    );
+  return (
+    <Link {...rest} href={href}>
+      {children}
+    </Link>
+  );
 }
 
 function DocImage({ src = "", alt = "", title, ...rest }: React.ComponentProps<"img">) {
   const { space } = useReader();
   const blockRef = (rest as Record<string, unknown>)["data-block-ref"] as string | undefined;
-  const image = <img {...rest} src={assetSource(space.slug, src).startsWith("/") || /^[a-z]+:/iu.test(src) ? assetSource(space.slug, src) : src} alt={alt} data-block-ref={blockRef} />;
+  const image = (
+    <img
+      {...rest}
+      src={assetSource(space.slug, src).startsWith("/") || /^[a-z]+:/iu.test(src) ? assetSource(space.slug, src) : src}
+      alt={alt}
+      data-block-ref={blockRef}
+    />
+  );
   if (!title) return image;
   // Inside a paragraph, which cannot hold a `figure`. The server counts no text for an image, so the caption is not counted either.
-  return <span className="pd-figure" data-align={(rest as Record<string, unknown>)["data-align"] as string | undefined}>{image}<span className="pd-figure__caption" data-pandocs-nontext="">{title}</span></span>;
+  return (
+    <span className="pd-figure" data-align={(rest as Record<string, unknown>)["data-align"] as string | undefined}>
+      {image}
+      <span className="pd-figure__caption" data-pandocs-nontext="">
+        {title}
+      </span>
+    </span>
+  );
 }
 
 /** Images sit in their own paragraph, which is the block a discussion attaches to. */
 function DocParagraph({ children, ...rest }: React.ComponentProps<"p">) {
   const ref = (rest as Record<string, unknown>)["data-block-ref"] as string | undefined;
-  const hasImage = React.Children.toArray(children).some(child => React.isValidElement(child) && child.type === DocImage);
+  const hasImage = React.Children.toArray(children).some(
+    child => React.isValidElement(child) && child.type === DocImage
+  );
   return (
     <p {...rest} className={hasImage ? "pd-block" : undefined}>
       {children}
@@ -364,17 +519,38 @@ function DocParagraph({ children, ...rest }: React.ComponentProps<"p">) {
 }
 
 function FootnoteSection({ children, ...rest }: React.ComponentProps<"section">) {
-  return <section {...rest} {...((rest as Record<string, unknown>)["data-footnotes"] !== undefined ? { "data-pandocs-nontext": "" } : {})}>{children}</section>;
+  return (
+    <section
+      {...rest}
+      {...((rest as Record<string, unknown>)["data-footnotes"] !== undefined ? { "data-pandocs-nontext": "" } : {})}
+    >
+      {children}
+    </section>
+  );
 }
 
 /** Stand-ins for what the MDX compiler would have produced, on top of the theme's own tag components. */
-function GlossaryTerm({ children, "data-definition": definition, ...rest }: React.ComponentProps<"abbr"> & { "data-definition"?: string }) {
+function GlossaryTerm({
+  children,
+  "data-definition": definition,
+  ...rest
+}: React.ComponentProps<"abbr"> & { "data-definition"?: string }) {
   if (!definition) return <abbr {...rest}>{children}</abbr>;
   return (
     <Tooltip.Provider delay={150}>
       <Tooltip.Root>
-        <Tooltip.Trigger render={<abbr className="pd-term" tabIndex={0}>{children}</abbr>} />
-        <Tooltip.Portal><Tooltip.Positioner className="pd-floating" side="top" sideOffset={6}><Tooltip.Popup className="pd-term-tip">{definition}</Tooltip.Popup></Tooltip.Positioner></Tooltip.Portal>
+        <Tooltip.Trigger
+          render={
+            <abbr className="pd-term" tabIndex={0}>
+              {children}
+            </abbr>
+          }
+        />
+        <Tooltip.Portal>
+          <Tooltip.Positioner className="pd-floating" side="top" sideOffset={6}>
+            <Tooltip.Popup className="pd-term-tip">{definition}</Tooltip.Popup>
+          </Tooltip.Positioner>
+        </Tooltip.Portal>
       </Tooltip.Root>
     </Tooltip.Provider>
   );
@@ -384,7 +560,12 @@ export const dialectComponents = {
   abbr: GlossaryTerm,
   [BLOCK_ELEMENT]: ({ node: _node, ...props }: ElementProps & { node?: unknown }) => <BlockElement {...props} />,
   [INLINE_ELEMENT]: ({ node: _node, ...props }: ElementProps & { node?: unknown }) => <InlineElement {...props} />,
-  [UNKNOWN_ELEMENT]: ({ node: _node, ...props }: ElementProps & { node?: unknown }) => <BlockError title={t("Unsupported block: {0}", String(props["data-name"] ?? ""))} source={String(props["data-raw"] ?? "")} />,
+  [UNKNOWN_ELEMENT]: ({ node: _node, ...props }: ElementProps & { node?: unknown }) => (
+    <BlockError
+      title={t("Unsupported block: {0}", String(props["data-name"] ?? ""))}
+      source={String(props["data-raw"] ?? "")}
+    />
+  ),
   [LABEL_ELEMENT]: Label,
   a: DocLink,
   img: DocImage,

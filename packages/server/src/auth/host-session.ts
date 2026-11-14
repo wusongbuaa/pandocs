@@ -15,7 +15,13 @@ type Log = (event: string, fields: Readonly<Record<string, unknown>>) => void;
 
 /** A value at a path such as `data.user.id`, for hosts whose answers wrap what they say. */
 function at(value: unknown, path: string): unknown {
-  return path.split(".").reduce<unknown>((current, key) => (current !== null && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined), value);
+  return path
+    .split(".")
+    .reduce<unknown>(
+      (current, key) =>
+        current !== null && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined,
+      value
+    );
 }
 
 /**
@@ -23,7 +29,10 @@ function at(value: unknown, path: string): unknown {
  * a while, so the host is asked about each person now and then rather than on every request, and signing out there takes
  * that long to reach here. The cookies sent are only the ones named, and only ever to the address set up for it.
  */
-export function createHostSessions(config: HostSessionConfig, deps: { readonly users: UserStore; readonly fetch?: typeof fetch; readonly now?: () => number; readonly log?: Log }) {
+export function createHostSessions(
+  config: HostSessionConfig,
+  deps: { readonly users: UserStore; readonly fetch?: typeof fetch; readonly now?: () => number; readonly log?: Log }
+) {
   const ask = deps.fetch ?? fetch;
   const now = deps.now ?? Date.now;
   const log: Log = deps.log ?? ((event, fields) => console.warn(JSON.stringify({ event, ...fields })));
@@ -33,13 +42,18 @@ export function createHostSessions(config: HostSessionConfig, deps: { readonly u
   const asking = new Map<string, Promise<User | null>>();
 
   /** For a host that says who someone is but not their address: unique, and plainly not a mailbox, so no mail goes to it. */
-  const standInEmail = (subject: string) => `${encodeURIComponent(subject).toLowerCase()}@${new URL(config.url).hostname}.invalid`;
+  const standInEmail = (subject: string) =>
+    `${encodeURIComponent(subject).toLowerCase()}@${new URL(config.url).hostname}.invalid`;
 
   const lookUp = async (cookie: string): Promise<{ user: User | null; seconds: number }> => {
     let response: Response;
     try {
       // Not followed: a host sends someone it does not know to its login, which says nothing about who they are.
-      response = await ask(config.url, { headers: { cookie, accept: "application/json" }, redirect: "manual", signal: AbortSignal.timeout(ASK_WITHIN_MS) });
+      response = await ask(config.url, {
+        headers: { cookie, accept: "application/json" },
+        redirect: "manual",
+        signal: AbortSignal.timeout(ASK_WITHIN_MS)
+      });
     } catch (error) {
       log("auth.host_session_unreachable", { message: error instanceof Error ? error.message : String(error) });
       return { user: null, seconds: 0 };
@@ -58,15 +72,23 @@ export function createHostSessions(config: HostSessionConfig, deps: { readonly u
     const email = at(answer, config.emailClaim);
     const name = at(answer, config.nameClaim);
     const groups = at(answer, config.groupsClaim);
-    const result = await userFromProfile(deps.users, { allowedDomains: [], adminGroup: config.adminGroup }, {
-      issuer,
-      subject: String(subject),
-      email: typeof email === "string" && email ? email : standInEmail(String(subject)),
-      // The host is who decides who people are here.
-      emailVerified: true,
-      displayName: typeof name === "string" && name.trim() ? name.trim().slice(0, 120) : undefined,
-      groups: Array.isArray(groups) ? groups.flatMap(group => (typeof group === "string" || typeof group === "number" ? [String(group)] : [])) : typeof groups === "string" ? [groups] : []
-    });
+    const result = await userFromProfile(
+      deps.users,
+      { allowedDomains: [], adminGroup: config.adminGroup },
+      {
+        issuer,
+        subject: String(subject),
+        email: typeof email === "string" && email ? email : standInEmail(String(subject)),
+        // The host is who decides who people are here.
+        emailVerified: true,
+        displayName: typeof name === "string" && name.trim() ? name.trim().slice(0, 120) : undefined,
+        groups: Array.isArray(groups)
+          ? groups.flatMap(group => (typeof group === "string" || typeof group === "number" ? [String(group)] : []))
+          : typeof groups === "string"
+            ? [groups]
+            : []
+      }
+    );
     if ("error" in result) {
       log("auth.host_session_refused", { reason: result.error });
       return { user: null, seconds: REFUSED_SECONDS };
@@ -89,12 +111,14 @@ export function createHostSessions(config: HostSessionConfig, deps: { readonly u
       if (known && known.until > now()) return known.user;
       const pending = asking.get(key);
       if (pending) return pending;
-      const answer = lookUp(cookie).then(({ user, seconds }) => {
-        if (remembered.size >= REMEMBERED) remembered.clear();
-        if (seconds > 0) remembered.set(key, { user, until: now() + seconds * 1000 });
-        else remembered.delete(key);
-        return user;
-      }).finally(() => asking.delete(key));
+      const answer = lookUp(cookie)
+        .then(({ user, seconds }) => {
+          if (remembered.size >= REMEMBERED) remembered.clear();
+          if (seconds > 0) remembered.set(key, { user, until: now() + seconds * 1000 });
+          else remembered.delete(key);
+          return user;
+        })
+        .finally(() => asking.delete(key));
       asking.set(key, answer);
       return answer;
     },

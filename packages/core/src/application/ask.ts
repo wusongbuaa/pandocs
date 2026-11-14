@@ -18,15 +18,23 @@ const LISTED_PAGES = 100;
 const READ_CHARS = 16_000;
 const HOME_DOCUMENT_PATH = "index";
 
-export const askInput = z.object({
-  question: z.string().trim().min(1).max(2000),
-  /** Where the person is, for a first place to look and for the numbers afterwards. */
-  space: z.string().max(100).optional(),
-  document: z.string().uuid().optional(),
-  /** The language of the pages they are reading, for links that stay in it. */
-  lang: z.string().regex(/^[a-z]{2}$/u).optional(),
-  history: z.array(z.object({ question: z.string().max(2000), answer: z.string().max(8000) }).strict()).max(6).optional()
-}).strict();
+export const askInput = z
+  .object({
+    question: z.string().trim().min(1).max(2000),
+    /** Where the person is, for a first place to look and for the numbers afterwards. */
+    space: z.string().max(100).optional(),
+    document: z.string().uuid().optional(),
+    /** The language of the pages they are reading, for links that stay in it. */
+    lang: z
+      .string()
+      .regex(/^[a-z]{2}$/u)
+      .optional(),
+    history: z
+      .array(z.object({ question: z.string().max(2000), answer: z.string().max(8000) }).strict())
+      .max(6)
+      .optional()
+  })
+  .strict();
 
 type AskInput = z.output<typeof askInput>;
 
@@ -42,13 +50,20 @@ export type AskEvent =
   | { readonly type: "text"; readonly text: string }
   /** What was said so far led up to looking something else up, and is not part of the answer. */
   | { readonly type: "restart" }
-  | { readonly type: "done"; readonly id: string | null; readonly text: string; readonly citations: readonly AskSource[]; readonly answered: boolean }
+  | {
+      readonly type: "done";
+      readonly id: string | null;
+      readonly text: string;
+      readonly citations: readonly AskSource[];
+      readonly answered: boolean;
+    }
   | { readonly type: "error"; readonly code: string; readonly message: string };
 
 const TOOLS: readonly ModelTool[] = [
   {
     name: "search_pages",
-    description: "Find pages by words in their title or text. It matches the words literally, so use a keyword or two rather than a sentence. Results have a source number, a title and a passage.",
+    description:
+      "Find pages by words in their title or text. It matches the words literally, so use a keyword or two rather than a sentence. Results have a source number, a title and a passage.",
     parameters: {
       type: "object",
       properties: {
@@ -61,7 +76,8 @@ const TOOLS: readonly ModelTool[] = [
   },
   {
     name: "read_page",
-    description: "Read a page by its source number. A long page comes back cut short with its list of sections; give a section's slug to read that part. Reading a section gives it a source number of its own.",
+    description:
+      "Read a page by its source number. A long page comes back cut short with its list of sections; give a section's slug to read that part. Reading a section gives it a source number of its own.",
     parameters: {
       type: "object",
       properties: {
@@ -108,12 +124,23 @@ class Sources {
 
   constructor(private readonly prefix: string) {}
 
-  add(page: { readonly documentId: string; readonly title: string; readonly space: string; readonly path: string; readonly section?: string | undefined }) {
+  add(page: {
+    readonly documentId: string;
+    readonly title: string;
+    readonly space: string;
+    readonly path: string;
+    readonly section?: string | undefined;
+  }) {
     const key = `${page.documentId}#${page.section ?? ""}`;
     const known = this.byKey.get(key);
     if (known) return { source: known, added: false };
     const address = `${this.prefix}/${encodeURIComponent(page.space)}/${page.path === HOME_DOCUMENT_PATH ? "" : encodePath(page.path)}`;
-    const source = { n: this.byNumber.length + 1, title: page.title, url: page.section ? `${address}#${encodeURIComponent(page.section)}` : address, documentId: page.documentId };
+    const source = {
+      n: this.byNumber.length + 1,
+      title: page.title,
+      url: page.section ? `${address}#${encodeURIComponent(page.section)}` : address,
+      documentId: page.documentId
+    };
     this.byKey.set(key, source);
     this.byNumber.push(source);
     return { source, added: true };
@@ -125,7 +152,10 @@ class Sources {
 }
 
 /** Numbers in the order an answer first uses them, and only ones that were really given. A number the model made up has nothing to lead to, so it goes. */
-export function finishAnswer(text: string, known: (n: number) => { readonly title: string; readonly url: string } | undefined): { text: string; citations: AskSource[] } {
+export function finishAnswer(
+  text: string,
+  known: (n: number) => { readonly title: string; readonly url: string } | undefined
+): { text: string; citations: AskSource[] } {
   const numbers = new Map<number, number>();
   const citations: AskSource[] = [];
   const finished = text.replace(/\s*\[(\d{1,3})\](?!\()/gu, (match, digits: string) => {
@@ -157,28 +187,51 @@ export class AskService {
 
   /** What this person gets offered. Agents have models of their own, and visitors are on the site's bill only if it says so. */
   available(principal: Principal, askForVisitors: boolean): boolean {
-    return Boolean(this.context.ports.llm?.conversation) && principal.kind === "user" && (!principal.anonymous || askForVisitors);
+    return (
+      Boolean(this.context.ports.llm?.conversation) &&
+      principal.kind === "user" &&
+      (!principal.anonymous || askForVisitors)
+    );
   }
 
   async respond(principal: Principal, input: AskInput): Promise<Response> {
     const llm = this.context.ports.llm;
     if (!llm?.conversation) throw new PandocsError(503, "LLM_UNAVAILABLE", t("AI is not set up here"));
-    if (principal.kind !== "user") throw new PandocsError(403, "LLM_USER_REQUIRED", t("AI features need a person's account. Agents should use their own model."));
+    if (principal.kind !== "user")
+      throw new PandocsError(
+        403,
+        "LLM_USER_REQUIRED",
+        t("AI features need a person's account. Agents should use their own model.")
+      );
     const site = await this.site.get();
-    if (!this.available(principal, site.askForVisitors)) throw new PandocsError(403, "ASK_CLOSED", t("Sign in to ask questions here"));
+    if (!this.available(principal, site.askForVisitors))
+      throw new PandocsError(403, "ASK_CLOSED", t("Sign in to ask questions here"));
 
     const abort = new AbortController();
-    const prefix = input.lang && input.lang !== site.defaultLang && site.locales.some(({ lang }) => lang === input.lang) ? `/${input.lang}` : "";
+    const prefix =
+      input.lang && input.lang !== site.defaultLang && site.locales.some(({ lang }) => lang === input.lang)
+        ? `/${input.lang}`
+        : "";
     const sources = new Sources(prefix);
     const spaces = await this.spaces.list(principal);
     const reading = input.document ? await this.startingPage(principal, input.document, sources) : null;
     const system = [
       INSTRUCTIONS,
-      `The site is called ${site.title}. Its spaces, by slug:\n${spaces.slice(0, 50).map(space => `- ${space.slug}: ${space.name}${space.description ? `, ${space.description}` : ""}`).join("\n")}`,
+      `The site is called ${site.title}. Its spaces, by slug:\n${spaces
+        .slice(0, 50)
+        .map(space => `- ${space.slug}: ${space.name}${space.description ? `, ${space.description}` : ""}`)
+        .join("\n")}`,
       ...(input.space ? [`They are in the space ${input.space}.`] : []),
-      ...(reading ? [`They are reading page [${reading.n}], "${reading.title}". Questions without a subject are probably about it.`] : [])
+      ...(reading
+        ? [
+            `They are reading page [${reading.n}], "${reading.title}". Questions without a subject are probably about it.`
+          ]
+        : [])
     ].join("\n\n");
-    const history = (input.history ?? []).flatMap(turn => [{ role: "user" as const, text: turn.question }, { role: "assistant" as const, text: stripCitations(turn.answer) || "-" }]);
+    const history = (input.history ?? []).flatMap(turn => [
+      { role: "user" as const, text: turn.question },
+      { role: "assistant" as const, text: stripCitations(turn.answer) || "-" }
+    ]);
     // Before any answer starts: being over the limit is an ordinary refusal.
     const conversation = await llm.conversation({
       purpose: "ask",
@@ -203,29 +256,40 @@ export class AskService {
         };
         const emit = (event: AskEvent) => send(`data: ${JSON.stringify(event)}\n\n`);
         // Long turns would otherwise look like a dead connection to whatever sits in front of this.
-        timers = [setInterval(() => send(": keep-alive\n\n"), KEEP_ALIVE_MS), setTimeout(() => abort.abort(), RUN_LIMIT_MS) as unknown as ReturnType<typeof setInterval>];
+        timers = [
+          setInterval(() => send(": keep-alive\n\n"), KEEP_ALIVE_MS),
+          setTimeout(() => abort.abort(), RUN_LIMIT_MS) as unknown as ReturnType<typeof setInterval>
+        ];
         if (reading) emit({ type: "sources", sources: [{ n: reading.n, title: reading.title, url: reading.url }] });
-        void this.run(principal, input, conversation, sources, emit).catch((error: unknown) => {
-          if (abort.signal.aborted) return;
-          if (error instanceof PandocsError) emit({ type: "error", code: error.code, message: error.message });
-          else emit({ type: "error", code: "LLM_FAILED", message: t("The model is temporarily unavailable") });
-        }).finally(() => {
-          stop();
-          void conversation.finish().catch(() => undefined);
-          open = false;
-          try {
-            controller.close();
-          } catch {
-            // The reader has gone already.
-          }
-        });
+        void this.run(principal, input, conversation, sources, emit)
+          .catch((error: unknown) => {
+            if (abort.signal.aborted) return;
+            if (error instanceof PandocsError) emit({ type: "error", code: error.code, message: error.message });
+            else emit({ type: "error", code: "LLM_FAILED", message: t("The model is temporarily unavailable") });
+          })
+          .finally(() => {
+            stop();
+            void conversation.finish().catch(() => undefined);
+            open = false;
+            try {
+              controller.close();
+            } catch {
+              // The reader has gone already.
+            }
+          });
       },
       cancel: () => {
         stop();
         abort.abort();
       }
     });
-    return new Response(stream, { headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" } });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Accel-Buffering": "no"
+      }
+    });
   }
 
   private async startingPage(principal: Principal, documentId: string, sources: Sources) {
@@ -238,34 +302,62 @@ export class AskService {
     }
   }
 
-  private async run(principal: Principal, input: AskInput, conversation: ModelConversation, sources: Sources, emit: (event: AskEvent) => void): Promise<void> {
+  private async run(
+    principal: Principal,
+    input: AskInput,
+    conversation: ModelConversation,
+    sources: Sources,
+    emit: (event: AskEvent) => void
+  ): Promise<void> {
     let text = "";
     for (let turn = 1; turn <= MAX_TURNS; turn += 1) {
-      const reply = await conversation.turn({ allowTools: turn < MAX_TURNS, onText: delta => emit({ type: "text", text: delta }) });
+      const reply = await conversation.turn({
+        allowTools: turn < MAX_TURNS,
+        onText: delta => emit({ type: "text", text: delta })
+      });
       text = reply.text;
       if (reply.calls.length === 0) break;
       emit({ type: "restart" });
-      conversation.answerCalls(await Promise.all(reply.calls.map(call => this.useTool(principal, call, sources, emit))));
+      conversation.answerCalls(
+        await Promise.all(reply.calls.map(call => this.useTool(principal, call, sources, emit)))
+      );
     }
     if (!text.trim()) throw new PandocsError(502, "LLM_EMPTY", t("The model returned nothing usable"));
     const { text: answer, citations } = finishAnswer(text, n => sources.get(n));
     const answered = citations.length > 0;
-    const id = await this.stats.recordQuestion({ space: input.space ?? "", question: input.question, answer, citations: citations.map(({ title, url }) => ({ title, url })), answered });
+    const id = await this.stats.recordQuestion({
+      space: input.space ?? "",
+      question: input.question,
+      answer,
+      citations: citations.map(({ title, url }) => ({ title, url })),
+      answered
+    });
     emit({ type: "done", id, text: answer, citations, answered });
   }
 
   /** A failure goes back to the model as an answer, which can then try something else. Reads are as this person, so "not there" is all it ever learns. */
-  private async useTool(principal: Principal, call: ModelToolCall, sources: Sources, emit: (event: AskEvent) => void): Promise<{ id: string; content: string; failed?: boolean }> {
+  private async useTool(
+    principal: Principal,
+    call: ModelToolCall,
+    sources: Sources,
+    emit: (event: AskEvent) => void
+  ): Promise<{ id: string; content: string; failed?: boolean }> {
     try {
       return { id: call.id, content: await this.toolAnswer(principal, call, sources, emit) };
     } catch (error) {
-      if (error instanceof z.ZodError) return { id: call.id, content: "Those arguments are not valid for this tool.", failed: true };
+      if (error instanceof z.ZodError)
+        return { id: call.id, content: "Those arguments are not valid for this tool.", failed: true };
       if (error instanceof PandocsError) return { id: call.id, content: error.message, failed: true };
       throw error;
     }
   }
 
-  private async toolAnswer(principal: Principal, call: ModelToolCall, sources: Sources, emit: (event: AskEvent) => void): Promise<string> {
+  private async toolAnswer(
+    principal: Principal,
+    call: ModelToolCall,
+    sources: Sources,
+    emit: (event: AskEvent) => void
+  ): Promise<string> {
     const introduce = (added: readonly AskSource[]) => {
       if (added.length > 0) emit({ type: "sources", sources: added.map(({ n, title, url }) => ({ n, title, url })) });
     };
@@ -277,7 +369,12 @@ export class AskService {
         if (hits.length === 0) return `Nothing found for "${query}". Try other words, or fewer.`;
         const added: AskSource[] = [];
         const lines = hits.map(hit => {
-          const { source, added: isNew } = sources.add({ documentId: hit.id, title: hit.title, space: hit.spaceSlug, path: hit.path });
+          const { source, added: isNew } = sources.add({
+            documentId: hit.id,
+            title: hit.title,
+            space: hit.spaceSlug,
+            path: hit.path
+          });
           if (isNew) added.push(source);
           return `[${source.n}] ${hit.title} (${hit.spaceName})\n${inPage(hit.snippet)}`;
         });
@@ -289,11 +386,19 @@ export class AskService {
         emit({ type: "step", kind: "list", label: space });
         const tree = await this.documents.tree(principal, space);
         const added: AskSource[] = [];
-        const lines = tree.filter(node => node.hasContent).slice(0, LISTED_PAGES).map(node => {
-          const { source, added: isNew } = sources.add({ documentId: node.id, title: node.title, space, path: node.path });
-          if (isNew) added.push(source);
-          return `[${source.n}] ${node.title}`;
-        });
+        const lines = tree
+          .filter(node => node.hasContent)
+          .slice(0, LISTED_PAGES)
+          .map(node => {
+            const { source, added: isNew } = sources.add({
+              documentId: node.id,
+              title: node.title,
+              space,
+              path: node.path
+            });
+            if (isNew) added.push(source);
+            return `[${source.n}] ${node.title}`;
+          });
         introduce(added);
         return lines.join("\n") || "This space has no pages.";
       }
@@ -309,13 +414,31 @@ export class AskService {
     }
   }
 
-  private async readPage(principal: Principal, source: AskSource & { readonly documentId: string }, section: string | undefined, sources: Sources, introduce: (added: readonly AskSource[]) => void): Promise<string> {
-    const view = await this.documents.read(principal, source.documentId, section ? { scope: { scope: "section", section } } : {});
+  private async readPage(
+    principal: Principal,
+    source: AskSource & { readonly documentId: string },
+    section: string | undefined,
+    sources: Sources,
+    introduce: (added: readonly AskSource[]) => void
+  ): Promise<string> {
+    const view = await this.documents.read(
+      principal,
+      source.documentId,
+      section ? { scope: { scope: "section", section } } : {}
+    );
     const { document, spaceSlug } = view;
-    const outline = view.outline.map(entry => `${"  ".repeat(Math.max(0, entry.depth - 2))}- ${entry.text} (slug: ${entry.slug})`).join("\n");
+    const outline = view.outline
+      .map(entry => `${"  ".repeat(Math.max(0, entry.depth - 2))}- ${entry.text} (slug: ${entry.slug})`)
+      .join("\n");
     if (section) {
       const entry = view.outline.find(item => item.slug === section || item.ref === section);
-      const { source: part, added } = sources.add({ documentId: document.id, title: entry ? `${document.title}: ${entry.text}` : document.title, space: spaceSlug, path: document.path, section: entry?.slug ?? section });
+      const { source: part, added } = sources.add({
+        documentId: document.id,
+        title: entry ? `${document.title}: ${entry.text}` : document.title,
+        space: spaceSlug,
+        path: document.path,
+        section: entry?.slug ?? section
+      });
       if (added) introduce([part]);
       const text = view.blocks.map(block => ("markdown" in block ? block.markdown : "")).join("\n\n");
       return `Source [${part.n}]: ${part.title}\n${inPage(text.slice(0, READ_CHARS))}`;

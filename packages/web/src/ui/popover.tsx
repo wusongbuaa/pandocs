@@ -13,7 +13,14 @@ interface ContentProps {
 function Content({ className, align, side, sideOffset, collisionPadding, children }: ContentProps) {
   return (
     <Base.Portal>
-      <Base.Positioner className="pd-floating" positionMethod="fixed" align={align} side={side} sideOffset={sideOffset} collisionPadding={collisionPadding}>
+      <Base.Positioner
+        className="pd-floating"
+        positionMethod="fixed"
+        align={align}
+        side={side}
+        sideOffset={sideOffset}
+        collisionPadding={collisionPadding}
+      >
         <Base.Popup className={className}>{children}</Base.Popup>
       </Base.Positioner>
     </Base.Portal>

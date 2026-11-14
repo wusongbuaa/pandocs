@@ -16,7 +16,9 @@ export function parseAttributes(source: string | undefined): BlockAttributes {
 }
 
 export function formatAttributes(attrs: Readonly<Record<string, string | null | undefined>>): string {
-  const entries = Object.entries(attrs).filter((entry): entry is [string, string] => entry[1] !== null && entry[1] !== undefined);
+  const entries = Object.entries(attrs).filter(
+    (entry): entry is [string, string] => entry[1] !== null && entry[1] !== undefined
+  );
   if (entries.length === 0) return "";
   return `{${entries.map(([key, value]) => `${key}="${encodeEntities(value)}"`).join(" ")}}`;
 }

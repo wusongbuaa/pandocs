@@ -26,11 +26,19 @@ export function NavInbox() {
   }, [load]);
   const unread = inbox?.notifications.filter(item => !item.readAt).length ?? 0;
   const waiting = unread + (inbox?.proposals.length ?? 0) + (inbox?.changeSets.length ?? 0);
-  const markAllRead = () => api.send("POST", "me/inbox/read", { body: { ids: "all" } }).then(load, error => toast(failureMessage(error), "error"));
-  const empty = inbox && inbox.notifications.length === 0 && inbox.proposals.length === 0 && inbox.changeSets.length === 0;
+  const markAllRead = () =>
+    api
+      .send("POST", "me/inbox/read", { body: { ids: "all" } })
+      .then(load, error => toast(failureMessage(error), "error"));
+  const empty =
+    inbox && inbox.notifications.length === 0 && inbox.proposals.length === 0 && inbox.changeSets.length === 0;
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger className="pd-nav-icon" aria-label={waiting > 0 ? t("For me, {0} waiting", waiting) : t("For me")} title={t("For me")}>
+      <Popover.Trigger
+        className="pd-nav-icon"
+        aria-label={waiting > 0 ? t("For me, {0} waiting", waiting) : t("For me")}
+        title={t("For me")}
+      >
         <Bell size={20} aria-hidden="true" />
         {waiting > 0 ? <span className="pd-nav-dot" /> : null}
       </Popover.Trigger>
@@ -38,37 +46,60 @@ export function NavInbox() {
         <header className="pd-inbox__head">
           <strong>{t("For me")}</strong>
           <span className="pd-inbox__head-actions">
-            {unread > 0 ? <button type="button" className="pd-link-button" onClick={() => void markAllRead()}>{t("All read")}</button> : null}
-            <Link href={manageRoute("inbox")} className="pd-link-button" onClick={() => setOpen(false)}>{t("See all")}</Link>
+            {unread > 0 ? (
+              <button type="button" className="pd-link-button" onClick={() => void markAllRead()}>
+                {t("All read")}
+              </button>
+            ) : null}
+            <Link href={manageRoute("inbox")} className="pd-link-button" onClick={() => setOpen(false)}>
+              {t("See all")}
+            </Link>
           </span>
         </header>
         {empty ? <p className="pd-inbox__empty">{t("Nothing waiting for you")}</p> : null}
         <ul className="pd-inbox__list rp-scrollbar">
           {inbox?.proposals.map(item => (
             <li key={item.id}>
-              <Link href={`${documentRoute(item.spaceSlug, item.documentPath)}?proposal=${item.id}`} className="pd-inbox__item" onClick={() => setOpen(false)}>
+              <Link
+                href={`${documentRoute(item.spaceSlug, item.documentPath)}?proposal=${item.id}`}
+                className="pd-inbox__item"
+                onClick={() => setOpen(false)}
+              >
                 <span className="pd-inbox__badge">{t("Pending")}</span>
-                <span>{t("{0} suggested a change to \"{1}\"", item.authorName, item.documentTitle)}</span>
+                <span>{t('{0} suggested a change to "{1}"', item.authorName, item.documentTitle)}</span>
                 <time>{relativeTime(item.createdAt)}</time>
               </Link>
             </li>
           ))}
           {inbox?.changeSets.map(item => (
             <li key={item.id}>
-              <Link href={`${spaceManageRoute(item.spaceSlug, "change-sets")}?id=${item.id}`} className="pd-inbox__item" onClick={() => setOpen(false)}>
+              <Link
+                href={`${spaceManageRoute(item.spaceSlug, "change-sets")}?id=${item.id}`}
+                className="pd-inbox__item"
+                onClick={() => setOpen(false)}
+              >
                 <span className="pd-inbox__badge">{t("Pending")}</span>
-                <span>{t("{0} wants a review of \"{1}\": {2} {2|page|pages}", item.authorName, item.title, item.pages ?? 0)}</span>
+                <span>
+                  {t('{0} wants a review of "{1}": {2} {2|page|pages}', item.authorName, item.title, item.pages ?? 0)}
+                </span>
                 <time>{relativeTime(item.updatedAt)}</time>
               </Link>
             </li>
           ))}
           {inbox?.notifications.map(item => (
             <li key={item.id}>
-              <Link href={item.changeSetId ? `${spaceManageRoute(item.spaceSlug, "change-sets")}?id=${item.changeSetId}` : `${documentRoute(item.spaceSlug, item.documentPath)}${item.threadId ? `?thread=${item.threadId}` : ""}`} className={clsx("pd-inbox__item", item.readAt && "pd-inbox__item--read")}
+              <Link
+                href={
+                  item.changeSetId
+                    ? `${spaceManageRoute(item.spaceSlug, "change-sets")}?id=${item.changeSetId}`
+                    : `${documentRoute(item.spaceSlug, item.documentPath)}${item.threadId ? `?thread=${item.threadId}` : ""}`
+                }
+                className={clsx("pd-inbox__item", item.readAt && "pd-inbox__item--read")}
                 onClick={() => {
                   setOpen(false);
                   if (!item.readAt) void api.send("POST", "me/inbox/read", { body: { ids: [item.id] } }).then(load);
-                }}>
+                }}
+              >
                 <span>{noticeText(item)}</span>
                 <time>{relativeTime(item.createdAt)}</time>
               </Link>

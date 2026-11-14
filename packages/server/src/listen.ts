@@ -10,8 +10,15 @@ import type { Hono } from "hono";
 const KEEP_ALIVE_MS = 65_000;
 
 /** Leaves the global `Request` and `Response` alone, so the libraries in this process all see the same classes. */
-export function listen(app: Hono, options: { hostname: string; port: number }, onListening?: (info: AddressInfo) => void) {
-  const server = serve({ fetch: app.fetch, hostname: options.hostname, port: options.port, overrideGlobalObjects: false }, onListening) as Server;
+export function listen(
+  app: Hono,
+  options: { hostname: string; port: number },
+  onListening?: (info: AddressInfo) => void
+) {
+  const server = serve(
+    { fetch: app.fetch, hostname: options.hostname, port: options.port, overrideGlobalObjects: false },
+    onListening
+  ) as Server;
   server.keepAliveTimeout = KEEP_ALIVE_MS;
   server.headersTimeout = KEEP_ALIVE_MS + 1000;
   let draining = false;

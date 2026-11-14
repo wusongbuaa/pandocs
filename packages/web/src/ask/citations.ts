@@ -13,7 +13,10 @@ const NUMBER = /\s*\[(\d{1,3})\](?!\()/gu;
  * Sources are numbered as the answer first uses them, the same way the server does in the end, so that nothing changes
  * under someone reading along. A number that leads nowhere is left out.
  */
-export function numberCitations(text: string, known: (n: number) => { readonly title: string; readonly url: string } | undefined): { readonly markdown: string; readonly citations: readonly AskSource[] } {
+export function numberCitations(
+  text: string,
+  known: (n: number) => { readonly title: string; readonly url: string } | undefined
+): { readonly markdown: string; readonly citations: readonly AskSource[] } {
   const numbers = new Map<number, number>();
   const citations: AskSource[] = [];
   const markdown = text.replace(NUMBER, (match, digits: string) => {

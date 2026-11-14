@@ -53,7 +53,14 @@ export const validCursor = (cursor: string) => /^(?:0|\d{1,19}\.\d{1,18})$/u.tes
 const cursorParts = (cursor: string) => (cursor === "0" ? ["0", "0"] : cursor.split("."));
 
 const EXTENSIONS: Readonly<Record<string, string>> = {
-  "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp", "image/bmp": "bmp", "video/mp4": "mp4", "video/webm": "webm", "application/pdf": "pdf"
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "image/bmp": "bmp",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "application/pdf": "pdf"
 };
 
 function assetPath(row: { sha256: string; mime: string; filename: string }): string {
@@ -86,7 +93,10 @@ export function batchesOf<T extends { readonly size: number }>(files: readonly T
  * A write transaction still open holds the feed back, on any database of this PostgreSQL server. Nothing is lost; rows arrive when it ends.
  */
 export class ChangeService {
-  constructor(private readonly context: AppContext, private readonly documents: DocumentService) {}
+  constructor(
+    private readonly context: AppContext,
+    private readonly documents: DocumentService
+  ) {}
 
   /** Everything up to here is settled: no transaction can still add a row below it. */
   async watermark(): Promise<string> {
@@ -131,7 +141,12 @@ export class ChangeService {
   }
 
   async access(principal: Principal, slug?: string | undefined): Promise<SpaceAccess> {
-    const { rows } = await this.context.db.query<{ id: string; default_role: SpaceDefaultRole; public_read: boolean; members: MemberRecord[] | null }>(
+    const { rows } = await this.context.db.query<{
+      id: string;
+      default_role: SpaceDefaultRole;
+      public_read: boolean;
+      members: MemberRecord[] | null;
+    }>(
       `SELECT s.id, s.default_role, s.public_read, (SELECT jsonb_agg(jsonb_build_object('subject', m.subject, 'role', m.role)) FROM pandocs.space_members m WHERE m.space_id = s.id) AS members
        FROM pandocs.spaces s WHERE s.deleted_at IS NULL AND ($1::text IS NULL OR s.slug = $1)`,
       [slug ?? null]
@@ -139,7 +154,11 @@ export class ChangeService {
     const readable = new Set<string>();
     const seesRestricted = new Set<string>();
     for (const space of rows) {
-      const context = { defaultRole: space.default_role, publicRead: space.public_read, spaceMembers: space.members ?? [] };
+      const context = {
+        defaultRole: space.default_role,
+        publicRead: space.public_read,
+        spaceMembers: space.members ?? []
+      };
       if (!atLeast(effectiveRole(principal, context), "viewer")) continue;
       readable.add(space.id);
       if (atLeast(spaceRoleOf(principal, context), "admin")) seesRestricted.add(space.id);
@@ -155,15 +174,32 @@ export class ChangeService {
   async visibleTo(principal: Principal, rows: readonly ChangeRow[], access: SpaceAccess): Promise<ChangeRow[]> {
     const gone = (row: ChangeRow) => row.kind === "document" && row.deleted && row.path === null;
     const candidates = rows.filter(row => access.readable.has(row.spaceId));
-    const asked = [...new Set(candidates.filter(row => row.documentId && !access.seesRestricted.has(row.spaceId)).map(row => row.documentId!))];
+    const asked = [
+      ...new Set(
+        candidates.filter(row => row.documentId && !access.seesRestricted.has(row.spaceId)).map(row => row.documentId!)
+      )
+    ];
     const restrictedNow = new Map<string, boolean>();
     if (asked.length > 0) {
-      const { rows: pages } = await this.context.db.query<{ id: string; restricted: boolean }>(`SELECT id, restricted FROM pandocs.documents WHERE id = ANY($1::uuid[])`, [asked]);
+      const { rows: pages } = await this.context.db.query<{ id: string; restricted: boolean }>(
+        `SELECT id, restricted FROM pandocs.documents WHERE id = ANY($1::uuid[])`,
+        [asked]
+      );
       for (const page of pages) restrictedNow.set(page.id, page.restricted);
     }
     // A page deleted for good can no longer say, so the row says what it was then.
-    const restricted = (row: ChangeRow) => !gone(row) && (row.documentId !== null && restrictedNow.has(row.documentId) ? restrictedNow.get(row.documentId)! : Boolean(row.restricted));
-    const restrictedIds = [...new Set(candidates.filter(row => restricted(row) && !access.seesRestricted.has(row.spaceId) && row.documentId).map(row => row.documentId!))];
+    const restricted = (row: ChangeRow) =>
+      !gone(row) &&
+      (row.documentId !== null && restrictedNow.has(row.documentId)
+        ? restrictedNow.get(row.documentId)!
+        : Boolean(row.restricted));
+    const restrictedIds = [
+      ...new Set(
+        candidates
+          .filter(row => restricted(row) && !access.seesRestricted.has(row.spaceId) && row.documentId)
+          .map(row => row.documentId!)
+      )
+    ];
     const allowed = new Set<string>();
     if (restrictedIds.length > 0) {
       const { rows: granted } = await this.context.db.query<{ document_id: string }>(
@@ -172,17 +208,28 @@ export class ChangeService {
       );
       for (const { document_id: id } of granted) allowed.add(id);
     }
-    return candidates.filter(row => !restricted(row) || access.seesRestricted.has(row.spaceId) || (row.documentId !== null && allowed.has(row.documentId)));
+    return candidates.filter(
+      row =>
+        !restricted(row) ||
+        access.seesRestricted.has(row.spaceId) ||
+        (row.documentId !== null && allowed.has(row.documentId))
+    );
   }
 
-  async since(principal: Principal, input: { since: string; space?: string | undefined; limit?: number | undefined }): Promise<{ changes: readonly ChangeRow[]; next: string; reset: boolean }> {
+  async since(
+    principal: Principal,
+    input: { since: string; space?: string | undefined; limit?: number | undefined }
+  ): Promise<{ changes: readonly ChangeRow[]; next: string; reset: boolean }> {
     const { db } = this.context;
     if (input.space) await requireSpace(db, principal, input.space);
     const access = await this.access(principal, input.space);
     const limit = Math.min(input.limit ?? PAGE, PAGE);
     const [xid, seq] = cursorParts(input.since);
     // Below everything still kept means this client may have missed rows that are gone by now.
-    const { rows: oldest } = await db.query<{ behind: boolean }>(`SELECT ($1::xid8, $2::bigint) < (xid, seq) AS behind FROM pandocs.change_log ORDER BY xid, seq LIMIT 1`, [xid, seq]);
+    const { rows: oldest } = await db.query<{ behind: boolean }>(
+      `SELECT ($1::xid8, $2::bigint) < (xid, seq) AS behind FROM pandocs.change_log ORDER BY xid, seq LIMIT 1`,
+      [xid, seq]
+    );
     const reset = input.since !== "0" && oldest[0]?.behind === true;
     const rows = await this.read(input.since, limit, [...access.readable]);
     const visible = await this.visibleTo(principal, rows, access);
@@ -195,11 +242,21 @@ export class ChangeService {
 
   private async assetFiles(spaceId: string, hashes: readonly string[]): Promise<ManifestFile[]> {
     if (hashes.length === 0) return [];
-    const { rows } = await this.context.db.query<{ sha256: string; mime: string; filename: string; size_bytes: string }>(
+    const { rows } = await this.context.db.query<{
+      sha256: string;
+      mime: string;
+      filename: string;
+      size_bytes: string;
+    }>(
       `SELECT sha256, mime, filename, size_bytes FROM pandocs.assets WHERE space_id = $1 AND sha256 = ANY($2::text[]) ORDER BY sha256`,
       [spaceId, hashes]
     );
-    return rows.map(row => ({ path: assetPath(row), kind: "asset" as const, sha256: row.sha256, size: Number(row.size_bytes) }));
+    return rows.map(row => ({
+      path: assetPath(row),
+      kind: "asset" as const,
+      sha256: row.sha256,
+      size: Number(row.size_bytes)
+    }));
   }
 
   /** The files one person can read, with the uploads those pages use. */
@@ -214,29 +271,69 @@ export class ChangeService {
     );
     const facts = new Map(rows.map(row => [row.id, row]));
     const hashes = new Set<string>();
-    const files: ManifestFile[] = tree.flatMap(node => {
-      const fact = facts.get(node.id);
-      if (!fact?.sha256) return [];
-      for (const hash of fact.asset_refs) hashes.add(hash);
-      return [{ path: `${node.path}.md`, kind: "document" as const, sha256: fact.sha256, size: fact.size_bytes, documentId: node.id, title: node.title, revision: node.currentRevisionNo, restricted: node.restricted }];
-    }).sort((a, b) => (a.path < b.path ? -1 : 1));
-    return { space: { id: space.id, slug: space.slug, name: space.name }, cursor, files: [...files, ...await this.assetFiles(space.id, [...hashes])] };
+    const files: ManifestFile[] = tree
+      .flatMap(node => {
+        const fact = facts.get(node.id);
+        if (!fact?.sha256) return [];
+        for (const hash of fact.asset_refs) hashes.add(hash);
+        return [
+          {
+            path: `${node.path}.md`,
+            kind: "document" as const,
+            sha256: fact.sha256,
+            size: fact.size_bytes,
+            documentId: node.id,
+            title: node.title,
+            revision: node.currentRevisionNo,
+            restricted: node.restricted
+          }
+        ];
+      })
+      .sort((a, b) => (a.path < b.path ? -1 : 1));
+    return {
+      space: { id: space.id, slug: space.slug, name: space.name },
+      cursor,
+      files: [...files, ...(await this.assetFiles(space.id, [...hashes]))]
+    };
   }
 
   /** The files anyone with the mount can read: shared directories cannot tell people apart, so restricted pages and their images stay out. */
   async publishedManifest(spaceSlug: string): Promise<SpaceManifest | null> {
     const { db } = this.context;
-    const { rows: spaces } = await db.query<{ id: string; slug: string; name: string }>(`SELECT id, slug, name FROM pandocs.spaces WHERE slug = $1 AND deleted_at IS NULL`, [spaceSlug]);
+    const { rows: spaces } = await db.query<{ id: string; slug: string; name: string }>(
+      `SELECT id, slug, name FROM pandocs.spaces WHERE slug = $1 AND deleted_at IS NULL`,
+      [spaceSlug]
+    );
     const space = spaces[0];
     if (!space) return null;
     const cursor = await this.watermark();
-    const { rows } = await db.query<{ id: string; path: string; title: string; sha256: string; size_bytes: number; current_revision_no: number; asset_refs: string[] }>(
+    const { rows } = await db.query<{
+      id: string;
+      path: string;
+      title: string;
+      sha256: string;
+      size_bytes: number;
+      current_revision_no: number;
+      asset_refs: string[];
+    }>(
       `SELECT id, path, title, sha256, size_bytes, current_revision_no, asset_refs FROM pandocs.documents
        WHERE space_id = $1 AND deleted_at IS NULL AND NOT restricted AND sha256 IS NOT NULL ORDER BY path COLLATE "C"`,
       [space.id]
     );
-    const files: ManifestFile[] = rows.map(row => ({ path: `${row.path}.md`, kind: "document", sha256: row.sha256, size: row.size_bytes, documentId: row.id, title: row.title, revision: row.current_revision_no }));
-    return { space, cursor, files: [...files, ...await this.assetFiles(space.id, [...new Set(rows.flatMap(row => row.asset_refs))])] };
+    const files: ManifestFile[] = rows.map(row => ({
+      path: `${row.path}.md`,
+      kind: "document",
+      sha256: row.sha256,
+      size: row.size_bytes,
+      documentId: row.id,
+      title: row.title,
+      revision: row.current_revision_no
+    }));
+    return {
+      space,
+      cursor,
+      files: [...files, ...(await this.assetFiles(space.id, [...new Set(rows.flatMap(row => row.asset_refs))]))]
+    };
   }
 
   async markdownOf(documentIds: readonly string[]): Promise<Map<string, string>> {

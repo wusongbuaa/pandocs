@@ -37,7 +37,10 @@ describe("mentionQuery", () => {
   });
 
   it("leaves the Enter that picks a word to an input method, and picks someone with the next", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ version: 1, data: [{ id: "u2", name: "周一鸣" }] })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ version: 1, data: [{ id: "u2", name: "周一鸣" }] }))
+    );
     render(<Composer placeholder="写评论" onSubmit={async () => undefined} />);
     const box = screen.getByPlaceholderText("写评论") as HTMLTextAreaElement;
     await userEvent.setup().type(box, "@周");
@@ -55,7 +58,8 @@ describe("mentionQuery", () => {
 
 describe("relativeTime", () => {
   // It reads in the viewer's own time zone, so these are built in the test machine's zone.
-  const local = (year: number, month: number, day: number, hour: number, minute: number, second = 0) => new Date(year, month - 1, day, hour, minute, second);
+  const local = (year: number, month: number, day: number, hour: number, minute: number, second = 0) =>
+    new Date(year, month - 1, day, hour, minute, second);
   const now = local(2026, 11, 6, 10, 0);
   it.each([
     [local(2026, 11, 6, 9, 59, 40), "刚刚"],
@@ -102,7 +106,10 @@ describe("sending a page to the host's agents", () => {
   it("keeps the address within what servers accept, however much was selected", () => {
     const open = vi.fn();
     vi.stubGlobal("open", open);
-    runHostAction({ id: "a", label: "发", href: "/chat?prompt={title}%0A{text}" }, { url: "http://x", title: "标题", text: "字".repeat(5000) });
+    runHostAction(
+      { id: "a", label: "发", href: "/chat?prompt={title}%0A{text}" },
+      { url: "http://x", title: "标题", text: "字".repeat(5000) }
+    );
     const address = String(open.mock.calls[0]![0]);
     expect(address.length).toBeLessThan(8000);
     expect(decodeURIComponent(address)).toContain(`标题\n${"字".repeat(600)}`);
@@ -116,8 +123,15 @@ describe("host actions", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("fills the link, encoded, and opens it next to the document", () => {
-    runHostAction({ id: "a", label: "创建任务", href: "/tasks/new?title={title}&from={url}" }, { url: "https://x.test/d?a=1", title: "登录 & 账号", text: "" });
-    expect(window.open).toHaveBeenCalledWith(`/tasks/new?title=${encodeURIComponent("登录 & 账号")}&from=${encodeURIComponent("https://x.test/d?a=1")}`, "_blank", "noopener,noreferrer");
+    runHostAction(
+      { id: "a", label: "创建任务", href: "/tasks/new?title={title}&from={url}" },
+      { url: "https://x.test/d?a=1", title: "登录 & 账号", text: "" }
+    );
+    expect(window.open).toHaveBeenCalledWith(
+      `/tasks/new?title=${encodeURIComponent("登录 & 账号")}&from=${encodeURIComponent("https://x.test/d?a=1")}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   });
 });
 
@@ -128,17 +142,36 @@ describe("the annotation store", () => {
   beforeEach(() => {
     requests.length = 0;
     threads = [];
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit = {}) => {
-      const method = init.method ?? "GET";
-      const body = init.body ? JSON.parse(String(init.body)) : undefined;
-      requests.push({ method, url, body });
-      if (method === "POST" && url.endsWith("/threads")) {
-        const thread = { id: "t1", status: "open", anchor: body.anchor, anchorState: "exact", comments: [{ id: "c1", authorId: "me", authorName: "测试用户", authorKind: "user", channel: "web", body: body.body, createdAt: new Date().toISOString() }] };
-        threads = [thread];
-        return Response.json({ version: 1, data: thread }, { status: 201 });
-      }
-      return Response.json({ version: 1, data: threads });
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit = {}) => {
+        const method = init.method ?? "GET";
+        const body = init.body ? JSON.parse(String(init.body)) : undefined;
+        requests.push({ method, url, body });
+        if (method === "POST" && url.endsWith("/threads")) {
+          const thread = {
+            id: "t1",
+            status: "open",
+            anchor: body.anchor,
+            anchorState: "exact",
+            comments: [
+              {
+                id: "c1",
+                authorId: "me",
+                authorName: "测试用户",
+                authorKind: "user",
+                channel: "web",
+                body: body.body,
+                createdAt: new Date().toISOString()
+              }
+            ]
+          };
+          threads = [thread];
+          return Response.json({ version: 1, data: thread }, { status: 201 });
+        }
+        return Response.json({ version: 1, data: threads });
+      })
+    );
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -151,13 +184,31 @@ describe("the annotation store", () => {
     await store.submitComment("写点什么", [{ id: "u2", name: "周一鸣" }]);
     const post = requests.find(request => request.method === "POST")!;
     expect(post.url).toBe("/api/v1/documents/d1/threads");
-    expect(post.body).toEqual({ anchor: { kind: "text", start: 3, end: 9, exact: "选中的字", revision: 2 }, body: "写点什么", mentions: [{ id: "u2", name: "周一鸣" }] });
+    expect(post.body).toEqual({
+      anchor: { kind: "text", start: 3, end: 9, exact: "选中的字", revision: 2 },
+      body: "写点什么",
+      mentions: [{ id: "u2", name: "周一鸣" }]
+    });
     function Probe() {
       const state = store.useAnnotations();
-      return <output>{JSON.stringify({ active: state.activeId, pending: state.pending, threads: state.threads.length, open: state.open })}</output>;
+      return (
+        <output>
+          {JSON.stringify({
+            active: state.activeId,
+            pending: state.pending,
+            threads: state.threads.length,
+            open: state.open
+          })}
+        </output>
+      );
     }
     render(<Probe />);
-    expect(JSON.parse(screen.getByRole("status").textContent!)).toEqual({ active: "t1", pending: null, threads: 1, open: true });
+    expect(JSON.parse(screen.getByRole("status").textContent!)).toEqual({
+      active: "t1",
+      pending: null,
+      threads: 1,
+      open: true
+    });
     cleanup();
     store.closeDocument();
   });
@@ -167,7 +218,9 @@ describe("the annotation store", () => {
     await store.openDocument("d1");
     store.startComment({ kind: "block", ref: "b4", preview: "控制台", revision: 2 });
     await store.submitComment("这张图过期了", []);
-    expect(requests.find(request => request.method === "POST")!.body).toMatchObject({ anchor: { kind: "block", ref: "b4", revision: 2 } });
+    expect(requests.find(request => request.method === "POST")!.body).toMatchObject({
+      anchor: { kind: "block", ref: "b4", revision: 2 }
+    });
     store.closeDocument();
   });
 });
@@ -175,11 +228,19 @@ describe("the annotation store", () => {
 describe("the selection toolbar", () => {
   afterEach(cleanup);
 
-  async function toolbarFor(role: "viewer" | "commenter" | "editor", ai: { configured: boolean; ask: boolean } = { configured: true, ask: false }) {
-    applyBootstrap(bootstrap({ ai, site: { actions: [{ id: "agent", label: "发给智能体", href: "/chat", copy: "{title}" }] } }));
+  async function toolbarFor(
+    role: "viewer" | "commenter" | "editor",
+    ai: { configured: boolean; ask: boolean } = { configured: true, ask: false }
+  ) {
+    applyBootstrap(
+      bootstrap({ ai, site: { actions: [{ id: "agent", label: "发给智能体", href: "/chat", copy: "{title}" }] } })
+    );
     const { registerBuiltinSelectionActions } = await import("../src/annotations/selection-actions");
     const { SelectionToolbar } = await import("../src/annotations/selection-toolbar");
-    registerBuiltinSelectionActions(() => undefined, () => undefined);
+    registerBuiltinSelectionActions(
+      () => undefined,
+      () => undefined
+    );
     const context = {
       page: pageWith("正文\n", role),
       selection: { start: 0, end: 2, exact: "正文", rect: null },
@@ -218,25 +279,71 @@ describe("a suggestion from a discussion", () => {
   });
 
   const THREAD = {
-    id: "t1", documentId: "guide", status: "open", anchorState: "exact", summary: null, createdName: "", resolvedName: null, createdAt: "",
+    id: "t1",
+    documentId: "guide",
+    status: "open",
+    anchorState: "exact",
+    summary: null,
+    createdName: "",
+    resolvedName: null,
+    createdAt: "",
     anchor: { kind: "block", ref: "b2", type: "paragraph", hash: "x", preview: "第一段" } as never,
-    comments: [{ id: "c1", authorId: "u1", authorName: "林夏", authorKind: "user", channel: "web", body: "这里写错了，应该是第二段", createdAt: new Date().toISOString() }]
+    comments: [
+      {
+        id: "c1",
+        authorId: "u1",
+        authorName: "林夏",
+        authorKind: "user",
+        channel: "web",
+        body: "这里写错了，应该是第二段",
+        createdAt: new Date().toISOString()
+      }
+    ]
   } as const;
   const SUGGESTION = { baseRevision: 3, firstRef: "b2", lastRef: "b4", source: "第一段说明。", text: "第二段说明。" };
 
-  async function openCard(reply: unknown, role: "commenter" | "viewer" = "commenter", thread: object = THREAD, ai = { configured: true, ask: false }) {
+  async function openCard(
+    reply: unknown,
+    role: "commenter" | "viewer" = "commenter",
+    thread: object = THREAD,
+    ai = { configured: true, ask: false }
+  ) {
     applyBootstrap(bootstrap({ ai }));
     const calls: { url: string; method: string; body: any }[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit = {}) => {
-      calls.push({ url, method: init.method ?? "GET", body: init.body ? JSON.parse(String(init.body)) : null });
-      return new Response(JSON.stringify({ data: url.endsWith("/suggestion") ? reply : url.endsWith("/proposals") && init.method !== "POST" ? [] : { id: "p1" } }), { status: 200 });
-    }));
-    const [{ ThreadCard }, { PageContext }, { MDXProvider }] = await Promise.all([import("../src/annotations/thread-card"), import("@rspress/core/runtime"), import("@mdx-js/react")]);
-    const data = { lang: "zh", frontmatter: {}, title: "手册", toc: [], pandocs: pageWith("第一段说明。\n", role) } as never;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit = {}) => {
+        calls.push({ url, method: init.method ?? "GET", body: init.body ? JSON.parse(String(init.body)) : null });
+        return new Response(
+          JSON.stringify({
+            data: url.endsWith("/suggestion")
+              ? reply
+              : url.endsWith("/proposals") && init.method !== "POST"
+                ? []
+                : { id: "p1" }
+          }),
+          { status: 200 }
+        );
+      })
+    );
+    const [{ ThreadCard }, { PageContext }, { MDXProvider }] = await Promise.all([
+      import("../src/annotations/thread-card"),
+      import("@rspress/core/runtime"),
+      import("@mdx-js/react")
+    ]);
+    const data = {
+      lang: "zh",
+      frontmatter: {},
+      title: "手册",
+      toc: [],
+      pandocs: pageWith("第一段说明。\n", role)
+    } as never;
     render(
       <MemoryRouter>
         <PageContext.Provider value={{ data }}>
-          <MDXProvider components={{}}><ThreadCard role={role} active thread={thread as never} /></MDXProvider>
+          <MDXProvider components={{}}>
+            <ThreadCard role={role} active thread={thread as never} />
+          </MDXProvider>
         </PageContext.Provider>
       </MemoryRouter>
     );
@@ -246,11 +353,13 @@ describe("a suggestion from a discussion", () => {
   it("shows the change for checking, then submits it as a proposal tied to the discussion", async () => {
     const calls = await openCard(SUGGESTION);
     await userEvent.click(screen.getByRole("button", { name: "根据讨论生成修改建议" }));
-    const box = await screen.findByLabelText("改成") as HTMLTextAreaElement;
+    const box = (await screen.findByLabelText("改成")) as HTMLTextAreaElement;
     expect(box.value).toBe("第二段说明。");
     await waitFor(() => expect(document.querySelector(".pd-diff__row--added")?.textContent).toContain("第二段说明。"));
     await userEvent.click(screen.getByRole("button", { name: "提交建议" }));
-    await waitFor(() => expect(calls.some(call => call.method === "POST" && call.url.endsWith("/proposals"))).toBe(true));
+    await waitFor(() =>
+      expect(calls.some(call => call.method === "POST" && call.url.endsWith("/proposals"))).toBe(true)
+    );
     const posted = calls.find(call => call.method === "POST" && call.url.endsWith("/documents/guide/proposals"))!;
     expect(posted.body).toMatchObject({
       baseRevision: 3,
@@ -263,7 +372,9 @@ describe("a suggestion from a discussion", () => {
   it("says so when the discussion did not ask for any change", async () => {
     await openCard({ ...SUGGESTION, text: "第一段说明。\n" });
     await userEvent.click(screen.getByRole("button", { name: "根据讨论生成修改建议" }));
-    await waitFor(() => expect((screen.getByRole("button", { name: "根据讨论生成修改建议" }) as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() =>
+      expect((screen.getByRole("button", { name: "根据讨论生成修改建议" }) as HTMLButtonElement).disabled).toBe(false)
+    );
     expect(screen.queryByLabelText("改成")).toBeNull();
   });
 
@@ -288,13 +399,40 @@ describe("comments", () => {
   it("makes addresses links, and only web addresses", async () => {
     applyBootstrap(bootstrap());
     const { ThreadCard } = await import("../src/annotations/thread-card");
-    render(<ThreadCard role="viewer" active={false} thread={{
-      id: "t1", documentId: "d1", status: "open", anchorState: "exact", summary: null, createdName: "", resolvedName: null, createdAt: "",
-      anchor: { kind: "document" } as never,
-      comments: [{ id: "c1", authorId: "u1", authorName: "林夏", authorKind: "user", channel: "web", mentions: [{ id: "u2", name: "周一鸣" }], body: "看 https://example.com/a?b=1。@周一鸣 也看，javascript:alert(1) 不算（https://example.com/b）", createdAt: new Date().toISOString() }]
-    }} />);
+    render(
+      <ThreadCard
+        role="viewer"
+        active={false}
+        thread={{
+          id: "t1",
+          documentId: "d1",
+          status: "open",
+          anchorState: "exact",
+          summary: null,
+          createdName: "",
+          resolvedName: null,
+          createdAt: "",
+          anchor: { kind: "document" } as never,
+          comments: [
+            {
+              id: "c1",
+              authorId: "u1",
+              authorName: "林夏",
+              authorKind: "user",
+              channel: "web",
+              mentions: [{ id: "u2", name: "周一鸣" }],
+              body: "看 https://example.com/a?b=1。@周一鸣 也看，javascript:alert(1) 不算（https://example.com/b）",
+              createdAt: new Date().toISOString()
+            }
+          ]
+        }}
+      />
+    );
     const links = [...document.querySelectorAll(".pd-comment a")] as HTMLAnchorElement[];
-    expect(links.map(link => link.getAttribute("href"))).toEqual(["https://example.com/a?b=1", "https://example.com/b"]);
+    expect(links.map(link => link.getAttribute("href"))).toEqual([
+      "https://example.com/a?b=1",
+      "https://example.com/b"
+    ]);
     expect(links[0]!.rel).toContain("noopener");
     expect(links[0]!.target).toBe("_blank");
     expect(document.querySelector(".pd-mention")?.textContent).toBe("@周一鸣");
@@ -303,11 +441,35 @@ describe("comments", () => {
   it("shows a comment's text as text, and its mentions as names", async () => {
     applyBootstrap(bootstrap());
     const { ThreadCard } = await import("../src/annotations/thread-card");
-    render(<ThreadCard role="viewer" active={false} thread={{
-      id: "t1", documentId: "d1", status: "open", anchorState: "exact", summary: null, createdName: "", resolvedName: null, createdAt: "",
-      anchor: { kind: "document" } as never,
-      comments: [{ id: "c1", authorId: "u1", authorName: "林夏", authorKind: "agent", channel: "mcp", body: "<img src=x onerror=alert(1)> @周一鸣 看看", createdAt: new Date().toISOString(), mentions: [{ id: "u2", name: "周一鸣" }] }]
-    }} />);
+    render(
+      <ThreadCard
+        role="viewer"
+        active={false}
+        thread={{
+          id: "t1",
+          documentId: "d1",
+          status: "open",
+          anchorState: "exact",
+          summary: null,
+          createdName: "",
+          resolvedName: null,
+          createdAt: "",
+          anchor: { kind: "document" } as never,
+          comments: [
+            {
+              id: "c1",
+              authorId: "u1",
+              authorName: "林夏",
+              authorKind: "agent",
+              channel: "mcp",
+              body: "<img src=x onerror=alert(1)> @周一鸣 看看",
+              createdAt: new Date().toISOString(),
+              mentions: [{ id: "u2", name: "周一鸣" }]
+            }
+          ]
+        }}
+      />
+    );
     expect(document.querySelector(".pd-comment img")).toBeNull();
     expect(document.querySelector(".pd-mention")?.textContent).toBe("@周一鸣");
     expect(screen.getByText("来自 MCP")).not.toBeNull();
