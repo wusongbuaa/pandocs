@@ -76,7 +76,8 @@ describe("model calls", () => {
     expect(text).toBe("来自 Claude");
     const call = seen.at(-1)!;
     expect(call.path).toBe("/v1/messages");
-    expect(call.headers["x-api-key"]).toBe("secret-key");
+    // The SDK sends the key as a Bearer token since 1.0; the API takes either form.
+    expect(call.headers.authorization).toBe("Bearer secret-key");
     expect(call.headers["anthropic-version"]).toBeTruthy();
     expect(call.body.system).toContain("Summarize this discussion");
     expect(call.body.max_tokens).toBeGreaterThan(0);
@@ -93,7 +94,7 @@ describe("model calls", () => {
     await createLlmPort(config({ protocol: "anthropic", baseUrl, headers: { "x-gateway-route": "docs" } }), pool).complete({ purpose: "thread_summary", prompt: "讨论内容", actor: person });
     call = seen.at(-1)!;
     expect(call.headers["x-gateway-route"]).toBe("docs");
-    expect(call.headers["x-api-key"]).toBe("secret-key");
+    expect(call.headers.authorization).toBe("Bearer secret-key");
   });
 
   it("reads the headers to send as a JSON object, and refuses anything else", () => {
