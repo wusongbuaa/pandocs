@@ -364,7 +364,15 @@ function ChangeSetView({ space, id }: { space: Space; id: string }) {
       setBusy(false);
     }
   };
-  const merge = async () => {
+  const merge = async (title: string) => {
+    if (
+      !(await confirm({
+        title: t('Merge "{0}"?', title),
+        description: t("Its pages take the place of what is there now, and it cannot be merged again."),
+        action: t("Merge")
+      }))
+    )
+      return;
     setBusy(true);
     try {
       await api.send("POST", `change-sets/${id}/merge`);
@@ -474,7 +482,7 @@ function ChangeSetView({ space, id }: { space: Space; id: string }) {
                   </Button>
                 </>
               ) : null}
-              <Button disabled={busy || !data.canMerge} onClick={() => void merge()}>
+              <Button disabled={busy || !data.canMerge} onClick={() => void merge(data.title)}>
                 {t("Merge")}
               </Button>
               {data.canDelete ? <DeleteChangeSet space={space} detail={data} /> : null}

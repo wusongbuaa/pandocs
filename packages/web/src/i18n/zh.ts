@@ -112,6 +112,8 @@ export const zh: Readonly<Record<string, string>> = {
   "All those pages' version history and discussions go with them, for good.":
     "所有页面的版本历史和讨论也会一起删除，不能恢复。",
   "An address has no slashes or spaces": "地址里不能有斜杠或空格",
+  "An administrator can change anything on this site, including who else is one.":
+    "管理员可以修改这个站点上的任何内容，包括指定其他管理员。",
   "Annotated screenshot": "截图标注",
   "Another system": "其他系统",
   "Anyone can read the pages here without signing in. Restricted pages, comments, suggestions and version history stay private.":
@@ -329,6 +331,8 @@ export const zh: Readonly<Record<string, string>> = {
   "DingTalk group": "钉钉群",
   Disable: "停用",
   'Disable "{0}"?': "停用「{0}」？",
+  "Disable {0}?": "停用 {0}？",
+  "They cannot sign in again until they are restored.": "在恢复之前，他们无法再登录。",
   Discard: "丢弃",
   "Discard changes": "丢弃修改",
   "Discard draft": "丢弃草稿",
@@ -526,6 +530,8 @@ export const zh: Readonly<Record<string, string>> = {
   "It will sync in a moment": "稍后开始同步",
   Italic: "斜体",
   "Its pages, versions and discussions come back.": "页面、版本和讨论都会回来。",
+  "Its pages take the place of what is there now, and it cannot be merged again.":
+    "其中的页面会取代现在的内容，合并后不能再次合并。",
   "Another space has the address {0} now.": "地址 {0} 现在已经被另一个空间使用。",
   "Its version history and discussions go with it, for good.": "版本历史和讨论也会一起删除，不能恢复。",
   "Keep draft and leave": "留作草稿并退出",
@@ -584,6 +590,7 @@ export const zh: Readonly<Record<string, string>> = {
   "Made a space public": "公开空间",
   'Make "{0}" private?': "取消公开「{0}」？",
   'Make "{0}" public?': "公开「{0}」？",
+  "Make {0} an administrator?": "将 {0} 设为管理员？",
   "Make administrator": "设为管理员",
   "Make private": "取消公开",
   "Make public": "公开",
@@ -607,6 +614,7 @@ export const zh: Readonly<Record<string, string>> = {
   Merge: "合并",
   Merged: "已合并",
   "Merged a change set": "合并了变更集",
+  'Merge "{0}"?': "合并「{0}」？",
   "Merged by {0}": "{0} 合并",
   Migration: "迁移",
   "Mind map": "脑图",
@@ -780,6 +788,8 @@ export const zh: Readonly<Record<string, string>> = {
   Reload: "重新加载",
   Remove: "移除",
   "Remove administrator": "取消管理员",
+  "Remove {0}?": "移除 {0}？",
+  "They go back to what the space gives everyone else.": "他们的权限会退回到空间给所有人的默认权限。",
   'Remove the label "{0}"': "去掉标签“{0}”",
   "Removed an embed app": "删除嵌入应用",
   Rename: "重命名",
