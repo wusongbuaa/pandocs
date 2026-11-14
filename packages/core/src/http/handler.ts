@@ -396,6 +396,10 @@ const routes: readonly Route[] = [
     return ok({ ok: true });
   }),
   route("GET", "deleted-spaces", async ({ principal, services }) => ok(await services.spaces.deleted(principal))),
+  route("DELETE", "deleted-spaces/:id", async ({ params, principal, services }) => {
+    await services.spaces.purge(principal, params.id!);
+    return ok({ deleted: true });
+  }),
   route("POST", "deleted-spaces/:id/restore", async ({ params, principal, services, json }) => ok(await services.spaces.restore(principal, params.id!, await json(z.object({ slug: SPACE_SLUG.optional() }).strict())))),
   route("GET", "spaces", async ({ principal, services }) => ok(await services.spaces.list(principal))),
   route("POST", "spaces", async ({ principal, services, json }) => {

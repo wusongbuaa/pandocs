@@ -310,6 +310,13 @@ paths:
       tags: [spaces]
       operationId: listDeletedSpaces
       responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}}
+  /deleted-spaces/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    delete:
+      tags: [spaces]
+      operationId: purgeSpace
+      summary: 'Delete a deleted space for good (administrators), with its pages, history, discussions and uploads. It cannot be restored'
+      responses: {'200': {$ref: '#/components/responses/Ok'}, '403': {$ref: '#/components/responses/Error'}, '404': {$ref: '#/components/responses/Error'}}
   /deleted-spaces/{id}/restore:
     parameters: [{$ref: '#/components/parameters/Id'}]
     post:
