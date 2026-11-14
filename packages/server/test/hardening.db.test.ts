@@ -140,6 +140,22 @@ describe("what anyone can send to a server", () => {
       });
       expect(tooBig.status).toBe(413);
     }, 60_000);
+
+    it("takes a large call to the public MCP endpoint, up to what that layer itself allows", async () => {
+      // Past the 64 KiB kept for forms, within the 8 MiB the MCP layer takes: the gate must not refuse it first.
+      const response = await fetch(`http://127.0.0.1:${port}/mcp/public`, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/list",
+          params: { padding: "x".repeat(200 * 1024) }
+        })
+      });
+      expect(response.status).not.toBe(413);
+      expect(response.headers.get("content-type")).toContain("json");
+    });
   });
 
   describe("an address or form that makes no sense", () => {

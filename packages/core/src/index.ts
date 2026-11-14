@@ -10,6 +10,7 @@ export * from "./infrastructure/db.js";
 export * from "./infrastructure/local-asset-store.js";
 export * from "./ports.js";
 export { PermanentIngestError } from "./application/ingest.js";
+export { MAX_ASSET_BYTES } from "./application/assets.js";
 export { slugFromTitle } from "./application/documents.js";
 export { batchesOf, validCursor } from "./application/changes.js";
 export type { ChangeRow, ManifestFile, SpaceAccess, SpaceManifest } from "./application/changes.js";

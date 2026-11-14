@@ -298,6 +298,10 @@ describe("asking the documents", () => {
     expect(closedToVisitors.status).toBe(403);
     expect(closedToVisitors.error.code).toBe("ASK_CLOSED");
     expect((await h.call(ANONYMOUS_PRINCIPAL, "GET", "bootstrap")).data.ai).toEqual({ configured: true, ask: false });
+    // A guest from an embed is no more entitled than a visitor off the street.
+    const guest: Principal = { ...USERS.reader, id: "embed-guest-1", guest: true };
+    expect((await ask(guest, { question: "?" })).error.code).toBe("ASK_CLOSED");
+    expect((await h.call(guest, "GET", "bootstrap")).data.ai).toEqual({ configured: true, ask: false });
 
     await h.call(USERS.admin, "PATCH", "site", { askForVisitors: true });
     await h.call(USERS.admin, "PATCH", "spaces/shop", { publicRead: true });
