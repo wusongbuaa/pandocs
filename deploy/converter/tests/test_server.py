@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import shutil
+import socket
 import subprocess
 import tempfile
 import threading
@@ -97,6 +98,26 @@ class TheService(unittest.TestCase):
             self.assertEqual(self.send(b"x" * 11, "text/csv")[0], 413)
         finally:
             server.MAX_BYTES = limit
+
+    def test_refuses_a_length_it_cannot_read(self):
+        # urllib will not send a nonsense length, so this request goes straight to the socket.
+        with socket.create_connection(("127.0.0.1", self.running.server_address[1]), timeout=10) as connection:
+            connection.sendall(
+                b"POST /convert HTTP/1.1\r\nHost: pandocs.test\r\nAuthorization: Bearer test-token\r\n"
+                b"Content-Type: text/csv\r\nContent-Length: not-a-number\r\nConnection: close\r\n\r\n"
+            )
+            answer = connection.recv(4096).decode()
+        self.assertIn("400", answer.split("\r\n")[0])
+
+    def test_closes_a_connection_that_says_nothing(self):
+        was, server.Handler.timeout = server.Handler.timeout, 0.3
+        try:
+            with socket.create_connection(("127.0.0.1", self.running.server_address[1]), timeout=10) as connection:
+                # A beginning with no end to it: the only right answer is to let go of the thread and the turn.
+                connection.sendall(b"POST /convert HTTP/1.1\r\n")
+                self.assertEqual(connection.recv(4096), b"")
+        finally:
+            server.Handler.timeout = was
 
     def test_says_to_come_back_later_when_every_turn_is_taken_without_reading_the_file(self):
         waited = server.TURN_WAIT_SECONDS

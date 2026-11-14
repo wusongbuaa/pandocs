@@ -260,6 +260,8 @@ def log(**event):
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "pandocs-converter"
+    # Without one, a client that sends headers a byte at a time holds its thread and its turn forever.
+    timeout = 60
 
     def do_GET(self):
         if self.path == "/healthz":
@@ -277,7 +279,10 @@ class Handler(BaseHTTPRequestHandler):
                 raise Refused(404, say(language, "not_found"))
             if TOKEN and not hmac.compare_digest(self.headers.get("Authorization", "").encode(), f"Bearer {TOKEN}".encode()):
                 raise Refused(401, say(language, "token"))
-            length = int(self.headers.get("Content-Length") or -1)
+            try:
+                length = int(self.headers.get("Content-Length") or -1)
+            except ValueError:
+                raise Refused(400, say(language, "length"))
             if length < 0:
                 raise Refused(411, say(language, "length"))
             if length > MAX_BYTES:
