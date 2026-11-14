@@ -53,7 +53,7 @@
     "clsx": "2.1.1",
     "cn": "0.5.2",
     "copy-to-clipboard": "^4.0.2",
-    "diff": "^8.0.2",
+    "diff": "^9.0.0",
     "flexsearch": "0.8.212",
     "hast-util-heading-rank": "^3.0.0",
     "hast-util-to-jsx-runtime": "^2.3.7",
