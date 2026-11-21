@@ -4,8 +4,16 @@ What changes for someone running or using Pandocs. The format follows [Keep a Ch
 
 ## Unreleased
 
-- Agents can search project memory by keyword or labels and save a topic with the new MCP tools `memory_recall` and `memory_remember`. Appends support retries, and replacements check the revision read.
-- Space administrators can enable direct agent saves. Grant an agent token or OAuth connection direct-save access to create pages, edit content and set labels with the owner's permissions. History identifies the agent and owner, and Insights counts direct saves.
+## 0.3.0 - 2026-11-21
+
+### Project memory
+
+- Use `memory_recall` to find project pages by keyword or labels. Use `memory_remember` to save Markdown to a topic. Concurrent appends keep both entries. If a request times out, retry with the same ID within seven days to avoid a duplicate. Replacing a whole page requires the revision you read.
+- Agents can create pages, edit content and set labels in spaces that allow direct saves. Their access follows their owner's space and page permissions. Page history identifies the agent and its owner, and Insights counts direct saves.
+
+### Upgrading
+
+Existing spaces keep their review policy, and existing credentials keep their scopes. To enable direct saves, turn on **Allow agents to save page content directly** in the space and grant a new agent token or OAuth connection the `write` and `agent:direct` scopes. A space that requires change sets continues to route edits through review. [Multica project memory setup](https://github.com/wusongbuaa/pandocs/blob/v0.3.0/docs/connecting-agents.md#project-memory-for-multica-agents)
 
 ## 0.2.0 - 2026-11-14
 
