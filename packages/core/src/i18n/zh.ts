@@ -1,5 +1,7 @@
 /** Chinese for this package's text. Each key is the English in the code, exactly as written there. */
 export const zh: Readonly<Record<string, string>> = {
+  "This space uses review. Use proposal_create for an existing page or a change set for a new page.":
+    "此空间要求评审。请用 proposal_create 建议修改已有页面，或使用变更集新增页面。",
   "## What you see\n\n\n\n## Why it happens\n\n\n\n## How to fix it\n\n1. \n\n## If that does not help\n\n":
     "## 现象\n\n\n\n## 原因\n\n\n\n## 解决办法\n\n1. \n\n## 如果还没解决\n\n",
   "**Date:** {{date}}\n\n## Context\n\nWhat made this worth deciding.\n\n## Options\n\n- \n\n## Decision\n\n\n\n## What follows from it\n\n":

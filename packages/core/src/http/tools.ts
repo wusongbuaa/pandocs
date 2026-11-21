@@ -2,6 +2,7 @@ import { t } from "@pandocs/i18n";
 import { describeBlocks, editOpSchema, type ReadScope } from "@pandocs/markdown";
 import { z } from "zod";
 import { changeSetPageInput } from "../application/change-sets.js";
+import { recallInput, rememberInput } from "../application/memory.js";
 import { UUID } from "../application/context.js";
 import type { AnchorInput } from "../application/threads.js";
 import { invalid, notFound } from "../domain/errors.js";
@@ -162,6 +163,22 @@ export const pandocsTools: readonly PandocsTool[] = [
       if (a.query) s.stats.countSearch({ term: a.query, results: hits.length, audience: "agent", space: a.space });
       return hits;
     }
+  }),
+  tool({
+    name: "memory_recall",
+    access: "read",
+    description: `Find project memory in one direct-save space. Search by keyword, all supplied labels, or both. Returns a short excerpt, page ID, URL and revision. Use doc_get for the full text. ${UNTRUSTED}`,
+    input: recallInput,
+    run: (s, p, a) => s.memory.recall(p, a)
+  }),
+  tool({
+    name: "memory_remember",
+    access: "write",
+    destructive: true,
+    description:
+      "Save a project fact, preference or reference as Markdown in a direct-save space. Recall first. Give a topic to create or append, or use the exact doc ID from recall. Append is the default. To replace, read the full page and supply doc and expectedRevision. Use a fresh requestId UUID for each logical write and reuse it on retries. Labels are added to existing ones. Keep credentials out of memory.",
+    input: rememberInput,
+    run: (s, p, a) => s.memory.remember(p, a)
   }),
   tool({
     name: "doc_get",

@@ -10,7 +10,7 @@ import { AUDIT_CATEGORIES, type AuditQuery } from "../application/audit-log.js";
 import { validCursor } from "../application/changes.js";
 import { askInput } from "../application/ask.js";
 import { changeSetInput, changeSetPageInput, reviewInput } from "../application/change-sets.js";
-import { UUID } from "../application/context.js";
+import { requireDocument, UUID } from "../application/context.js";
 import { documentLabels, type DocumentView } from "../application/documents.js";
 import { feedbackBody, feedbackInput } from "../application/feedback.js";
 import { shareLinkInput } from "../application/share-links.js";
@@ -333,7 +333,7 @@ const opsSchema = z
   .strict();
 
 /** Writes that change a document need a retry-safe key; a replay returns the first answer. */
-function idempotent(handler: RouteHandler): RouteHandler {
+function idempotent(handler: RouteHandler, replayDocumentAccess?: "content" | "editor"): RouteHandler {
   return async context => {
     const { request, principal, services } = context;
     const key = request.headers.get("idempotency-key") ?? request.headers.get("x-idempotency-key");
@@ -365,6 +365,7 @@ function idempotent(handler: RouteHandler): RouteHandler {
           "IDEMPOTENCY_KEY_IN_USE",
           t("A request with this Idempotency-Key is still being handled. Try again in a moment.")
         );
+      if (replayDocumentAccess) await requireDocument(db, principal, context.params.id!, replayDocumentAccess);
       return Response.json(rows[0].response, {
         status: rows[0].status,
         headers: { ...NO_STORE, "Idempotent-Replay": "true" }
@@ -1072,30 +1073,36 @@ const routes: readonly Route[] = [
   route(
     "PUT",
     "documents/:id/content",
-    idempotent(async ({ params, principal, services, json }) =>
-      ok(await services.documents.saveContent(principal, params.id!, await json(contentSchema)))
+    idempotent(
+      async ({ params, principal, services, json }) =>
+        ok(await services.documents.saveContent(principal, params.id!, await json(contentSchema))),
+      "content"
     )
   ),
   route(
     "POST",
     "documents/:id/ops",
-    idempotent(async ({ params, principal, services, json }) =>
-      ok(await services.documents.applyOps(principal, params.id!, await json(opsSchema)))
+    idempotent(
+      async ({ params, principal, services, json }) =>
+        ok(await services.documents.applyOps(principal, params.id!, await json(opsSchema))),
+      "content"
     )
   ),
   route(
     "POST",
     "documents/:id/rollback",
-    idempotent(async ({ params, principal, services, json }) =>
-      ok(
-        await services.documents.rollback(
-          principal,
-          params.id!,
-          await json(
-            z.object({ to: z.number().int().positive(), expectedRevision: z.number().int().positive() }).strict()
+    idempotent(
+      async ({ params, principal, services, json }) =>
+        ok(
+          await services.documents.rollback(
+            principal,
+            params.id!,
+            await json(
+              z.object({ to: z.number().int().positive(), expectedRevision: z.number().int().positive() }).strict()
+            )
           )
-        )
-      )
+        ),
+      "editor"
     )
   ),
   route("GET", "documents/:id/revisions", async ({ params, query, principal, services }) =>

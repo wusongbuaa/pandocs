@@ -28,7 +28,7 @@ const AGENT_WRITE_TOOLS = new Set([
   "change_set_add_page",
   "change_set_remove_page"
 ]);
-const AGENT_CONTENT_TOOLS = new Set(["doc_create", "doc_update", "doc_labels"]);
+const AGENT_CONTENT_TOOLS = new Set(["doc_create", "doc_update", "doc_labels", "memory_remember"]);
 const AGENT_HIDDEN_READ_TOOLS = new Set(["doc_trash", "inbox", "import_get", "doc_templates"]);
 
 export function toolsFor(principal: Principal): readonly PandocsTool[] {

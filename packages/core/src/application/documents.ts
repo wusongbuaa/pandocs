@@ -82,6 +82,7 @@ class AnalysisCache {
 const EDITING_TTL_SECONDS = 90;
 
 export interface DocumentView {
+  readonly labels: readonly string[];
   readonly document: DocumentRecord;
   readonly spaceSlug: string;
   readonly role: SpaceDefaultRole;
@@ -270,25 +271,46 @@ export class DocumentService {
 
   /** Labels are about a page rather than in it: changing them makes no new version, and needs edit access. They count as the same in any letter case. */
   async setLabels(principal: Principal, documentId: string, labels: readonly string[]): Promise<readonly string[]> {
+    return this.context.db.transaction(async tx => {
+      await requireDocument(tx, principal, documentId, "content", true);
+      return this.setLabelsIn(tx, principal, documentId, labels);
+    });
+  }
+
+  /** The caller has checked edit access and locked the page, or created it in this transaction. */
+  async setLabelsIn(
+    tx: Queryable,
+    principal: Principal,
+    documentId: string,
+    labels: readonly string[],
+    add = false
+  ): Promise<readonly string[]> {
+    const previous = add
+      ? (
+          await tx.query<{ label: string }>(
+            `SELECT label FROM pandocs.document_labels WHERE document_id = $1 ORDER BY lower(label)`,
+            [documentId]
+          )
+        ).rows.map(row => row.label)
+      : [];
     const distinct = [
       ...new Map(
-        labels
+        [...labels, ...previous]
           .map(label => label.trim().replace(/\s+/gu, " "))
           .filter(Boolean)
           .map(label => [label.toLowerCase(), label])
       ).values()
     ];
-    return this.context.db.transaction(async tx => {
-      await requireDocument(tx, principal, documentId, "content", true);
-      await tx.query(`DELETE FROM pandocs.document_labels WHERE document_id = $1`, [documentId]);
-      if (distinct.length > 0)
-        await tx.query(`INSERT INTO pandocs.document_labels (document_id, label) SELECT $1, unnest($2::text[])`, [
-          documentId,
-          distinct
-        ]);
-      await audit(tx, principal, "document.labels", "document", documentId, { labels: distinct });
-      return [...distinct].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-    });
+    if (add && previous.length === distinct.length) return previous;
+    documentLabels.parse(distinct);
+    await tx.query(`DELETE FROM pandocs.document_labels WHERE document_id = $1`, [documentId]);
+    if (distinct.length > 0)
+      await tx.query(`INSERT INTO pandocs.document_labels (document_id, label) SELECT $1, unnest($2::text[])`, [
+        documentId,
+        distinct
+      ]);
+    await audit(tx, principal, "document.labels", "document", documentId, { labels: distinct });
+    return [...distinct].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   }
 
   /** What is in use in a space, by what this person can read. */
@@ -990,14 +1012,17 @@ export class DocumentService {
       query: string;
       space?: string | undefined;
       label?: string | undefined;
+      labels?: readonly string[] | undefined;
       limit?: number | undefined;
       lang?: string | undefined;
-    }
+    },
+    db: Queryable = this.context.db
   ) {
-    const { db } = this.context;
     const query = input.query.trim();
-    const label = input.label?.trim() || null;
-    if (!query && !label) return [];
+    const labels = [...(input.labels ?? []), input.label ?? ""]
+      .map(label => label.trim().toLowerCase())
+      .filter(Boolean);
+    if (!query && !labels.length) return [];
     const limit = Math.min(input.limit ?? 30, 100);
     const { rows: spaces } = await db.query<{
       id: string;
@@ -1026,8 +1051,9 @@ export class DocumentService {
     }
     if (readable.length === 0) return [];
     const spaceOf = new Map(readable.map(space => [space.id, space]));
-    const access = [readable.map(space => space.id), allRestricted, [...subjectsOf(principal)], label];
-    const readableRow = `($4::text IS NULL OR EXISTS (SELECT 1 FROM pandocs.document_labels l WHERE l.document_id = d.id AND lower(l.label) = lower($4)))
+    const access = [readable.map(space => space.id), allRestricted, [...subjectsOf(principal)], labels];
+    const readableRow = `NOT EXISTS (SELECT FROM unnest($4::text[]) AS wanted(label)
+        WHERE NOT EXISTS (SELECT FROM pandocs.document_labels l WHERE l.document_id = d.id AND lower(l.label) = wanted.label))
       AND d.deleted_at IS NULL AND d.space_id = ANY($1::uuid[])
       AND (NOT d.restricted OR d.space_id = ANY($2::uuid[]) OR EXISTS (SELECT 1 FROM pandocs.document_members m WHERE m.document_id = d.id AND m.subject = ANY($3::text[])))`;
     const pattern = `%${query.replace(/[\\%_]/gu, match => `\\${match}`)}%`;
@@ -1060,20 +1086,22 @@ export class DocumentService {
       row => !seen.has(String(row.id)) && seen.add(String(row.id))
     );
     if (candidates.length === 0) return [];
-    const { rows: texts } = await db.query<{ document_id: string; visible_text: string }>(
-      `SELECT d.id AS document_id, COALESCE(t.visible_text, r.visible_text) AS visible_text
+    const { rows: texts } = await db.query<{ document_id: string; visible_text: string; no: number }>(
+      `SELECT d.id AS document_id, r.no, COALESCE(t.visible_text, r.visible_text) AS visible_text
        FROM pandocs.documents d JOIN pandocs.revisions r ON r.document_id = d.id AND r.no = d.current_revision_no
        LEFT JOIN pandocs.document_translations t ON t.document_id = d.id AND t.lang = $2
        WHERE d.id = ANY($1::uuid[])`,
       [candidates.map(row => row.id), lang]
     );
-    const textOf = new Map(texts.map(row => [row.document_id, row.visible_text]));
+    const versions = new Map(texts.map(row => [row.document_id, row]));
     const needle = query.toLowerCase();
     const titledIds = new Set(titled.map(row => String(row.id)));
     const results = [];
     for (const row of candidates) {
       const document = mapDocument(row);
-      const text = textOf.get(document.id) ?? "";
+      const version = versions.get(document.id);
+      if (!version) continue;
+      const text = version.visible_text;
       // Tokens can all be there without being next to each other; what someone typed should actually appear. A last word still being typed stays a prefix.
       if (!titledIds.has(document.id) && !text.replace(/\s+/gu, " ").toLowerCase().includes(needle)) continue;
       const space = spaceOf.get(document.spaceId)!;
@@ -1084,6 +1112,7 @@ export class DocumentService {
         path: document.path,
         title: row.translated_title ? String(row.translated_title) : document.title,
         snippet: snippetOf(text, query),
+        revision: version.no,
         updatedAt: document.updatedAt
       });
       if (results.length >= limit) break;

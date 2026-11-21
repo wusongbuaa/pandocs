@@ -70,6 +70,7 @@ export function createRuntime(
   const services = createPandocsServices({
     db: createPandocsDb(pool),
     ports: {
+      siteUrl: config.siteUrl,
       assets,
       ...(analyzePool ? { analyze: analyzePool.analyze } : {}),
       ...(config.publicSpaces ? {} : { publicSpacesDisabled: true }),

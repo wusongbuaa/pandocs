@@ -14,6 +14,7 @@ import { FeedbackService } from "./application/feedback.js";
 import { GitSyncService } from "./application/git-sync.js";
 import { LiveDraftService } from "./application/live-drafts.js";
 import { IngestService } from "./application/ingest.js";
+import { MemoryService } from "./application/memory.js";
 import { LlmsService } from "./application/llms.js";
 import { ProposalService } from "./application/proposals.js";
 import { ShareLinkService } from "./application/share-links.js";
@@ -35,6 +36,7 @@ export interface PandocsServices {
   readonly site: SiteService;
   readonly spaces: SpaceService;
   readonly documents: DocumentService;
+  readonly memory: MemoryService;
   readonly changes: ChangeService;
   readonly tree: TreeService;
   readonly export: ExportService;
@@ -93,6 +95,7 @@ export function createPandocsServices(input: {
     site,
     spaces,
     documents,
+    memory: new MemoryService(context, documents),
     changes: new ChangeService(context, documents),
     archives,
     tree,

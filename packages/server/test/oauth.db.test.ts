@@ -1,5 +1,5 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer as createNetServer, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -184,6 +184,71 @@ describe("connecting an app by signing in", () => {
     expect(JSON.stringify(read.structuredContent)).toContain("内容");
     await client.close();
   }, 30_000);
+
+  it("recalls a saved memory from a fresh MCP client and appends to it", async () => {
+    const space = "sdk-memory";
+    await admin.json("POST", "/api/v1/spaces", { slug: space, name: "SDK memory" });
+    await admin.json("PATCH", `/api/v1/spaces/${space}`, {
+      mergeRules: { requiredApprovals: 0, requireChangeSets: false, agentWrites: "direct" }
+    });
+    const grant = await signedIn(await newClient(), admin, { scope: "read write agent:direct" });
+    const connect = async () => {
+      const client = new McpClient({ name: "memory-reader", version: "1" });
+      await client.connect(
+        new StreamableHTTPClientTransport(new URL(`${origin}/mcp`), {
+          requestInit: { headers: { authorization: `Bearer ${grant.access_token}` } }
+        }) as never
+      );
+      return client;
+    };
+    const first = await connect();
+    let id: string;
+    try {
+      const names = (await first.listTools()).tools.map(tool => tool.name);
+      expect(names).toEqual(expect.arrayContaining(["memory_recall", "memory_remember", "doc_update"]));
+      expect(names).not.toContain("change_set_merge");
+      const empty = await first.callTool({ name: "memory_recall", arguments: { space, query: "Delivery" } });
+      expect(empty.structuredContent).toEqual({ data: [] });
+      const created = await first.callTool({
+        name: "memory_remember",
+        arguments: {
+          space,
+          topic: "Delivery",
+          content: "Review migrations",
+          labels: ["memory/project"],
+          requestId: randomUUID()
+        }
+      });
+      expect(created.isError).toBeFalsy();
+      const saved = (created.structuredContent as { data: { id: string; revision: number; url: string } }).data;
+      expect(saved.revision).toBe(1);
+      expect(saved.url).toContain(`${origin}/${space}/`);
+      id = saved.id;
+    } finally {
+      await first.close();
+    }
+    const next = await connect();
+    try {
+      const recalled = await next.callTool({ name: "memory_recall", arguments: { space, labels: ["memory/project"] } });
+      expect(recalled.structuredContent).toMatchObject({ data: [{ id, revision: 1, snippet: "Review migrations" }] });
+      const addition = { space, doc: id, content: "Check the release notes", requestId: randomUUID() };
+      const saved = await next.callTool({ name: "memory_remember", arguments: addition });
+      expect(saved.structuredContent).toMatchObject({ data: { id, revision: 2 } });
+      const replay = await next.callTool({ name: "memory_remember", arguments: addition });
+      expect(replay.structuredContent).toEqual(saved.structuredContent);
+      const unguarded = await next.callTool({
+        name: "memory_remember",
+        arguments: { ...addition, mode: "replace", requestId: randomUUID() }
+      });
+      expect(unguarded.isError).toBe(true);
+      const page = await next.callTool({ name: "doc_get", arguments: { doc: id } });
+      expect(page.structuredContent).toMatchObject({
+        data: { markdown: "Review migrations\n\nCheck the release notes", revision: { no: 2, actorKind: "agent" } }
+      });
+    } finally {
+      await next.close();
+    }
+  });
 
   describe("what a client finds out by itself", () => {
     it("is told where to go when it has no token, or a bad one", async () => {

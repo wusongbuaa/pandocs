@@ -238,6 +238,8 @@ export interface WebhookSender {
 }
 
 export interface PandocsPorts {
+  /** Canonical site address including its deployment subpath, for page links returned to clients. */
+  readonly siteUrl?: string | undefined;
   readonly assets: AssetStore;
   readonly directory?: Directory | undefined;
   readonly notifier?: Notifier | undefined;
