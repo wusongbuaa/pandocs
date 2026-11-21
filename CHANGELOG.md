@@ -4,6 +4,7 @@ What changes for someone running or using Pandocs. The format follows [Keep a Ch
 
 ## Unreleased
 
+- Agents can search project memory by keyword or labels and save a topic with the new MCP tools `memory_recall` and `memory_remember`. Appends support retries, and replacements check the revision read.
 - Space administrators can enable direct agent saves. Grant an agent token or OAuth connection direct-save access to create pages, edit content and set labels with the owner's permissions. History identifies the agent and owner, and Insights counts direct saves.
 
 ## 0.2.0 - 2026-11-14

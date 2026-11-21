@@ -169,6 +169,32 @@ describe("webhooks", () => {
     expect(moved).toMatchObject({ from: "new", page: { path: "moved" } });
   });
 
+  it("delivers agent memory saves through the page webhook with the agent's identity", async () => {
+    const space = "webhook-memory";
+    await h.services.spaces.create(USERS.admin, { slug: space, name: "Memory" });
+    await h.services.spaces.update(USERS.admin, space, {
+      mergeRules: { agentWrites: "direct", requireChangeSets: false, requiredApprovals: 0 }
+    });
+    await h.services.spaces.setMember(USERS.admin, space, `user:${USERS.editor.id}`, "editor");
+    await hookOf({ events: ["page.created", "page.updated"] }, USERS.admin, `spaces/${space}/webhooks`);
+    const agent: Principal = { ...USERS.agent, scopes: ["read", "write", "agent:direct"] };
+    for (const content of ["First", "Second"]) {
+      const result = await h.call(agent, "POST", "tools/memory_remember", {
+        space,
+        topic: "Build",
+        content,
+        requestId: crypto.randomUUID()
+      });
+      expect(result.error).toBeUndefined();
+    }
+    await drain();
+    const actor = { kind: "agent", name: agent.displayName };
+    expect(sent.flatMap(delivery => delivery.message.events)).toMatchObject([
+      { event: "page.created", revision: 1, actor },
+      { event: "page.updated", revision: 2, actor }
+    ]);
+  });
+
   it("hears about discussions, suggestions and feedback", async () => {
     await hookOf({});
     const { data: thread } = await h.call(USERS.commenter, "POST", `documents/${page}/threads`, {

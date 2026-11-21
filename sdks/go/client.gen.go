@@ -3625,13 +3625,16 @@ type RevisionMetaActorKind string
 
 // SearchHit defines model for SearchHit.
 type SearchHit struct {
-	Id        openapi_types.UUID `json:"id"`
-	Path      string             `json:"path"`
-	Snippet   *string            `json:"snippet,omitempty"`
-	SpaceName *string            `json:"spaceName,omitempty"`
-	SpaceSlug string             `json:"spaceSlug"`
-	Title     string             `json:"title"`
-	UpdatedAt *time.Time         `json:"updatedAt,omitempty"`
+	Id   openapi_types.UUID `json:"id"`
+	Path string             `json:"path"`
+
+	// Revision Current page revision
+	Revision  *int       `json:"revision,omitempty"`
+	Snippet   *string    `json:"snippet,omitempty"`
+	SpaceName *string    `json:"spaceName,omitempty"`
+	SpaceSlug string     `json:"spaceSlug"`
+	Title     string     `json:"title"`
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 }
 
 // SearchTerm defines model for SearchTerm.

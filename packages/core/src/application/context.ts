@@ -53,6 +53,16 @@ export function assertDirectWrites(space: SpaceRecord): void {
     throw new PandocsError(403, "CHANGE_SET_REQUIRED", t("Changes in this space go through change sets"));
 }
 
+export function assertMemorySpace(principal: Principal, space: SpaceRecord): void {
+  if (principal.shared || principal.anonymous || principal.guest) throw forbidden();
+  if (space.mergeRules.agentWrites !== "direct" || space.mergeRules.requireChangeSets)
+    throw new PandocsError(
+      403,
+      "MEMORY_SPACE_REQUIRED",
+      t("This space uses review. Use proposal_create for an existing page or a change set for a new page.")
+    );
+}
+
 export function mapSpace(row: Record<string, unknown>): SpaceRecord {
   return {
     id: String(row.id),
@@ -139,11 +149,11 @@ export async function requireSpace(
   db: Queryable,
   principal: Principal,
   slug: string,
-  required: AccessRequirement = "viewer"
+  required: AccessRequirement | "memory-write" = "viewer"
 ): Promise<SpaceAccess> {
-  const lockPolicy = required === "content" && principal.kind === "agent";
+  const contentWrite = required === "content" || required === "memory-write";
   const { rows } = await db.query(
-    `SELECT * FROM pandocs.spaces WHERE slug = $1 AND deleted_at IS NULL ${lockPolicy ? "FOR SHARE" : ""}`,
+    `SELECT * FROM pandocs.spaces WHERE slug = $1 AND deleted_at IS NULL ${contentWrite ? "FOR SHARE" : ""}`,
     [slug]
   );
   if (!rows[0]) throw notFound(t("Space"));
@@ -161,10 +171,16 @@ export async function requireSpace(
       publicRead: space.publicRead,
       spaceMembers: members
     },
-    required === "content" ? space.mergeRules : undefined
+    contentWrite ? space.mergeRules : undefined
   );
   if (!atLeast(role, "viewer")) throw notFound(t("Space"));
-  if (!atLeast(role, required === "content" ? "editor" : required)) throw forbidden();
+  if (required === "memory-write") assertMemorySpace(principal, space);
+  if (!atLeast(role, contentWrite ? "editor" : required))
+    throw forbidden(
+      contentWrite && principal.kind === "agent"
+        ? t("Agents cannot change documents directly. Create a proposal instead.")
+        : undefined
+    );
   return { space, role, members };
 }
 
@@ -179,12 +195,13 @@ export async function requireDocument(
   principal: Principal,
   documentId: string,
   required: AccessRequirement = "viewer",
-  lock = false
+  lock = false,
+  inSpace?: string
 ): Promise<DocumentAccess> {
   if (!UUID.test(documentId)) throw notFound(t("Document"));
   const { rows } = await db.query(
-    `SELECT * FROM pandocs.documents WHERE id = $1 AND deleted_at IS NULL ${lock ? "FOR UPDATE" : ""}`,
-    [documentId]
+    `SELECT * FROM pandocs.documents WHERE id = $1 AND deleted_at IS NULL ${inSpace ? "AND space_id = $2" : ""} ${lock ? "FOR UPDATE" : ""}`,
+    inSpace ? [documentId, inSpace] : [documentId]
   );
   if (!rows[0]) throw notFound(t("Document"));
   const document = mapDocument(rows[0]);

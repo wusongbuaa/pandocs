@@ -3152,6 +3152,8 @@ export interface components {
             path: string;
             title: string;
             snippet?: string;
+            /** @description Current page revision */
+            revision?: number;
             /** Format: date-time */
             updatedAt?: string;
         };

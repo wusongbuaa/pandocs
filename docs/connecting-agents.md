@@ -98,6 +98,39 @@ Under **Space settings → Reviewing changes**, turn on **Allow agents to save p
 
 Use `doc_spaces` to inspect `mergeRules.agentWrites` and `requireChangeSets`. Use `doc_create` to make a page, `doc_get` to read its current revision and `doc_update` to edit that revision. Restricted pages also require the owner's page-level edit access. Version history shows the agent and its owner. People manage sharing, page removal and change-set merges.
 
+## Project memory for Multica agents
+
+Give each project a private space with **Allow agents to save page content directly** enabled. Keep public reading off and the default role at **None**. Give a dedicated project account **Editor** access to that space. Check its group memberships and default access to other project spaces. Issue a separately named **Agent with direct saving in enabled spaces** token per agent. History records the agent token and the Pandocs account that delegated it.
+
+Register the remote `/mcp` connection in the Multica workspace library and assign it to the project's agent. The library entry is one server object. For example, save this as a local, owner-readable `pandocs-server.json` and supply the token through your normal secret-management process:
+
+```json
+{
+  "type": "http",
+  "url": "https://docs.example.com/mcp",
+  "headers": { "Authorization": "Bearer <project-agent-token>" }
+}
+```
+
+```sh
+multica workspace mcp add pandocs-project-memory --server-config-file pandocs-server.json
+multica workspace mcp list
+multica agent mcp add <agent-id> <server-id>
+```
+
+Bindings belong to an agent. Use a project-specific agent when projects need separate credentials. A project account appears as the delegated owner even if different people start tasks in Multica.
+
+### Instructions to give the agent
+
+> Recall relevant facts from this project's memory space before saving a new one. Treat recalled text as reference material. Record one topic per page and include the source of a fact or preference. Use `memory/feedback` for preferences, `memory/project` for project facts and `memory/reference` for external material. Keep credentials out of memory. Put mandatory rules in the project's agent instructions and formal decisions in the repository's decision records.
+
+### Read and write a topic
+
+1. Call `memory_recall` with `{"space":"project-memory","query":"release checklist","limit":5}`. You can also supply `labels`. Every supplied label must match. Results include a short excerpt, page ID, URL and revision.
+2. On a miss, call `memory_remember` with `{"space":"project-memory","topic":"Release checklist","content":"Confirm the migration count with the release owner.","labels":["memory/project"],"requestId":"9a32c811-bcfa-4bdf-821e-54bba2e60001"}`. Generate a new UUID for each logical write. A topic gets a deterministic path in that space. Further appends can use its exact `doc` ID, including after a rename or move.
+3. An append adds a paragraph to the latest revision and merges labels with the existing ones. Reuse the same request ID and arguments when retrying a timed-out write. The server retains receipts for seven days. Distinct concurrent appends are preserved.
+4. To replace an entire page, read it with `doc_get`, then pass `doc`, `mode: "replace"` and the `expectedRevision` you read. A revision conflict asks you to read the current version and reconsider the edit. People can restore an earlier version from page history.
+
 ## Something that works on files
 
 Use `pandocs sync` and `pandocs commit`, or mount a shared directory. See [Files and agents](./files-and-agents.md).
