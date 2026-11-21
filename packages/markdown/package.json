@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@pandocs/i18n": "workspace:*",
-    "approx-string-match": "2.0.1",
+    "approx-string-match": "2.0.3",
     "mdast-util-directive": "^3.1.0",
     "remark-cjk-friendly": "2.3.4",
     "remark-cjk-friendly-gfm-strikethrough": "^2.3.2",
