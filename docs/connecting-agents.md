@@ -1,6 +1,6 @@
 # Connecting agents
 
-An agent can read, comment and suggest, but it can never save by itself. Someone with edit rights decides. It also never sees more than the person it works for.
+Agents read, comment and suggest changes on behalf of their owner. A space administrator can also allow specifically authorized agents to save page content directly.
 
 ## An MCP client, by signing in
 
@@ -92,6 +92,12 @@ An agent changing several pages should use a change set rather than separate pro
 
 `doc_search` takes a `label` as well as, or instead of, a `query`. Someone with a token and edit rights can set labels with `doc_labels`, and start a page from a template with `doc_templates` and `doc_create`.
 
+## Allow direct page saves
+
+Under **Space settings → Reviewing changes**, turn on **Allow agents to save page content directly**. Requiring change sets takes precedence. Under **Account and tokens**, issue an agent token with direct saving, or reconnect your OAuth client with the scopes `read write agent:direct` and approve the new grant. Existing tokens and refreshed connections keep their original scopes.
+
+Use `doc_spaces` to inspect `mergeRules.agentWrites` and `requireChangeSets`. Use `doc_create` to make a page, `doc_get` to read its current revision and `doc_update` to edit that revision. Restricted pages also require the owner's page-level edit access. Version history shows the agent and its owner. People manage sharing, page removal and change-set merges.
+
 ## Something that works on files
 
 Use `pandocs sync` and `pandocs commit`, or mount a shared directory. See [Files and agents](./files-and-agents.md).
@@ -104,7 +110,8 @@ Typed clients for [TypeScript](../packages/client/README.md) and [Go](../sdks/go
 
 | | Read | Comment and suggest | Save directly |
 | --- | --- | --- | --- |
-| Agent token, or a client connected by signing in | What its person can | Yes | No |
+| Agent with ordinary write access | What its owner can read | Yes | Through review |
+| Agent with direct saving | What its owner can read | Yes | Create pages, edit content and set labels in enabled spaces where its owner can edit |
 | A person's token | What they can | Yes | If they have edit rights |
 
 A token marked read-only can only read. A person's own token acts as them, so give those only to tools you would let act as you.

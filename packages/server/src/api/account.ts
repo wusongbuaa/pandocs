@@ -6,7 +6,7 @@ import { hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from "../auth/passw
 import type { OAuthStore } from "../auth/oauth.js";
 import type { PasswordLinks } from "../auth/password-links.js";
 import { SESSION_COOKIE, type SessionStore } from "../auth/sessions.js";
-import type { TokenStore } from "../auth/tokens.js";
+import { normalizeScopes, type TokenStore } from "../auth/tokens.js";
 import type { User, UserStore } from "../auth/users.js";
 import type { PandocsServices, Principal } from "@pandocs/core";
 import { dataResponse, errorResponse } from "./responses.js";
@@ -16,7 +16,7 @@ const tokenInput = z
     name: z.string().trim().min(1).max(120),
     kind: z.enum(["user", "agent"]).default("user"),
     scopes: z
-      .array(z.enum(["read", "write"]))
+      .array(z.enum(["read", "write", "agent:direct"]))
       .min(1)
       .default(["read"]),
     expiresInDays: z.number().int().min(1).max(3650).optional()
@@ -115,7 +115,9 @@ export function registerAccountRoutes(
     if (!user) return response;
     const input = await body(c.req.raw, tokenInput);
     if (!input.ok) return input.response;
-    const scopes = input.value.scopes.includes("write") ? (["read", "write"] as const) : (["read"] as const);
+    const scopes = normalizeScopes(input.value.scopes);
+    if (!scopes || (input.value.kind !== "agent" && scopes.includes("agent:direct")))
+      return errorResponse(422, "INPUT_INVALID", t("Direct saving requires an agent token with write access"));
     return dataResponse(await tokens.create(user.id, { ...input.value, scopes }), 201);
   });
 

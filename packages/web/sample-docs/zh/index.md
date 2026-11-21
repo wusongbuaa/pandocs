@@ -27,7 +27,7 @@ features:
     link: ./collaboration/comments
     span: 4
   - title: 也为智能体而做
-    details: MCP、命令行、接口和 llms.txt。智能体能读、能评论、能提建议，保存由人决定，权限不超过它的主人。
+    details: MCP、命令行、接口和 llms.txt。智能体可以提出修改建议，也可以在开启直写的空间内，经委托人授权直接保存。
     icon: 🤖
     link: ./agents/connect
     span: 4

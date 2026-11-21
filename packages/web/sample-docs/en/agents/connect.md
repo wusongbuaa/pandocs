@@ -86,7 +86,7 @@ Read the Deploying page and compare it with the project's .env.example. If somet
 
 | | Read | Comment and suggest | Save directly |
 | --- | --- | --- | --- |
-| Agent token, or a client connected by signing in | What its person can | Yes | No |
+| Agent token or OAuth connection | What its owner can read | With write access | With a direct-save grant and edit access in an enabled space |
 | A person's token | What they can | Yes | If they have edit rights |
 
 A token marked read-only can only read. A person's own token acts as them, so give those only to tools you would let act as you.

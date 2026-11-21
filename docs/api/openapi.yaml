@@ -385,7 +385,7 @@ paths:
     post:
       tags: [account]
       operationId: createAccountToken
-      summary: 'Create a token. An agent token acts for you, but can only read, comment and propose. Only available when signed in on the website, as a token cannot make another token'
+      summary: 'Create a token. Agent tokens can suggest changes. Explicitly grant both write and agent:direct to save content in enabled spaces. Only available when signed in on the website, as a token cannot make another token'
       security: [{sessionCookie: []}]
       requestBody:
         required: true
@@ -397,7 +397,7 @@ paths:
               properties:
                 name: {type: string}
                 kind: {type: string, enum: [user, agent], default: user}
-                scopes: {type: array, items: {type: string, enum: [read, write]}, default: [read]}
+                scopes: {type: array, items: {type: string, enum: [read, write, "agent:direct"]}, default: [read]}
                 expiresInDays: {type: integer, minimum: 1, maximum: 3650}
       responses:
         '201': {$ref: '#/components/responses/Ok'}
@@ -1502,8 +1502,9 @@ components:
         days: {type: integer}
         totals:
           type: object
-          required: [people, agents, searches, emptySearches, questions, unanswered, helpfulAnswers, unhelpfulAnswers, helpful, unhelpful]
+          required: [people, agents, agentSaves, searches, emptySearches, questions, unanswered, helpfulAnswers, unhelpfulAnswers, helpful, unhelpful]
           properties:
+            agentSaves: {type: integer, description: Direct revisions saved by agents on visible pages in the selected period}
             people: {type: integer, description: Pages read in a browser}
             agents: {type: integer, description: 'Pages read by programs: tokens, the CLI, MCP, Markdown addresses and AI crawlers'}
             searches: {type: integer}
@@ -1880,6 +1881,7 @@ components:
       additionalProperties: false
       properties:
         requiredApprovals: {type: integer, minimum: 0, maximum: 10, description: 'How many people have to approve a change set, other than whoever wrote it'}
+        agentWrites: {type: string, enum: [suggest, direct], default: suggest, description: Explicitly authorized agents may save content in direct spaces unless change sets are required. Omitting this property on update preserves its value.}
         requireChangeSets: {type: boolean, description: 'Nobody saves, moves or deletes a page directly'}
     BulkImport:
       type: object
@@ -2083,7 +2085,7 @@ components:
         displayName: {type: string}
         kind: {type: string, enum: [user, agent]}
         isAdmin: {type: boolean}
-        scopes: {type: array, items: {type: string, enum: [read, write]}}
+        scopes: {type: array, items: {type: string, enum: [read, write, "agent:direct"]}}
     SearchHit:
       type: object
       required: [id, spaceSlug, path, title]

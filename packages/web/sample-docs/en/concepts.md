@@ -47,7 +47,7 @@ Permissions follow the identity and the role, not the channel. Whether someone c
 
 :::info[Agents can comment at most]
 
-Agents can read, comment and suggest, but never save by themselves: someone with edit rights decides. They also never read more than the person they work for.
+Agents can read, comment and suggest. A direct-save grant also lets them create pages and edit content in spaces that opt in, within their owner’s permissions.
 
 :::
 

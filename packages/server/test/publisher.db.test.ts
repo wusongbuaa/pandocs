@@ -337,13 +337,20 @@ describe("publishing spaces to a shared directory", () => {
         await save(page.id, "第二版\n", 1);
         await vi.waitFor(() => expect(read("跟着变.md")).toBe("第二版\n"), { timeout: 5000, interval: 20 });
         expect(Date.now() - saved).toBeLessThan(2000);
+        // Page files arrive before the manifest and CURRENT. Finish publishing this revision before sampling CURRENT.
+        await vi.waitFor(
+          () => expect(manifest().files).toContainEqual(expect.objectContaining({ path: "跟着变.md", revision: 2 })),
+          { timeout: 5000 }
+        );
+        await runner.settle();
         // Discussions never touch the files, and do not make it work for nothing.
         const stamp = statSync(at(".pandocs/CURRENT")).mtimeMs;
-        await admin.json("POST", `/api/v1/documents/${page.id}/threads`, {
+        const discussion = await admin.json("POST", `/api/v1/documents/${page.id}/threads`, {
           anchor: { kind: "document" },
           body: "看一下"
         });
-        await new Promise(done => setTimeout(done, 300));
+        expect(discussion.status).toBe(201);
+        await runner.settle();
         expect(statSync(at(".pandocs/CURRENT")).mtimeMs).toBe(stamp);
       } finally {
         listener.stop();

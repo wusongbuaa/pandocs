@@ -279,7 +279,7 @@ export class DocumentService {
       ).values()
     ];
     return this.context.db.transaction(async tx => {
-      await requireDocument(tx, principal, documentId, "editor", true);
+      await requireDocument(tx, principal, documentId, "content", true);
       await tx.query(`DELETE FROM pandocs.document_labels WHERE document_id = $1`, [documentId]);
       if (distinct.length > 0)
         await tx.query(`INSERT INTO pandocs.document_labels (document_id, label) SELECT $1, unnest($2::text[])`, [
@@ -393,14 +393,16 @@ export class DocumentService {
     }
   ): Promise<CommitResult> {
     const { db } = this.context;
-    const { space } = await requireSpace(db, principal, input.space, "editor");
-    if (input.slug !== undefined && reservedForFrontPage(input.slug, input.parentPath))
-      throw invalid("SLUG_INVALID", slugRule());
-    if (input.restricted && !canChangeSite(principal)) {
-      await requireSpace(db, principal, input.space, "admin");
-    }
-    assertDirectWrites(space);
-    return db.transaction(tx => this.createIn(tx, principal, space, input));
+    return db.transaction(async tx => {
+      const { space } = await requireSpace(tx, principal, input.space, "content");
+      if (input.slug !== undefined && reservedForFrontPage(input.slug, input.parentPath))
+        throw invalid("SLUG_INVALID", slugRule());
+      if (input.restricted && !canChangeSite(principal)) {
+        await requireSpace(tx, principal, input.space, "admin");
+      }
+      assertDirectWrites(space);
+      return this.createIn(tx, principal, space, input);
+    });
   }
 
   /** The new page and its first version, as part of a larger change. Whoever calls this has checked they may. */
@@ -437,6 +439,7 @@ export class DocumentService {
         [space.id, input.parentPath]
       );
       if (!rows[0]) throw notFound(t("Parent document"));
+      if (principal.kind === "agent") await requireDocument(tx, principal, rows[0].id, "content");
       parentId = rows[0].id;
       path = `${rows[0].path}/${slug}`;
     }
@@ -491,8 +494,13 @@ export class DocumentService {
     }
   ): Promise<CommitResult> {
     return this.context.db.transaction(async tx => {
-      const { document, space } = await requireDocument(tx, principal, documentId, "editor", true);
+      const { document, space } = await requireDocument(tx, principal, documentId, "content", true);
       assertDirectWrites(space);
+      if (
+        principal.kind === "agent" &&
+        (input.fromLiveDraft || (input.title !== undefined && input.title !== document.title))
+      )
+        throw forbidden();
       let markdown = input.markdown;
       let merged = false;
       if (document.currentRevisionNo !== input.expectedRevision) {
@@ -560,7 +568,7 @@ export class DocumentService {
     }
   ): Promise<CommitResult> {
     return this.context.db.transaction(async tx => {
-      const { document, space } = await requireDocument(tx, principal, documentId, "editor", true);
+      const { document, space } = await requireDocument(tx, principal, documentId, "content", true);
       assertDirectWrites(space);
       if (document.currentRevisionNo !== input.expectedRevision) throw revisionConflict(document.currentRevisionNo);
       const current = await loadRevision(tx, documentId, document.currentRevisionNo);

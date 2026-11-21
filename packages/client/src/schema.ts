@@ -743,7 +743,7 @@ export interface paths {
         /** My API tokens. A token itself is only given once, when created */
         get: operations["listAccountTokens"];
         put?: never;
-        /** Create a token. An agent token acts for you, but can only read, comment and propose. Only available when signed in on the website, as a token cannot make another token */
+        /** Create a token. Agent tokens can suggest changes. Explicitly grant both write and agent:direct to save content in enabled spaces. Only available when signed in on the website, as a token cannot make another token */
         post: operations["createAccountToken"];
         delete?: never;
         options?: never;
@@ -2480,6 +2480,8 @@ export interface components {
             collecting: boolean;
             days: number;
             totals: {
+                /** @description Direct revisions saved by agents on visible pages in the selected period */
+                agentSaves: number;
                 /** @description Pages read in a browser */
                 people: number;
                 /** @description Pages read by programs: tokens, the CLI, MCP, Markdown addresses and AI crawlers */
@@ -2906,6 +2908,12 @@ export interface components {
         MergeRules: {
             /** @description How many people have to approve a change set, other than whoever wrote it */
             requiredApprovals: number;
+            /**
+             * @description Explicitly authorized agents may save content in direct spaces unless change sets are required. Omitting this property on update preserves its value.
+             * @default suggest
+             * @enum {string}
+             */
+            agentWrites: "suggest" | "direct";
             /** @description Nobody saves, moves or deletes a page directly */
             requireChangeSets: boolean;
         };
@@ -3134,7 +3142,7 @@ export interface components {
             /** @enum {string} */
             kind: "user" | "agent";
             isAdmin: boolean;
-            scopes: ("read" | "write")[];
+            scopes: ("read" | "write" | "agent:direct")[];
         };
         SearchHit: {
             /** Format: uuid */
@@ -4314,7 +4322,7 @@ export interface operations {
                      *       "read"
                      *     ]
                      */
-                    scopes?: ("read" | "write")[];
+                    scopes?: ("read" | "write" | "agent:direct")[];
                     expiresInDays?: number;
                 };
             };

@@ -1,5 +1,9 @@
 /** Chinese for this package's text. Each key is the English in the code, exactly as written there. */
 export const zh: Readonly<Record<string, string>> = {
+  "Direct saving requires an agent token with write access": "直接保存需要有写入权限的智能体令牌",
+  "Create pages, edit their content and set labels in spaces that allow direct agent saves, wherever you have edit access":
+    "在允许智能体直接保存且你有编辑权限的空间中创建页面、编辑正文和设置标签",
+  'Disconnect this app at any time under "Account and tokens".': "你可以随时在“账户与令牌”中断开这个应用。",
   '"{0}" and {1} more pages were updated': "《{0}》和另外 {1} 个页面有更新",
   "## Page {0}\n\n{1}": "## 第 {0} 页\n\n{1}",
   "@someone": "@某人",

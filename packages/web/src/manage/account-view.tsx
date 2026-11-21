@@ -27,11 +27,20 @@ interface ApiToken {
 const KINDS = {
   "user-write": { label: t("Read and write as me"), body: { kind: "user", scopes: ["read", "write"] } },
   "user-read": { label: t("Read only, as me"), body: { kind: "user", scopes: ["read"] } },
+  "agent-direct": {
+    label: t("Agent with direct saving in enabled spaces"),
+    body: { kind: "agent", scopes: ["read", "write", "agent:direct"] }
+  },
   agent: { label: t("Agent (can only read, comment and suggest)"), body: { kind: "agent", scopes: ["read", "write"] } }
 } as const;
 
-const describeToken = (token: ApiToken) =>
-  token.kind === "agent" ? t("Agent") : token.scopes.includes("write") ? t("Read and write") : t("Read only");
+const describeToken = (token: Pick<ApiToken, "scopes" | "kind">) => {
+  if (!token.scopes.includes("write")) return t("Read only");
+  if (token.kind === "user") return t("Read and write");
+  return token.scopes.includes("agent:direct")
+    ? t("Agent with direct saving in enabled spaces")
+    : t("Read, comment and suggest");
+};
 
 function CreateTokenDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (token: string) => void }) {
   const [name, setName] = React.useState("");
@@ -103,7 +112,7 @@ function ConnectAgent() {
       <h2>{t("Connect an agent")}</h2>
       <p className="pd-muted">
         {t(
-          "Paste this into an MCP client's settings. It opens a page here for you to approve, then it can read, comment and suggest with your access. Saving stays with people."
+          "Connect your MCP client and review the permissions it requests. Direct saving needs your consent and a space that allows it."
         )}
       </p>
       <CopyableBlock text={mcpSettings()} label={t("MCP client settings")} />
@@ -237,13 +246,7 @@ function ConnectedApps() {
                       {connected.clientName}
                       <div className="pd-table__note">{t("Authorized {0}", relativeTime(connected.createdAt))}</div>
                     </td>
-                    <td>
-                      {!connected.scopes.includes("write")
-                        ? t("Read only")
-                        : connected.kind === "user"
-                          ? t("Read and write")
-                          : t("Read, comment and suggest")}
-                    </td>
+                    <td>{describeToken(connected)}</td>
                     <td>{relativeTime(connected.lastUsedAt)}</td>
                     <td className="pd-table__actions">
                       <Button variant="outline" size="sm" onClick={() => void disconnect(connected)}>

@@ -2,7 +2,7 @@
 title: For agents
 ---
 
-An agent can read, comment and suggest, but it can never save by itself: someone with edit rights decides. It also never sees more than the person it works for.
+Agents can read, comment and suggest. A direct-save grant also lets them create pages and edit content in spaces that opt in, within their owner’s permissions.
 
 Which way to connect mostly depends on where the agent runs:
 

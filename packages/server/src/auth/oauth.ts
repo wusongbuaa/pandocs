@@ -1,7 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type pg from "pg";
 import { hashToken } from "./sessions.js";
-import type { TokenScope, TokenStore } from "./tokens.js";
+import { normalizeScopes, type TokenScope, type TokenStore } from "./tokens.js";
 
 const CODE_TTL_SECONDS = 120;
 export const ACCESS_TTL_SECONDS = 60 * 60;
@@ -88,8 +88,7 @@ export function matchesRedirect(registered: readonly string[], uri: string): boo
 
 export const scopesFrom = (scope: string | null | undefined): TokenScope[] | null => {
   const asked = (scope ?? "read write").split(/\s+/u).filter(Boolean);
-  if (asked.some(item => item !== "read" && item !== "write")) return null;
-  return asked.includes("write") ? ["read", "write"] : ["read"];
+  return normalizeScopes(asked);
 };
 
 const verifierMatches = (verifier: string, challenge: string) => {

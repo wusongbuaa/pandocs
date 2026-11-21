@@ -114,6 +114,7 @@ export interface TreeEntry {
 export interface MergeRules {
   readonly requiredApprovals: number;
   readonly requireChangeSets: boolean;
+  readonly agentWrites?: "suggest" | "direct";
 }
 
 export interface ChangeSetSummary {

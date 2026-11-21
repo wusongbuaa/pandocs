@@ -671,7 +671,11 @@ const routes: readonly Route[] = [
           defaultRole: z.enum(["none", "viewer", "commenter", "editor", "admin"]).optional(),
           publicRead: z.boolean().optional(),
           mergeRules: z
-            .object({ requiredApprovals: z.number().int().min(0).max(10), requireChangeSets: z.boolean() })
+            .object({
+              requiredApprovals: z.number().int().min(0).max(10),
+              requireChangeSets: z.boolean(),
+              agentWrites: z.enum(["suggest", "direct"]).optional()
+            })
             .strict()
             .optional(),
           glossary: z

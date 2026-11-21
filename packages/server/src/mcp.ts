@@ -17,7 +17,7 @@ import { errorResponse } from "./api/responses.js";
 
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 
-/** Agents may read, discuss and propose. Everything else needs a person, so it is not even listed. */
+/** Standard agent grants allow discussion and suggestions. Direct grants add content tools only. */
 const AGENT_WRITE_TOOLS = new Set([
   "thread_create",
   "thread_reply",
@@ -28,14 +28,20 @@ const AGENT_WRITE_TOOLS = new Set([
   "change_set_add_page",
   "change_set_remove_page"
 ]);
+const AGENT_CONTENT_TOOLS = new Set(["doc_create", "doc_update", "doc_labels"]);
 const AGENT_HIDDEN_READ_TOOLS = new Set(["doc_trash", "inbox", "import_get", "doc_templates"]);
 
 export function toolsFor(principal: Principal): readonly PandocsTool[] {
   if (principal.anonymous) return pandocsTools.filter(tool => PUBLIC_TOOL_NAMES.has(tool.name));
-  if (principal.kind === "agent")
+  if (principal.kind === "agent") {
+    const write = principal.scopes.includes("write");
+    const direct = write && principal.scopes.includes("agent:direct");
     return pandocsTools.filter(tool =>
-      tool.access === "read" ? !AGENT_HIDDEN_READ_TOOLS.has(tool.name) : AGENT_WRITE_TOOLS.has(tool.name)
+      tool.access === "read"
+        ? !AGENT_HIDDEN_READ_TOOLS.has(tool.name)
+        : (write && AGENT_WRITE_TOOLS.has(tool.name)) || (direct && AGENT_CONTENT_TOOLS.has(tool.name))
     );
+  }
   return principal.scopes.includes("write") ? pandocsTools : pandocsTools.filter(tool => tool.access === "read");
 }
 

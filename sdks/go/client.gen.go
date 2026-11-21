@@ -352,16 +352,37 @@ func (e MeKind) Valid() bool {
 
 // Defines values for MeScopes.
 const (
-	MeScopesRead  MeScopes = "read"
-	MeScopesWrite MeScopes = "write"
+	MeScopesAgentDirect MeScopes = "agent:direct"
+	MeScopesRead        MeScopes = "read"
+	MeScopesWrite       MeScopes = "write"
 )
 
 // Valid indicates whether the value is a known member of the MeScopes enum.
 func (e MeScopes) Valid() bool {
 	switch e {
+	case MeScopesAgentDirect:
+		return true
 	case MeScopesRead:
 		return true
 	case MeScopesWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MergeRulesAgentWrites.
+const (
+	Direct  MergeRulesAgentWrites = "direct"
+	Suggest MergeRulesAgentWrites = "suggest"
+)
+
+// Valid indicates whether the value is a known member of the MergeRulesAgentWrites enum.
+func (e MergeRulesAgentWrites) Valid() bool {
+	switch e {
+	case Direct:
+		return true
+	case Suggest:
 		return true
 	default:
 		return false
@@ -850,13 +871,16 @@ func (e CreateAccountTokenJSONBodyKind) Valid() bool {
 
 // Defines values for CreateAccountTokenJSONBodyScopes.
 const (
-	CreateAccountTokenJSONBodyScopesRead  CreateAccountTokenJSONBodyScopes = "read"
-	CreateAccountTokenJSONBodyScopesWrite CreateAccountTokenJSONBodyScopes = "write"
+	CreateAccountTokenJSONBodyScopesAgentDirect CreateAccountTokenJSONBodyScopes = "agent:direct"
+	CreateAccountTokenJSONBodyScopesRead        CreateAccountTokenJSONBodyScopes = "read"
+	CreateAccountTokenJSONBodyScopesWrite       CreateAccountTokenJSONBodyScopes = "write"
 )
 
 // Valid indicates whether the value is a known member of the CreateAccountTokenJSONBodyScopes enum.
 func (e CreateAccountTokenJSONBodyScopes) Valid() bool {
 	switch e {
+	case CreateAccountTokenJSONBodyScopesAgentDirect:
+		return true
 	case CreateAccountTokenJSONBodyScopesRead:
 		return true
 	case CreateAccountTokenJSONBodyScopesWrite:
@@ -3389,6 +3413,9 @@ type Insights struct {
 	} `json:"questions"`
 	Searches []SearchTerm `json:"searches"`
 	Totals   struct {
+		// AgentSaves Direct revisions saved by agents on visible pages in the selected period
+		AgentSaves int `json:"agentSaves"`
+
 		// Agents Pages read by programs: tokens, the CLI, MCP, Markdown addresses and AI crawlers
 		Agents int `json:"agents"`
 
@@ -3487,12 +3514,18 @@ type Mentions = []struct {
 
 // MergeRules defines model for MergeRules.
 type MergeRules struct {
+	// AgentWrites Explicitly authorized agents may save content in direct spaces unless change sets are required. Omitting this property on update preserves its value.
+	AgentWrites *MergeRulesAgentWrites `json:"agentWrites,omitempty"`
+
 	// RequireChangeSets Nobody saves, moves or deletes a page directly
 	RequireChangeSets bool `json:"requireChangeSets"`
 
 	// RequiredApprovals How many people have to approve a change set, other than whoever wrote it
 	RequiredApprovals int `json:"requiredApprovals"`
 }
+
+// MergeRulesAgentWrites Explicitly authorized agents may save content in direct spaces unless change sets are required. Omitting this property on update preserves its value.
+type MergeRulesAgentWrites string
 
 // PageFeedback defines model for PageFeedback.
 type PageFeedback struct {
@@ -5589,14 +5622,14 @@ type ClientInterface interface {
 	// Corresponds with GET /account/tokens (the `ListAccountTokens` operationId).
 	ListAccountTokens(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateAccountTokenWithBody Create a token. An agent token acts for you, but can only read, comment and propose. Only available when signed in on the website, as a token cannot make another token
+	// CreateAccountTokenWithBody Create a token. Agent tokens can suggest changes. Explicitly grant both write and agent:direct to save content in enabled spaces. Only available when signed in on the website, as a token cannot make another token
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /account/tokens (the `CreateAccountToken` operationId).
 	CreateAccountTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateAccountToken Create a token. An agent token acts for you, but can only read, comment and propose. Only available when signed in on the website, as a token cannot make another token
+	// CreateAccountToken Create a token. Agent tokens can suggest changes. Explicitly grant both write and agent:direct to save content in enabled spaces. Only available when signed in on the website, as a token cannot make another token
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -6899,7 +6932,7 @@ func (c *Client) ListAccountTokens(ctx context.Context, reqEditors ...RequestEdi
 	return c.Client.Do(req)
 }
 
-// CreateAccountTokenWithBody Create a token. An agent token acts for you, but can only read, comment and propose. Only available when signed in on the website, as a token cannot make another token
+// CreateAccountTokenWithBody Create a token. Agent tokens can suggest changes. Explicitly grant both write and agent:direct to save content in enabled spaces. Only available when signed in on the website, as a token cannot make another token
 //
 // Takes any type of body and a specified content type.
 //
@@ -6916,7 +6949,7 @@ func (c *Client) CreateAccountTokenWithBody(ctx context.Context, contentType str
 	return c.Client.Do(req)
 }
 
-// CreateAccountToken Create a token. An agent token acts for you, but can only read, comment and propose. Only available when signed in on the website, as a token cannot make another token
+// CreateAccountToken Create a token. Agent tokens can suggest changes. Explicitly grant both write and agent:direct to save content in enabled spaces. Only available when signed in on the website, as a token cannot make another token
 //
 // Takes a body of the `application/json` content type.
 //
@@ -17617,14 +17650,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /account/tokens (the `ListAccountTokens` operationId).
 	ListAccountTokensWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListAccountTokensResponse, error)
 
-	// CreateAccountTokenWithBodyWithResponse Create a token. An agent token acts for you, but can only read, comment and propose. Only available when signed in on the website, as a token cannot make another token
+	// CreateAccountTokenWithBodyWithResponse Create a token. Agent tokens can suggest changes. Explicitly grant both write and agent:direct to save content in enabled spaces. Only available when signed in on the website, as a token cannot make another token
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /account/tokens (the `CreateAccountToken` operationId).
 	CreateAccountTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAccountTokenResponse, error)
 
-	// CreateAccountTokenWithResponse Create a token. An agent token acts for you, but can only read, comment and propose. Only available when signed in on the website, as a token cannot make another token
+	// CreateAccountTokenWithResponse Create a token. Agent tokens can suggest changes. Explicitly grant both write and agent:direct to save content in enabled spaces. Only available when signed in on the website, as a token cannot make another token
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -27668,7 +27701,7 @@ func (c *ClientWithResponses) ListAccountTokensWithResponse(ctx context.Context,
 	return ParseListAccountTokensResponse(rsp)
 }
 
-// CreateAccountTokenWithBodyWithResponse Create a token. An agent token acts for you, but can only read, comment and propose. Only available when signed in on the website, as a token cannot make another token
+// CreateAccountTokenWithBodyWithResponse Create a token. Agent tokens can suggest changes. Explicitly grant both write and agent:direct to save content in enabled spaces. Only available when signed in on the website, as a token cannot make another token
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -27681,7 +27714,7 @@ func (c *ClientWithResponses) CreateAccountTokenWithBodyWithResponse(ctx context
 	return ParseCreateAccountTokenResponse(rsp)
 }
 
-// CreateAccountTokenWithResponse Create a token. An agent token acts for you, but can only read, comment and propose. Only available when signed in on the website, as a token cannot make another token
+// CreateAccountTokenWithResponse Create a token. Agent tokens can suggest changes. Explicitly grant both write and agent:direct to save content in enabled spaces. Only available when signed in on the website, as a token cannot make another token
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //

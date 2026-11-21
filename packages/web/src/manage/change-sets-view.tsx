@@ -542,13 +542,20 @@ export function ChangeSetsView({ space }: { space: Space }) {
 /** What it takes for changes to land here. Only those who run the space decide that. */
 export function MergeRulesSection({ space }: { space: Space }) {
   const [approvals, setApprovals] = React.useState(space.mergeRules?.requiredApprovals ?? 0);
+  const [direct, setDirect] = React.useState(space.mergeRules?.agentWrites === "direct");
   const [required, setRequired] = React.useState(space.mergeRules?.requireChangeSets ?? false);
   const [busy, setBusy] = React.useState(false);
   const save = async () => {
     setBusy(true);
     try {
       await api.send("PATCH", `spaces/${space.slug}`, {
-        body: { mergeRules: { requiredApprovals: approvals, requireChangeSets: required } }
+        body: {
+          mergeRules: {
+            requiredApprovals: approvals,
+            requireChangeSets: required,
+            agentWrites: direct ? "direct" : "suggest"
+          }
+        }
       });
       location.reload();
     } catch (error) {
@@ -557,6 +564,7 @@ export function MergeRulesSection({ space }: { space: Space }) {
     }
   };
   const unchanged =
+    direct === (space.mergeRules?.agentWrites === "direct") &&
     approvals === (space.mergeRules?.requiredApprovals ?? 0) &&
     required === (space.mergeRules?.requireChangeSets ?? false);
   return (
@@ -579,6 +587,18 @@ export function MergeRulesSection({ space }: { space: Space }) {
         )}
         checked={required}
         onChange={setRequired}
+      />
+      <SwitchField
+        label={t("Allow agents to save page content directly")}
+        description={
+          required
+            ? t("Required change sets take precedence. Agents can suggest changes here.")
+            : t(
+                "Agents need a direct-save grant and their owner's edit access. People manage the space and merge change sets."
+              )
+        }
+        checked={direct}
+        onChange={setDirect}
       />
       <div>
         <Button disabled={busy || unchanged} onClick={() => void save()}>
