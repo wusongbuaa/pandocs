@@ -167,6 +167,12 @@ export class StatsService {
     // A space's own words, or everyone's for the site as a whole.
     const inScope = space ?? null;
 
+    const { rows: saves } = await db.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM pandocs.revisions WHERE actor_kind = 'agent'
+       AND proposal_id IS NULL AND change_set_id IS NULL AND ingest_job_id IS NULL
+       AND created_at >= $1 AND document_id = ANY($2::uuid[]) AND $3::boolean`,
+      [since, ids, !this.off]
+    );
     const { rows: views } = await db.query<{ document_id: string; audience: Audience; views: string }>(
       `SELECT document_id, audience, sum(views) AS views FROM pandocs.page_views WHERE day >= $1 AND document_id = ANY($2::uuid[]) GROUP BY 1, 2`,
       [since, ids]
@@ -238,6 +244,7 @@ export class StatsService {
       collecting: !this.off,
       days,
       totals: {
+        agentSaves: saves[0]!.count,
         people: listedPages.reduce((sum, row) => sum + row.people, 0),
         agents: listedPages.reduce((sum, row) => sum + row.agents, 0),
         searches: allTerms.reduce((sum, row) => sum + total(row), 0),

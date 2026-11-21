@@ -1,3 +1,4 @@
+import type { Scope } from "@pandocs/core";
 import { t } from "@pandocs/i18n";
 import { signInPage, type SiteLook } from "./login-page.js";
 
@@ -9,7 +10,7 @@ export interface ConsentPageInput {
   readonly asPerson?: boolean | undefined;
   readonly redirectUri: string;
   readonly userName: string;
-  readonly scopes: readonly ("read" | "write")[];
+  readonly scopes: readonly Scope[];
   readonly fields: Readonly<Record<string, string>>;
   readonly look?: SiteLook | undefined;
 }
@@ -27,7 +28,18 @@ export function renderConsentPage(input: ConsentPageInput): { html: string; csp:
   const writing = input.asPerson
     ? t("Save, publish and delete as you, wherever you can")
     : t("Comment and suggest changes, for someone with edit access to review");
-  const abilities = [t("Read the documents you can see"), ...(input.scopes.includes("write") ? [writing] : [])]
+  const direct = input.scopes.includes("agent:direct");
+  const abilities = [
+    t("Read the documents you can see"),
+    ...(input.scopes.includes("write") ? [writing] : []),
+    ...(direct
+      ? [
+          t(
+            "Create pages, edit their content and set labels in spaces that allow direct agent saves, wherever you have edit access"
+          )
+        ]
+      : [])
+  ]
     .map(item => `<li>${escapeHtml(item)}</li>`)
     .join("");
   const about = input.asPerson
@@ -36,7 +48,7 @@ export function renderConsentPage(input: ConsentPageInput): { html: string; csp:
 <p class="pd-sign-in__text">${t('Authorize it only if you just ran pandocs login yourself. Sign it out at any time under "Account and tokens".')}</p>`
     : `<p class="pd-sign-in__text">${t("{0}, this app wants to connect to your account as an agent:", escapeHtml(input.userName))}</p>
 <ul class="pd-sign-in__list">${abilities}</ul>
-<p class="pd-sign-in__text">${t('It cannot change documents directly, and can never do more than you can. Disconnect it at any time under "Account and tokens".')}</p>`;
+<p class="pd-sign-in__text">${direct ? t('Disconnect this app at any time under "Account and tokens".') : t('It cannot change documents directly, and can never do more than you can. Disconnect it at any time under "Account and tokens".')}</p>`;
   const html = signInPage(
     t("Authorize an app"),
     `<h1 class="pd-sign-in__title">${t("Authorize {0}", escapeHtml(input.clientName))}</h1>

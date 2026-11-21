@@ -1,4 +1,4 @@
-import type { MemberRecord, Principal, Role, SpaceDefaultRole } from "./types.js";
+import type { MemberRecord, MergeRules, Principal, Role, SpaceDefaultRole } from "./types.js";
 
 const RANK: Readonly<Record<SpaceDefaultRole, number>> = { none: 0, viewer: 1, commenter: 2, editor: 3, admin: 4 };
 
@@ -53,7 +53,7 @@ export function spaceRoleOf(
   principal: Principal,
   context: Pick<AccessContext, "defaultRole" | "publicRead" | "spaceMembers">
 ): SpaceDefaultRole {
-  // An agent working for an administrator sees what they see; `capRole` still keeps it to comments and proposals.
+  // An agent working for an administrator can read the same restricted pages.
   const siteAdmin = principal.isAdmin || (principal.kind === "agent" && principal.onBehalfOf?.isAdmin === true);
   if (siteAdmin) return "admin";
   const subjects = subjectsOf(principal);
@@ -64,7 +64,12 @@ export function spaceRoleOf(
   ]);
 }
 
-export function effectiveRole(principal: Principal, context: AccessContext): SpaceDefaultRole {
+/** Pass contentRules only for creating pages, editing their content, or managing labels. */
+export function effectiveRole(
+  principal: Principal,
+  context: AccessContext,
+  contentRules?: MergeRules
+): SpaceDefaultRole {
   const subjects = subjectsOf(principal);
   const spaceRole = spaceRoleOf(principal, context);
   const role =
@@ -73,6 +78,17 @@ export function effectiveRole(principal: Principal, context: AccessContext): Spa
           (context.documentMembers ?? []).filter(member => subjects.has(member.subject)).map(member => member.role)
         )
       : spaceRole;
+  if (
+    principal.kind === "agent" &&
+    principal.onBehalfOf &&
+    principal.scopes.includes("write") &&
+    principal.scopes.includes("agent:direct") &&
+    contentRules?.agentWrites === "direct" &&
+    !contentRules.requireChangeSets &&
+    atLeast(spaceRole, "editor") &&
+    atLeast(role, "editor")
+  )
+    return "editor";
   return capRole(principal, role);
 }
 

@@ -62,7 +62,12 @@ export function mapSpace(row: Record<string, unknown>): SpaceRecord {
     defaultRole: row.default_role as SpaceDefaultRole,
     publicRead: row.public_read === true,
     glossary: (row.glossary ?? []) as GlossaryEntry[],
-    mergeRules: { requiredApprovals: 0, requireChangeSets: false, ...((row.merge_rules ?? {}) as Partial<MergeRules>) }
+    mergeRules: {
+      agentWrites: "suggest",
+      requiredApprovals: 0,
+      requireChangeSets: false,
+      ...((row.merge_rules ?? {}) as Partial<MergeRules>)
+    }
   };
 }
 
@@ -126,14 +131,21 @@ export interface SpaceAccess {
   readonly members: readonly MemberRecord[];
 }
 
+/** "content" checks editor access for a content operation and grants no other editor capabilities. */
+type AccessRequirement = Role | "content";
+
 /** Anything a principal may not see answers 404, so existence never leaks. */
 export async function requireSpace(
   db: Queryable,
   principal: Principal,
   slug: string,
-  required: Role = "viewer"
+  required: AccessRequirement = "viewer"
 ): Promise<SpaceAccess> {
-  const { rows } = await db.query(`SELECT * FROM pandocs.spaces WHERE slug = $1 AND deleted_at IS NULL`, [slug]);
+  const lockPolicy = required === "content" && principal.kind === "agent";
+  const { rows } = await db.query(
+    `SELECT * FROM pandocs.spaces WHERE slug = $1 AND deleted_at IS NULL ${lockPolicy ? "FOR SHARE" : ""}`,
+    [slug]
+  );
   if (!rows[0]) throw notFound(t("Space"));
   const space = mapSpace(rows[0]);
   const members = await spaceMembers(db, space.id);
@@ -142,13 +154,17 @@ export async function requireSpace(
     if (required !== "viewer") throw forbidden();
     return { space, role: "viewer", members };
   }
-  const role = effectiveRole(principal, {
-    defaultRole: space.defaultRole,
-    publicRead: space.publicRead,
-    spaceMembers: members
-  });
+  const role = effectiveRole(
+    principal,
+    {
+      defaultRole: space.defaultRole,
+      publicRead: space.publicRead,
+      spaceMembers: members
+    },
+    required === "content" ? space.mergeRules : undefined
+  );
   if (!atLeast(role, "viewer")) throw notFound(t("Space"));
-  if (!atLeast(role, required)) throw forbidden();
+  if (!atLeast(role, required === "content" ? "editor" : required)) throw forbidden();
   return { space, role, members };
 }
 
@@ -162,7 +178,7 @@ export async function requireDocument(
   db: Queryable,
   principal: Principal,
   documentId: string,
-  required: Role = "viewer",
+  required: AccessRequirement = "viewer",
   lock = false
 ): Promise<DocumentAccess> {
   if (!UUID.test(documentId)) throw notFound(t("Document"));
@@ -172,9 +188,11 @@ export async function requireDocument(
   );
   if (!rows[0]) throw notFound(t("Document"));
   const document = mapDocument(rows[0]);
-  const { rows: spaceRows } = await db.query(`SELECT * FROM pandocs.spaces WHERE id = $1 AND deleted_at IS NULL`, [
-    document.spaceId
-  ]);
+  const lockPolicy = required === "content" && principal.kind === "agent";
+  const { rows: spaceRows } = await db.query(
+    `SELECT * FROM pandocs.spaces WHERE id = $1 AND deleted_at IS NULL ${lockPolicy ? "FOR SHARE" : ""}`,
+    [document.spaceId]
+  );
   if (!spaceRows[0]) throw notFound(t("Document"));
   const space = mapSpace(spaceRows[0]);
   if (principal.shared) {
@@ -182,17 +200,21 @@ export async function requireDocument(
     if (required !== "viewer") throw forbidden();
     return { document, space, role: "viewer" };
   }
-  const role = effectiveRole(principal, {
-    defaultRole: space.defaultRole,
-    publicRead: space.publicRead,
-    spaceMembers: await spaceMembers(db, space.id),
-    restricted: document.restricted,
-    documentMembers: document.restricted ? await documentMembers(db, document.id) : []
-  });
+  const role = effectiveRole(
+    principal,
+    {
+      defaultRole: space.defaultRole,
+      publicRead: space.publicRead,
+      spaceMembers: await spaceMembers(db, space.id),
+      restricted: document.restricted,
+      documentMembers: document.restricted ? await documentMembers(db, document.id) : []
+    },
+    required === "content" ? space.mergeRules : undefined
+  );
   if (!atLeast(role, "viewer")) throw notFound(t("Document"));
-  if (!atLeast(role, required))
+  if (!atLeast(role, required === "content" ? "editor" : required))
     throw forbidden(
-      required === "editor" && principal.kind === "agent"
+      (required === "content" || required === "editor") && principal.kind === "agent"
         ? t("Agents cannot change documents directly. Create a proposal instead.")
         : undefined
     );

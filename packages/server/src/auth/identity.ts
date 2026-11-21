@@ -44,7 +44,7 @@ export const userPrincipal = (user: User, scopes: readonly Scope[], channel: Cha
   channel
 });
 
-/** An agent token reads what its owner can read and never gets more than comment and propose rights. */
+/** An agent token reads as its owner and carries only the scopes they authorized. */
 function agentPrincipal(user: User, token: ApiToken): Principal {
   return {
     id: `agent:${token.id}`,

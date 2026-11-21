@@ -56,6 +56,12 @@ describe("the MCP endpoint", () => {
     expect(readOnly).toContain("doc_get");
     expect(readOnly).not.toContain("doc_update");
     const agent = await names(await tokenFor({ name: "助手", kind: "agent", scopes: ["read", "write"] }));
+    const direct = await names(
+      await tokenFor({ name: "Memory writer", kind: "agent", scopes: ["write", "agent:direct"] })
+    );
+    expect(direct).toEqual(expect.arrayContaining(["doc_create", "doc_update", "doc_labels"]));
+    for (const name of ["doc_delete", "doc_move", "change_set_merge", "proposal_decide"])
+      expect(direct).not.toContain(name);
     expect(agent).toContain("proposal_create");
     expect(agent).toContain("doc_report");
     expect(agent).not.toContain("doc_update");

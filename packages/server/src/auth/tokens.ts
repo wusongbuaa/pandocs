@@ -1,3 +1,4 @@
+import type { Scope } from "@pandocs/core";
 import type pg from "pg";
 import { hashToken, newToken } from "./sessions.js";
 import { mapUser, type User } from "./users.js";
@@ -5,7 +6,13 @@ import { mapUser, type User } from "./users.js";
 export const TOKEN_PREFIX = "pd_";
 const LAST_USED_RESOLUTION_MS = 60_000;
 
-export type TokenScope = "read" | "write";
+export type TokenScope = Scope;
+
+export function normalizeScopes(asked: readonly string[]): TokenScope[] | null {
+  if (asked.some(scope => scope !== "read" && scope !== "write" && scope !== "agent:direct")) return null;
+  if (asked.includes("agent:direct")) return asked.includes("write") ? ["read", "write", "agent:direct"] : null;
+  return asked.includes("write") ? ["read", "write"] : ["read"];
+}
 export type TokenKind = "user" | "agent";
 
 export interface ApiToken {

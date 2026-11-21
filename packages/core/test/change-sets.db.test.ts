@@ -409,12 +409,16 @@ describe("change sets", () => {
           })
         ).status
       ).toBe(422);
-      expect((await rules(2, true)).data.mergeRules).toEqual({ requiredApprovals: 2, requireChangeSets: true });
+      expect((await rules(2, true)).data.mergeRules).toEqual({
+        requiredApprovals: 2,
+        requireChangeSets: true,
+        agentWrites: "suggest"
+      });
       expect(
         (await h.call(USERS.reader, "GET", "bootstrap")).data.spaces.find(
           (item: { slug: string }) => item.slug === space
         )?.mergeRules ?? (await h.call(USERS.admin, "GET", `spaces/${space}`)).data.mergeRules
-      ).toEqual({ requiredApprovals: 2, requireChangeSets: true });
+      ).toEqual({ requiredApprovals: 2, requireChangeSets: true, agentWrites: "suggest" });
       const { data: audit } = await h.call(USERS.admin, "GET", `spaces/${space}/audit`);
       expect(audit.items?.[0]?.action ?? audit[0]?.action).toBe("space.merge_rules");
     });

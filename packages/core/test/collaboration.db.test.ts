@@ -1,3 +1,4 @@
+import type { Principal } from "@pandocs/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { usePostgresFixture } from "./postgres.js";
 import { createHarness, resetPandocs, USERS } from "./support.js";
@@ -660,6 +661,75 @@ describe("threads, proposals and agents", () => {
   });
 
   describe("agents", () => {
+    it("grants direct content saves for a space, a credential and its owner together", async () => {
+      const space = "memory-policy";
+      const directAgent = { ...USERS.agent, scopes: ["read", "write", "agent:direct"] as const };
+      const page = { title: "Release notes", markdown: "One" };
+      const rules = { agentWrites: "direct" as const, requiredApprovals: 0, requireChangeSets: false };
+      const services = h.services;
+      await services.spaces.create(USERS.admin, { slug: space, name: "Project memory" });
+      await services.spaces.update(USERS.admin, space, { mergeRules: rules });
+      await services.spaces.setMember(USERS.admin, space, `user:${USERS.editor.id}`, "editor");
+      await services.subscriptions.followSpace(USERS.admin, space, true);
+      const create = (as: Principal) => services.documents.create(as, { space, ...page });
+      await expect(create(USERS.agent)).rejects.toMatchObject({ status: 403 });
+      await expect(create({ ...directAgent, scopes: ["read"] })).rejects.toMatchObject({ status: 403 });
+      for (const role of ["viewer", "commenter"] as const) {
+        await services.spaces.setMember(USERS.admin, space, `user:${USERS.reader.id}`, role);
+        await expect(create({ ...directAgent, onBehalfOf: { id: USERS.reader.id, groups: [] } })).rejects.toMatchObject(
+          { status: 403 }
+        );
+      }
+      const { document, revision } = await create(directAgent);
+      expect(revision).toMatchObject({ no: 1, actorKind: "agent", onBehalfOf: USERS.editor.id });
+      const edit = (as: Principal, id = document.id) =>
+        services.documents.applyOps(as, id, {
+          expectedRevision: 1,
+          ops: [{ op: "str_replace", pattern: "One", content: "Two" }]
+        });
+      expect((await edit(directAgent)).revision.no).toBe(2);
+      expect(await services.documents.setLabels(directAgent, document.id, ["memory/project"])).toEqual([
+        "memory/project"
+      ]);
+      expect((await services.stats.insights(USERS.admin, { space, days: 7 })).totals.agentSaves).toBe(2);
+      expect(
+        (
+          await h.pool.query(
+            "SELECT actor_name FROM pandocs.notifications WHERE document_id = $1 AND recipient_id = $2",
+            [document.id, USERS.admin.id]
+          )
+        ).rows
+      ).toEqual([{ actor_name: directAgent.displayName }]);
+      expect(
+        (await services.documents.rollback(USERS.admin, document.id, { expectedRevision: 2, to: 1 })).revision.no
+      ).toBe(3);
+
+      const restricted = (
+        await services.documents.create(USERS.admin, { space, ...page, title: "Private", restricted: true })
+      ).document;
+      await expect(edit(directAgent, restricted.id)).rejects.toMatchObject({ status: 404 });
+      await services.documents.setDocumentMember(USERS.admin, restricted.id, `user:${USERS.editor.id}`, "viewer");
+      await expect(edit(directAgent, restricted.id)).rejects.toMatchObject({ status: 403 });
+      await services.documents.setDocumentMember(USERS.admin, restricted.id, `user:${USERS.editor.id}`, "editor");
+      expect((await edit(directAgent, restricted.id)).revision.no).toBe(2);
+
+      const adminAgent = { ...directAgent, onBehalfOf: { id: USERS.admin.id, groups: [], isAdmin: true } };
+      await expect(services.spaces.update(adminAgent, space, { publicRead: true })).rejects.toMatchObject({
+        status: 403
+      });
+      await expect(services.spaces.setMember(adminAgent, space, "everyone", "editor")).rejects.toMatchObject({
+        status: 403
+      });
+      await expect(services.tree.remove(adminAgent, document.id, {})).rejects.toMatchObject({ status: 403 });
+      const set = await services.changeSets.create(adminAgent, space, { title: "Review" });
+      await expect(services.changeSets.merge(adminAgent, set.id)).rejects.toMatchObject({ status: 403 });
+      await services.spaces.update(USERS.admin, space, {
+        mergeRules: { requiredApprovals: 0, requireChangeSets: true }
+      });
+      expect((await services.spaces.get(USERS.admin, space)).mergeRules.agentWrites).toBe("direct");
+      await expect(create(directAgent)).rejects.toMatchObject({ status: 403 });
+      await expect(services.documents.setLabels(directAgent, document.id, [])).rejects.toMatchObject({ status: 403 });
+    });
     it("can read as the person they act for, comment and propose, but never edit directly", async () => {
       const id = await createDoc("Agent 权限");
       const read = await h.call(USERS.agent, "GET", `documents/${id}`);

@@ -587,6 +587,8 @@ CREATE INDEX IF NOT EXISTS bulk_imports_space_idx ON pandocs.bulk_imports (space
 
 -- What it takes for changes to land in a space: `requiredApprovals` and `requireChangeSets`.
 ALTER TABLE pandocs.spaces ADD COLUMN IF NOT EXISTS merge_rules jsonb NOT NULL DEFAULT '{}';
+ALTER TABLE pandocs.spaces ALTER COLUMN merge_rules SET DEFAULT '{"agentWrites":"suggest"}';
+UPDATE pandocs.spaces SET merge_rules = merge_rules || '{"agentWrites":"suggest"}'::jsonb WHERE NOT merge_rules ? 'agentWrites';
 
 -- Changes to several pages, decided together, that land together or not at all.
 CREATE TABLE IF NOT EXISTS pandocs.change_sets (

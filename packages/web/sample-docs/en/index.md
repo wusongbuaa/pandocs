@@ -27,7 +27,7 @@ features:
     link: ./collaboration/comments
     span: 4
   - title: Made for agents too
-    details: MCP, a command line, an API and llms.txt. Agents read, comment and propose while a person decides, and never get more than their owner.
+    details: MCP, a command line, an API and llms.txt. Agents suggest edits or save directly in enabled spaces with their owner’s permission.
     icon: 🤖
     link: ./agents/connect
     span: 4

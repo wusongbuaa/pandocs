@@ -23,6 +23,7 @@ interface SearchTerm {
 interface Insights {
   readonly collecting: boolean;
   readonly totals: {
+    readonly agentSaves: number;
     readonly people: number;
     readonly agents: number;
     readonly searches: number;
@@ -308,6 +309,7 @@ export function InsightsView({ space }: { space?: Space }) {
               </p>
             )}
             <div className="pd-insights">
+              <Number_ label={t("Direct saves by agents")} value={data.totals.agentSaves} />
               <Number_ label={t("Read by people")} value={data.totals.people} />
               <Number_ label={t("Read by agents and tools")} value={data.totals.agents} />
               <Number_

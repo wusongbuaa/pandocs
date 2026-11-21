@@ -1,5 +1,14 @@
 /** Chinese for this package's text. Each key is the English in the code, exactly as written there. */
 export const zh: Readonly<Record<string, string>> = {
+  "Agent with direct saving in enabled spaces": "智能体（可在已开启的空间直接保存）",
+  "Allow agents to save page content directly": "允许智能体直接保存页面内容",
+  "Required change sets take precedence. Agents can suggest changes here.":
+    "此空间要求使用变更集，智能体可以提出修改建议。",
+  "Agents need a direct-save grant and their owner's edit access. People manage the space and merge change sets.":
+    "智能体需要直接保存授权，且委托人必须有编辑权限。空间管理和合并变更集由人操作。",
+  "Direct saves by agents": "智能体直接保存次数",
+  "Connect your MCP client and review the permissions it requests. Direct saving needs your consent and a space that allows it.":
+    "连接 MCP 客户端时可以查看它申请的权限。智能体需要你的授权，且空间开启了直接保存，才能直接写入。",
   " (administrator)": "（管理员）",
   " (agent)": "（智能体）",
   " (all the text). Add .md to a page's address to read its Markdown.":
@@ -738,8 +747,6 @@ export const zh: Readonly<Record<string, string>> = {
     "页面有一部分没能显示出来，下面是它写下的原文。",
   Password: "密码",
   "Password updated": "密码已更新",
-  "Paste this into an MCP client's settings. It opens a page here for you to approve, then it can read, comment and suggest with your access. Saving stays with people.":
-    "把这段配置贴到 MCP 客户端的设置里。它会打开这里的一个页面让你确认，之后就能以你的权限读取、评论和提修改建议；保存仍然由人决定。",
   Pending: "待确认",
   People: "人",
   "People signed in can by default": "登录用户默认可以",

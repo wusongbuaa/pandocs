@@ -58,7 +58,7 @@ An agent never reads more than the person it works for.
 
 ### The agent suggests a change
 
-An agent cannot save, and calling `doc_update` is refused. MCP `proposal_create`, or `pandocs commit` with an agent token, makes a **suggestion** instead, which names the version it started from and why it changes things.
+In a space using suggestions, an agent submits edits for review. MCP `proposal_create`, or `pandocs commit` with an agent token, makes a **suggestion** instead, which names the version it started from and why it changes things.
 
 To change several pages at once, use a [change set](../collaboration/change-sets.md): the pages are reviewed together, and merging applies all of them or none.
 

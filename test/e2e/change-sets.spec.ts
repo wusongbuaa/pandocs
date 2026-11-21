@@ -152,10 +152,12 @@ pandocsDescribe("change sets", () => {
     await browserExpect(page.getByRole("heading", { name: "改动评审" })).toBeVisible({ timeout: 15_000 });
     await page.getByLabel("变更集需要的批准人数").fill("3");
     await page.getByRole("switch", { name: /所有改动都要经过评审/u }).check();
+    await page.getByRole("switch", { name: "允许智能体直接保存页面内容" }).check();
+    await browserExpect(page.getByText("此空间要求使用变更集，智能体可以提出修改建议。")).toBeVisible();
     await page.locator(".pd-merge-rules").getByRole("button", { name: "保存", exact: true }).click();
     await expect
       .poll(async () => (await app.api("admin", "GET", `spaces/${SPACE}`)).data.mergeRules)
-      .toEqual({ requiredApprovals: 3, requireChangeSets: true });
+      .toEqual({ requiredApprovals: 3, requireChangeSets: true, agentWrites: "direct" });
     await app.api("admin", "PATCH", `spaces/${SPACE}`, {
       mergeRules: { requiredApprovals: 0, requireChangeSets: false }
     });

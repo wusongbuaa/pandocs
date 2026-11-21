@@ -3,7 +3,7 @@ import type { Anchor, AnchorState, EditOp } from "@pandocs/markdown";
 
 export type Role = "viewer" | "commenter" | "editor" | "admin";
 export type SpaceDefaultRole = Role | "none";
-export type Scope = "read" | "write";
+export type Scope = "read" | "write" | "agent:direct";
 export type Channel = "web" | "api" | "cli" | "mcp" | "agent" | "migration" | "embed" | "git";
 export type PrincipalKind = "user" | "agent";
 
@@ -39,6 +39,7 @@ export interface MergeRules {
   readonly requiredApprovals: number;
   /** Nobody saves directly: everything goes through a change set, or a suggestion someone accepts. */
   readonly requireChangeSets: boolean;
+  readonly agentWrites: "suggest" | "direct";
 }
 
 export interface SpaceRecord {

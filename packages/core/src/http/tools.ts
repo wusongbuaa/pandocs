@@ -133,7 +133,7 @@ export const pandocsTools: readonly PandocsTool[] = [
   tool({
     name: "doc_spaces",
     access: "read",
-    description: "List the spaces you can access.",
+    description: "List the spaces you can access, including their agentWrites and requireChangeSets settings.",
     input: z.object({}).strict(),
     run: (s, p) => s.spaces.list(p)
   }),
@@ -243,7 +243,8 @@ export const pandocsTools: readonly PandocsTool[] = [
   tool({
     name: "doc_create",
     access: "write",
-    description: "Create a document, with its text or from a template (see doc_templates). Needs edit access.",
+    description:
+      "Create a document with text or a template. Agents with a direct-save grant can create pages in spaces that allow it. In other spaces propose a new page in a change set.",
     input: z
       .object({
         space: z.string().min(1),
@@ -386,7 +387,7 @@ export const pandocsTools: readonly PandocsTool[] = [
     name: "doc_update",
     access: "write",
     description:
-      "Change a document directly, making a new version. Needs edit access; as an agent, use proposal_create. Operations: str_replace, block_replace, block_insert_after, block_delete, block_move_after.",
+      "Change a document directly, making a new version. Agents need a direct-save grant and a space that allows direct saving. Otherwise use proposal_create. Operations: str_replace, block_replace, block_insert_after, block_delete, block_move_after.",
     input: z
       .object({
         doc: docRef,

@@ -58,7 +58,7 @@ sequenceDiagram
 
 ### 智能体提修改建议
 
-智能体不能直接保存，直接调用 `doc_update` 会被拒绝。它用 MCP 的 `proposal_create`，或者用智能体令牌运行 `pandocs commit`，都会生成一条**修改建议**，写明基于哪个版本、为什么要改。
+这个空间使用建议模式，智能体提交修改后由人评审。它用 MCP 的 `proposal_create`，或者用智能体令牌运行 `pandocs commit`，都会生成一条**修改建议**，写明基于哪个版本、为什么要改。
 
 要同时改好几页时用[变更集](../collaboration/change-sets.md)，几页一起评审，合并时要么全部生效，要么都不生效。
 

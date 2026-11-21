@@ -125,7 +125,9 @@ export class SpaceService {
       description?: string | undefined;
       defaultRole?: SpaceDefaultRole | undefined;
       publicRead?: boolean | undefined;
-      mergeRules?: MergeRules | undefined;
+      mergeRules?:
+        | (Omit<MergeRules, "agentWrites"> & { agentWrites?: MergeRules["agentWrites"] | undefined })
+        | undefined;
       glossary?: readonly GlossaryEntry[] | undefined;
     }
   ): Promise<SpaceView> {
@@ -138,6 +140,11 @@ export class SpaceService {
       const { space, role } = await requireSpace(tx, principal, slug, "admin");
       if (patch.publicRead === true && this.context.ports.publicSpacesDisabled)
         throw new PandocsError(403, "PUBLIC_SPACES_DISABLED", t("This site does not allow public spaces"));
+      const mergeRules = {
+        ...space.mergeRules,
+        ...patch.mergeRules,
+        agentWrites: patch.mergeRules?.agentWrites ?? space.mergeRules.agentWrites
+      };
       const { rows } = await tx.query(
         `UPDATE pandocs.spaces SET name = $2, description = $3, default_role = $4, glossary = $5, public_read = $6, merge_rules = $7, updated_at = now() WHERE id = $1 RETURNING *`,
         [
@@ -147,11 +154,11 @@ export class SpaceService {
           patch.defaultRole ?? space.defaultRole,
           JSON.stringify(patch.glossary ?? space.glossary),
           patch.publicRead ?? space.publicRead,
-          JSON.stringify(patch.mergeRules ?? space.mergeRules)
+          JSON.stringify(mergeRules)
         ]
       );
-      if (patch.mergeRules && JSON.stringify(patch.mergeRules) !== JSON.stringify(space.mergeRules))
-        await audit(tx, principal, "space.merge_rules", "space", space.id, { ...patch.mergeRules });
+      if (patch.mergeRules && JSON.stringify(mergeRules) !== JSON.stringify(space.mergeRules))
+        await audit(tx, principal, "space.merge_rules", "space", space.id, mergeRules);
       // Who opened this to the whole internet, and when, is something someone will want to know.
       if (patch.publicRead !== undefined && patch.publicRead !== space.publicRead)
         await audit(tx, principal, patch.publicRead ? "space.public" : "space.private", "space", space.id, {

@@ -1,3 +1,4 @@
+import type { Scope } from "@pandocs/core";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Hono } from "hono";
 import { z } from "zod";
@@ -47,7 +48,7 @@ interface AuthorizeRequest {
   readonly redirectUri: string;
   readonly state: string;
   readonly codeChallenge: string;
-  readonly scopes: readonly ("read" | "write")[];
+  readonly scopes: readonly Scope[];
   readonly scope: string;
 }
 
@@ -74,7 +75,7 @@ export function registerOAuthRoutes(
     json(200, {
       resource: `${issuer}/mcp`,
       authorization_servers: [issuer],
-      scopes_supported: ["read", "write"],
+      scopes_supported: ["read", "write", "agent:direct"],
       bearer_methods_supported: ["header"],
       resource_name: "Pandocs"
     });
@@ -93,7 +94,7 @@ export function registerOAuthRoutes(
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["none"],
-      scopes_supported: ["read", "write"],
+      scopes_supported: ["read", "write", "agent:direct"],
       // Not a standard field: it tells the command line this server signs it in through the browser.
       pandocs_cli_client_id: CLI_CLIENT_ID
     })
@@ -179,7 +180,8 @@ export function registerOAuthRoutes(
       return { response: backToClient(redirectUri, { error: "invalid_target" }, state) };
     const scope = values.get("scope") ?? "read write";
     const scopes = scopesFrom(scope);
-    if (!scopes) return { response: backToClient(redirectUri, { error: "invalid_scope" }, state) };
+    if (!scopes || (client.clientId === CLI_CLIENT_ID && scopes.includes("agent:direct")))
+      return { response: backToClient(redirectUri, { error: "invalid_scope" }, state) };
     return { request: { client, redirectUri, state, codeChallenge, scopes, scope } };
   };
 

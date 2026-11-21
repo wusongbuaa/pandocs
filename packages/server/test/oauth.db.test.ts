@@ -484,6 +484,36 @@ describe("connecting an app by signing in", () => {
       expect(proposed.status).toBe(403);
     });
 
+    it("keeps direct saving opt-in across OAuth consent and refresh", async () => {
+      const space = "oauth-memory";
+      await admin.json("POST", "/api/v1/spaces", { slug: space, name: "Memory" });
+      await admin.json("PATCH", `/api/v1/spaces/${space}`, {
+        mergeRules: { agentWrites: "direct", requireChangeSets: false, requiredApprovals: 0 }
+      });
+      const clientId = await newClient();
+      const create = (bearer: string) =>
+        fetch(`${origin}/api/v1/tools/doc_create`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${bearer}`, "content-type": "application/json" },
+          body: JSON.stringify({ space, title: "Memory", markdown: "First" })
+        });
+      const old = await signedIn(clientId);
+      const refreshed = await token({
+        grant_type: "refresh_token",
+        refresh_token: old.refresh_token,
+        client_id: clientId
+      });
+      expect((await create((await refreshed.json()).access_token)).status).toBe(403);
+      const scope = "read write agent:direct";
+      const consent = await admin.request(authorizePath(clientId, pkce().challenge, { scope }));
+      expect(await consent.text()).toContain("Create pages, edit their content and set labels");
+      const direct = await signedIn(clientId, admin, { scope });
+      expect(direct.scope).toBe(scope);
+      const saved = await create(direct.access_token);
+      expect(saved.status).toBe(200);
+      expect((await saved.json()).data.revision).toMatchObject({ actorKind: "agent", no: 1 });
+    });
+
     it("do not clutter the list of tokens someone made by hand", async () => {
       const clientId = await newClient({ redirect_uris: [REDIRECT], client_name: "不在令牌列表里" });
       await signedIn(clientId);
