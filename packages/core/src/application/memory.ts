@@ -153,7 +153,9 @@ export class MemoryService {
       } = await tx.query<{ id: string | null }>(
         `SELECT COALESCE(
            (SELECT id FROM pandocs.documents WHERE space_id=$1 AND lower(path)=lower($2) AND deleted_at IS NULL),
-           (SELECT document_id FROM pandocs.document_redirects WHERE space_id=$1 AND old_path=$2)
+           (SELECT d.id FROM pandocs.document_redirects r
+            JOIN pandocs.documents d ON d.id=r.document_id AND d.space_id=r.space_id
+            WHERE r.space_id=$1 AND r.old_path=$2 AND d.deleted_at IS NULL)
          ) AS id`,
         [space.id, path]
       );

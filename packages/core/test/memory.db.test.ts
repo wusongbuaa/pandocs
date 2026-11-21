@@ -74,6 +74,21 @@ describe("project memory tools", () => {
     expect((await remember({ ...replacement, expectedRevision: 3 })).data.revision).toBe(4);
   });
 
+  it("creates a fresh memory when a moved topic page is in the trash", async () => {
+    const topic = "Retired procedure";
+    const original = (await remember({ topic, content: "Old instructions" })).data;
+    await h.services.tree.move(USERS.editor, original.id, { slug: "archived-procedure" });
+    await h.services.tree.remove(USERS.admin, original.id, {});
+    expect((await recall({ query: topic })).data).toEqual([]);
+
+    const next = await remember({ topic, content: "New instructions" });
+    expect(next.status).toBe(200);
+    expect(next.data).toMatchObject({ path: original.path, revision: 1 });
+    expect(next.data.id).not.toBe(original.id);
+    expect((await remember({ doc: original.id, content: "Old page" })).status).toBe(404);
+    expect((await recall({ query: topic })).data).toEqual([expect.objectContaining({ id: next.data.id })]);
+  });
+
   it("keeps long Unicode topics with the same readable prefix on separate pages", async () => {
     const prefix = "迁移".repeat(75);
     const topics = [prefix + "甲", prefix + "乙"];
