@@ -1,6 +1,6 @@
 # Nothing made here is native, so this runs once, on the machine building, for every platform the image is for.
 # Both by digest, so that the same build gives the same image; Dependabot moves them on.
-FROM --platform=$BUILDPLATFORM node:26-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68 AS build
+FROM --platform=$BUILDPLATFORM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS build
 WORKDIR /src
 RUN npm install --global pnpm@11.18.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
@@ -21,7 +21,7 @@ COPY scripts/third-party-notices.mjs scripts/third-party-notices.mjs
 COPY LICENSE LICENSE
 RUN pnpm build && node scripts/third-party-notices.mjs > THIRD-PARTY-NOTICES.txt
 
-FROM node:26-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1
 ENV NODE_ENV=production PANDOCS_WEB_DIR=/app/web PANDOCS_DATA_DIR=/data PORT=8080
 # For keeping spaces in step with Git repositories.
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
