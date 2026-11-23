@@ -4,6 +4,8 @@ What changes for someone running or using Pandocs. The format follows [Keep a Ch
 
 ## Unreleased
 
+## 0.3.1 - 2026-11-23
+
 - In change set details, the agent icon sits beside the author's name on the same line as the status and time when space allows.
 
 ## 0.3.0 - 2026-11-21
