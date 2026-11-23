@@ -26,6 +26,41 @@ pandocsDescribe("change sets", () => {
     await app?.close();
   });
 
+  it("keeps the status, agent author and merge details on one line when they fit", async () => {
+    const agent = {
+      ...PEOPLE.editor,
+      id: "docs-bot",
+      kind: "agent",
+      displayName: "docs-bot (for 编辑者)",
+      onBehalfOf: PEOPLE.editor,
+      channel: "mcp"
+    } as const;
+    const { data: set } = await app.api(agent, "POST", `spaces/${SPACE}/change-sets`, { title: "更新使用指南" });
+    const path = `change-sets/${set.id as string}`;
+    await app.api(agent, "POST", `${path}/pages`, { path: "overview", title: "概览", markdown: "使用说明。" });
+    await app.api("admin", "POST", `${path}/merge`);
+
+    const page = await app.open("editor", `/_/spaces/${SPACE}/change-sets?id=${set.id as string}`);
+    const byline = page.locator(".pd-change-set__byline");
+    await browserExpect(byline.getByText("已合并", { exact: true })).toBeVisible();
+    await browserExpect(byline.getByLabel("智能体")).toBeVisible();
+    await browserExpect(byline).toContainText(agent.displayName);
+    await browserExpect(byline).toContainText("管理员 合并");
+    const layout = () =>
+      byline.evaluate(element => ({
+        height: element.clientHeight,
+        lineHeight: parseFloat(getComputedStyle(element).lineHeight),
+        overflows: element.scrollWidth > element.clientWidth
+      }));
+    const wide = await layout();
+    expect(wide.height).toBeLessThanOrEqual(Math.ceil(wide.lineHeight));
+
+    await page.setViewportSize({ width: 320, height: 700 });
+    const narrow = await layout();
+    expect(narrow.height).toBeGreaterThan(wide.height);
+    expect(narrow.overflows).toBe(false);
+  });
+
   it("goes from an edit in the editor, through a second page and a review, to landing on both pages at once", async () => {
     const guide = await createPage("指南", "guide", "第一段说明。\n");
     await createPage("常见问题", "faq", "老的答案。\n");

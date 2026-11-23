@@ -395,8 +395,11 @@ function ChangeSetView({ space, id }: { space: Space; id: string }) {
           </ManageHead>
           <p className="pd-muted pd-change-set__byline">
             <span className={statusClass(data.status)}>{statusText(data.status)}</span>{" "}
-            {data.authorKind === "agent" ? <Bot size={13} aria-label={t("Agent")} /> : null} {data.authorName} ·{" "}
-            {relativeTime(data.createdAt)}
+            <span className="pd-change-set__author">
+              {data.authorKind === "agent" ? <Bot size={13} aria-label={t("Agent")} /> : null}
+              {data.authorName}
+            </span>{" "}
+            · {relativeTime(data.createdAt)}
             {data.decidedName
               ? ` · ${data.status === "merged" ? t("Merged by {0}", data.decidedName) : t("Closed by {0}", data.decidedName)}`
               : ""}

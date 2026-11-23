@@ -310,7 +310,7 @@ export async function startPandocs(
   };
 
   const api = async (
-    name: PersonName,
+    caller: PersonName | Principal,
     method: string,
     path: string,
     body?: unknown,
@@ -322,7 +322,7 @@ export async function startPandocs(
         headers: { ...headers, ...(body === undefined ? {} : { "content-type": "application/json" }) },
         ...(body === undefined ? {} : { body: JSON.stringify(body) })
       }),
-      PEOPLE[name]
+      typeof caller === "string" ? PEOPLE[caller] : caller
     );
     const payload = (await response.json().catch(() => null)) as { data?: any; error?: any } | null;
     return { status: response.status, data: payload?.data, error: payload?.error };

@@ -202,6 +202,16 @@
 .pd-change-set__byline .pd-status {
   margin-left: 0;
 }
+.pd-change-set__author {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.pd-change-set__author svg {
+  flex: none;
+}
 .pd-merge-rules {
   margin-top: 24px;
 }
